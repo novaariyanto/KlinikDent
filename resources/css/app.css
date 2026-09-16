@@ -1,0 +1,63 @@
+@import 'datatables.net-bs5/css/dataTables.bootstrap5.css';
+@import 'datatables.net-responsive-bs5/css/responsive.bootstrap5.css';
+
+.skote-datatable-wrapper {
+    width: 100%;
+}
+
+.skote-datatable-wrapper .dt-container {
+    width: 100%;
+}
+
+.skote-datatable-wrapper .dt-layout-row {
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.skote-datatable-wrapper .dt-search input,
+.skote-datatable-wrapper .dataTables_filter input {
+    min-width: 220px;
+    border-radius: 0.25rem;
+}
+
+.skote-datatable-wrapper .dt-length select,
+.skote-datatable-wrapper .dataTables_length select {
+    min-width: 80px;
+}
+
+.skote-datatable-wrapper table.dataTable {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    border-collapse: collapse !important;
+}
+
+.skote-datatable-wrapper table.dataTable thead th {
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.skote-datatable-wrapper .dt-processing,
+.skote-datatable-wrapper .dataTables_processing {
+    background: rgba(255, 255, 255, 0.85);
+    border: 0;
+    box-shadow: none;
+    z-index: 5;
+}
+
+.skote-datatable-wrapper .dt-paging .page-item .page-link,
+.skote-datatable-wrapper .dataTables_paginate .page-link {
+    min-width: 32px;
+    text-align: center;
+}
+
+.skote-datatable-wrapper .badge {
+    font-weight: 500;
+}
+
+.skote-datatable-wrapper td .dropdown-menu {
+    min-width: 160px;
+}
+
+.skote-datatable-wrapper .dtr-details {
+    width: 100%;
+}
