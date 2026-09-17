@@ -52,6 +52,14 @@ class SettingController extends Controller
 
         AppSettings::applyMailConfig();
 
+        activity_log('updated', null, [
+            'keys' => array_values(array_filter([
+                ...array_keys($data),
+                $request->filled('mail_password') ? 'mail_password' : null,
+                $request->hasFile('logo') || $request->boolean('remove_logo') ? 'logo' : null,
+            ])),
+        ], 'Updated application settings', 'settings');
+
         return back()->with('success', 'Settings saved successfully.');
     }
 
@@ -78,10 +86,20 @@ class SettingController extends Controller
                 $hint = ' Username or password was rejected. Gmail requires an App Password, not the account password.';
             }
 
+            activity_log('email_tested', null, [
+                'to' => $request->validated('test_email'),
+                'success' => false,
+            ], 'Failed to send test email to '.$request->validated('test_email'), 'settings');
+
             return back()
                 ->withInput()
                 ->with('error', 'Failed to send test email: '.$message.$hint);
         }
+
+        activity_log('email_tested', null, [
+            'to' => $request->validated('test_email'),
+            'success' => true,
+        ], 'Sent test email to '.$request->validated('test_email'), 'settings');
 
         return back()->with('success', 'Test email sent to '.$request->validated('test_email').'.');
     }

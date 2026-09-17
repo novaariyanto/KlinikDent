@@ -85,6 +85,8 @@ class UserController extends Controller
 
         $user->syncRoles([$data['role']]);
 
+        activity_log('created', $user, ['role' => $data['role']], 'Created user '.$user->name, 'users');
+
         return redirect()
             ->route('users.index')
             ->with('success', 'User created successfully.');
@@ -129,6 +131,11 @@ class UserController extends Controller
         $user->update($payload);
         $user->syncRoles([$data['role']]);
 
+        activity_log('updated', $user, [
+            'role' => $data['role'],
+            'password_changed' => ! empty($data['password']),
+        ], 'Updated user '.$user->name, 'users');
+
         return redirect()
             ->route('users.index')
             ->with('success', 'User updated successfully.');
@@ -141,6 +148,11 @@ class UserController extends Controller
         if ($user->id === auth()->id()) {
             return back()->with('error', 'You cannot delete your own account.');
         }
+
+        activity_log('deleted', $user, [
+            'name' => $user->name,
+            'email' => $user->email,
+        ], 'Deleted user '.$user->name, 'users');
 
         $user->delete();
 
@@ -163,6 +175,10 @@ class UserController extends Controller
                 : UserStatus::Active,
         ]);
 
+        activity_log('status_changed', $user, [
+            'status' => $user->status->value,
+        ], 'Changed status of '.$user->name.' to '.$user->status->label(), 'users');
+
         return back()->with('success', 'User status updated successfully.');
     }
 
@@ -171,6 +187,8 @@ class UserController extends Controller
         $user->update([
             'password' => $request->validated('password'),
         ]);
+
+        activity_log('password_reset', $user, [], 'Reset password for '.$user->name, 'users');
 
         return back()->with('success', 'Password reset successfully.');
     }
@@ -195,7 +213,14 @@ class UserController extends Controller
             return back()->with('error', 'You cannot impersonate an inactive user.');
         }
 
-        Impersonation::start(auth()->user(), $user);
+        $actor = auth()->user();
+
+        activity_log('impersonated', $user, [
+            'actor' => $actor->email,
+            'target' => $user->email,
+        ], $actor->name.' started impersonating '.$user->name, 'users');
+
+        Impersonation::start($actor, $user);
 
         return redirect()
             ->route('dashboard')
@@ -208,6 +233,7 @@ class UserController extends Controller
             return redirect()->route('dashboard');
         }
 
+        $target = auth()->user();
         $impersonator = Impersonation::stop();
 
         if (! $impersonator) {
@@ -215,6 +241,18 @@ class UserController extends Controller
                 ->route('login')
                 ->with('error', 'Original account was not found. Please sign in again.');
         }
+
+        activity_log(
+            'impersonation_stopped',
+            $target,
+            [
+                'actor' => $impersonator->email,
+                'target' => $target?->email,
+            ],
+            $impersonator->name.' stopped impersonating '.$target?->name,
+            'users',
+            $impersonator
+        );
 
         return redirect()
             ->route('users.index')

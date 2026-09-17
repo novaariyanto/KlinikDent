@@ -37,6 +37,17 @@ class LoginRequest extends FormRequest
         if (! Auth::attempt($this->only('email', 'password'), $this->boolean('remember'))) {
             RateLimiter::hit($this->throttleKey());
 
+            $email = $this->string('email')->toString();
+            $attempted = User::query()->where('email', $email)->first();
+
+            activity_log(
+                'login_failed',
+                $attempted,
+                ['email' => $email],
+                'Failed login attempt for '.$email,
+                'auth'
+            );
+
             throw ValidationException::withMessages([
                 'email' => __('These credentials do not match our records.'),
             ]);

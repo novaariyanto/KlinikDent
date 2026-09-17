@@ -21,11 +21,17 @@ class LoginController extends Controller
         $request->authenticate();
         $request->session()->regenerate();
 
+        activity_log('login', auth()->user(), [], 'Signed in', 'auth');
+
         return redirect()->intended(route('dashboard'));
     }
 
     public function destroy(Request $request): RedirectResponse
     {
+        $user = $request->user();
+
+        activity_log('logout', $user, [], 'Signed out', 'auth');
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

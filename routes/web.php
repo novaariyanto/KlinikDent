@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MenuController;
@@ -62,4 +63,20 @@ Route::middleware('auth')->group(function () {
         Route::put('/settings', [SettingController::class, 'update'])->name('settings.update');
         Route::post('/settings/test-email', [SettingController::class, 'testEmail'])->name('settings.test-email');
     });
+
+    Route::get('/logs/data', [ActivityLogController::class, 'data'])
+        ->middleware('permission:logs.view')
+        ->name('logs.data');
+    Route::post('/logs/clear', [ActivityLogController::class, 'destroyAll'])
+        ->middleware('permission:logs.delete')
+        ->name('logs.clear');
+    Route::get('/logs', [ActivityLogController::class, 'index'])
+        ->middleware('permission:logs.view')
+        ->name('logs.index');
+    Route::get('/logs/{activityLog}', [ActivityLogController::class, 'show'])
+        ->middleware('permission:logs.view')
+        ->name('logs.show');
+    Route::delete('/logs/{activityLog}', [ActivityLogController::class, 'destroy'])
+        ->middleware('permission:logs.delete')
+        ->name('logs.destroy');
 });

@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\ActivityLog;
+use App\Models\User;
 use App\Support\AppSettings;
 use App\Support\Impersonation;
 
@@ -14,6 +16,22 @@ if (! function_exists('is_impersonating')) {
     function is_impersonating(): bool
     {
         return Impersonation::active();
+    }
+}
+
+if (! function_exists('activity_log')) {
+    /**
+     * @param  array<string, mixed>  $properties
+     */
+    function activity_log(
+        string $event,
+        mixed $subject = null,
+        array $properties = [],
+        ?string $description = null,
+        ?string $module = null,
+        ?User $causer = null,
+    ): void {
+        ActivityLog::record($event, $subject, $properties, $description, $module, $causer);
     }
 }
 

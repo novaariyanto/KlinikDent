@@ -75,6 +75,15 @@ class MenuSeeder extends Seeder
             'permission' => 'settings.update',
             'sort_order' => 21,
         ]);
+
+        $this->upsert($system, [
+            'title' => 'Activity Logs',
+            'icon' => 'bx bx-history',
+            'type' => MenuType::Item,
+            'route_name' => 'logs.index',
+            'permission' => 'logs.view',
+            'sort_order' => 22,
+        ]);
     }
 
     /**

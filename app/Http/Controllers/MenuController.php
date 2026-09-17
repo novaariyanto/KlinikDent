@@ -93,7 +93,9 @@ class MenuController extends Controller
 
     public function store(StoreMenuRequest $request): RedirectResponse
     {
-        Menu::query()->create($request->validated());
+        $menu = Menu::query()->create($request->validated());
+
+        activity_log('created', $menu, $request->validated(), 'Created menu '.$menu->title, 'menus');
 
         return redirect()
             ->route('menus.index')
@@ -111,6 +113,8 @@ class MenuController extends Controller
     {
         $menu->update($request->validated());
 
+        activity_log('updated', $menu, $request->validated(), 'Updated menu '.$menu->title, 'menus');
+
         return redirect()
             ->route('menus.index')
             ->with('success', 'Menu updated successfully.');
@@ -123,6 +127,8 @@ class MenuController extends Controller
         if ($menu->children()->exists()) {
             return back()->with('error', 'Move or delete child menus first.');
         }
+
+        activity_log('deleted', $menu, ['title' => $menu->title], 'Deleted menu '.$menu->title, 'menus');
 
         $menu->delete();
 
@@ -140,6 +146,10 @@ class MenuController extends Controller
                 ? UserStatus::Inactive
                 : UserStatus::Active,
         ]);
+
+        activity_log('status_changed', $menu, [
+            'status' => $menu->status->value,
+        ], 'Changed status of menu '.$menu->title.' to '.$menu->status->label(), 'menus');
 
         return back()->with('success', 'Menu status updated successfully.');
     }

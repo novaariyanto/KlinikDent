@@ -78,6 +78,10 @@ class RoleController extends Controller
 
         $role->syncPermissions($request->validated('permissions', []));
 
+        activity_log('created', $role, [
+            'permissions' => $request->validated('permissions', []),
+        ], 'Created role '.$role->name, 'roles');
+
         return redirect()
             ->route('roles.index')
             ->with('success', 'Role created successfully.');
@@ -103,6 +107,10 @@ class RoleController extends Controller
 
         $role->syncPermissions($request->validated('permissions', []));
 
+        activity_log('updated', $role, [
+            'permissions' => $request->validated('permissions', []),
+        ], 'Updated role '.$role->name, 'roles');
+
         return redirect()
             ->route('roles.index')
             ->with('success', 'Role updated successfully.');
@@ -115,6 +123,8 @@ class RoleController extends Controller
         if ($role->name === 'Super Admin') {
             return back()->with('error', 'The Super Admin role cannot be deleted.');
         }
+
+        activity_log('deleted', $role, ['name' => $role->name], 'Deleted role '.$role->name, 'roles');
 
         $role->delete();
 
