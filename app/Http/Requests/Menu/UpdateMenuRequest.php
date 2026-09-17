@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Menu;
 
+use App\Enums\MenuScope;
 use App\Enums\MenuType;
 use App\Enums\UserStatus;
 use App\Models\Menu;
@@ -29,6 +30,9 @@ class UpdateMenuRequest extends FormRequest
 
         return [
             'title' => ['required', 'string', 'max:255'],
+            'name' => ['nullable', 'string', 'max:120', Rule::unique('menus', 'name')->ignore($menu->id)],
+            'description' => ['nullable', 'string', 'max:500'],
+            'scope' => ['required', Rule::enum(MenuScope::class)],
             'icon' => ['nullable', 'string', 'max:100'],
             'type' => ['required', Rule::enum(MenuType::class)],
             'parent_id' => [
@@ -40,7 +44,7 @@ class UpdateMenuRequest extends FormRequest
             'route_name' => ['nullable', 'string', 'max:255'],
             'url' => ['nullable', 'string', 'max:255'],
             'permission' => ['nullable', 'string', 'exists:permissions,name'],
-            'sort_order' => ['required', 'integer', 'min:0', 'max:999'],
+            'sort_order' => ['required', 'integer', 'min:0', 'max:9999'],
             'status' => ['required', Rule::enum(UserStatus::class)],
         ];
     }
@@ -62,6 +66,8 @@ class UpdateMenuRequest extends FormRequest
             'route_name' => $this->input('route_name') ?: null,
             'url' => $this->input('url') ?: null,
             'icon' => $this->input('icon') ?: null,
+            'name' => $this->input('name') ?: null,
+            'description' => $this->input('description') ?: null,
         ]);
     }
 }

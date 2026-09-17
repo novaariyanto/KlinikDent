@@ -18,7 +18,7 @@
             id="users-table"
             :ajax="route('users.data')"
             :columns="$columns"
-            :order="[[5, 'desc']]"
+            :order="[[auth()->user()?->isPlatformAdmin() ? 7 : 5, 'desc']]"
         />
     </x-card>
 @endsection

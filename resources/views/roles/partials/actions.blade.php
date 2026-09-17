@@ -3,6 +3,13 @@
         Action
     </button>
     <ul class="dropdown-menu dropdown-menu-end">
+        @can('roles.view')
+            <li>
+                <a class="dropdown-item" href="{{ route('roles.show', $role) }}">
+                    <i class="bx bx-show-alt me-1"></i> View
+                </a>
+            </li>
+        @endcan
         @can('roles.edit')
             <li>
                 <a class="dropdown-item" href="{{ route('roles.edit', $role) }}">
@@ -11,7 +18,7 @@
             </li>
         @endcan
         @can('roles.delete')
-            @if ($role->name !== 'Super Admin')
+            @if (! \App\Enums\RoleName::isSystem($role->name))
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <form action="{{ route('roles.destroy', $role) }}" method="POST"

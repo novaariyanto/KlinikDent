@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoleName;
 use App\Http\Requests\Role\StoreRoleRequest;
 use App\Http\Requests\Role\UpdateRoleRequest;
+use App\Models\Menu;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
@@ -77,6 +79,7 @@ class RoleController extends Controller
         ]);
 
         $role->syncPermissions($request->validated('permissions', []));
+        Menu::clearCache();
 
         activity_log('created', $role, [
             'permissions' => $request->validated('permissions', []),
@@ -99,13 +102,26 @@ class RoleController extends Controller
         ]);
     }
 
+    public function show(Role $role): View
+    {
+        $this->authorize('view', $role);
+
+        $role->load('permissions');
+
+        return view('roles.show', [
+            'role' => $role,
+            'permissionGroups' => $this->groupedPermissions(),
+        ]);
+    }
+
     public function update(UpdateRoleRequest $request, Role $role): RedirectResponse
     {
-        if ($role->name !== 'Super Admin') {
+        if (! RoleName::isSystem($role->name)) {
             $role->update(['name' => $request->validated('name')]);
         }
 
         $role->syncPermissions($request->validated('permissions', []));
+        Menu::clearCache();
 
         activity_log('updated', $role, [
             'permissions' => $request->validated('permissions', []),
@@ -120,13 +136,14 @@ class RoleController extends Controller
     {
         $this->authorize('delete', $role);
 
-        if ($role->name === 'Super Admin') {
-            return back()->with('error', 'The Super Admin role cannot be deleted.');
+        if (RoleName::isSystem($role->name)) {
+            return back()->with('error', 'System roles cannot be deleted.');
         }
 
         activity_log('deleted', $role, ['name' => $role->name], 'Deleted role '.$role->name, 'roles');
 
         $role->delete();
+        Menu::clearCache();
 
         return redirect()
             ->route('roles.index')

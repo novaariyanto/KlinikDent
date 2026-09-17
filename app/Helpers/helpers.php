@@ -35,6 +35,23 @@ if (! function_exists('activity_log')) {
     }
 }
 
+if (! function_exists('current_tenant_id')) {
+    function current_tenant_id(): ?int
+    {
+        if (! auth()->hasUser()) {
+            return null;
+        }
+
+        $user = auth()->user();
+
+        if (! $user || $user->isPlatformAdmin()) {
+            return null;
+        }
+
+        return $user->tenant_id ? (int) $user->tenant_id : 0;
+    }
+}
+
 if (! function_exists('app_logo')) {
     function app_logo(string $variant = 'dark'): string
     {

@@ -12,13 +12,13 @@
     @endforeach
 @elseif ($hasChildren)
     <li class="{{ $isActive ? 'mm-active' : '' }}">
-        <a href="javascript:void(0);" class="has-arrow waves-effect {{ $isActive ? 'active' : '' }}">
+        <a href="javascript:void(0);" class="has-arrow waves-effect {{ $isActive ? 'active' : '' }}" aria-expanded="{{ $isActive ? 'true' : 'false' }}">
             @if ($menu->icon)
                 <i class="{{ $menu->icon }}"></i>
             @endif
             <span>{{ $menu->title }}</span>
         </a>
-        <ul class="sub-menu" aria-expanded="{{ $isActive ? 'true' : 'false' }}">
+        <ul class="sub-menu mm-collapse{{ $isActive ? ' mm-show' : '' }}" aria-expanded="{{ $isActive ? 'true' : 'false' }}">
             @foreach ($menu->children as $child)
                 @include('layouts.partials.sidebar-item', ['menu' => $child])
             @endforeach

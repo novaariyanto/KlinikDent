@@ -2,21 +2,33 @@
 
 namespace App\Models;
 
+use App\Enums\MenuScope;
 use App\Enums\MenuType;
 use App\Enums\UserStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 class Menu extends Model
 {
+    private const CATALOG_CACHE_KEY = 'sidebar.menus';
+
+    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys';
+
     protected $fillable = [
         'parent_id',
+        'name',
         'title',
+        'description',
+        'scope',
+        'tenant_id',
         'icon',
         'type',
         'route_name',
@@ -33,8 +45,10 @@ class Menu extends Model
     {
         return [
             'parent_id' => 'integer',
+            'tenant_id' => 'integer',
             'sort_order' => 'integer',
             'type' => MenuType::class,
+            'scope' => MenuScope::class,
             'status' => UserStatus::class,
         ];
     }
@@ -47,7 +61,21 @@ class Menu extends Model
 
     public static function clearCache(): void
     {
-        Cache::forget('sidebar.menus');
+        Cache::forget(self::CATALOG_CACHE_KEY);
+
+        foreach (Cache::pull(self::FILTERED_KEYS_CACHE_KEY, []) as $key) {
+            Cache::forget($key);
+        }
+
+        if (! app()->bound('request')) {
+            return;
+        }
+
+        foreach (request()->attributes->keys() as $attribute) {
+            if (is_string($attribute) && str_starts_with($attribute, 'sidebar.for.')) {
+                request()->attributes->remove($attribute);
+            }
+        }
     }
 
     /**
@@ -64,6 +92,14 @@ class Menu extends Model
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order')->orderBy('title');
+    }
+
+    /**
+     * @return BelongsToMany<Role, $this>
+     */
+    public function roles(): BelongsToMany
+    {
+        return $this->belongsToMany(Role::class, 'menu_role')->withTimestamps();
     }
 
     /**
@@ -86,15 +122,19 @@ class Menu extends Model
 
     public function isCurrent(): bool
     {
-        if ($this->route_name && request()->routeIs($this->route_name)) {
-            return true;
-        }
-
         if ($this->route_name) {
-            $group = explode('.', $this->route_name)[0];
-
-            if ($group !== '' && request()->routeIs($group.'.*')) {
+            if (request()->routeIs($this->route_name)) {
                 return true;
+            }
+
+            $action = Str::afterLast($this->route_name, '.');
+
+            if (in_array($action, ['index', 'create', 'show', 'edit', 'data'], true)) {
+                $prefix = Str::beforeLast($this->route_name, '.');
+
+                if ($prefix !== $this->route_name && request()->routeIs($prefix.'.*')) {
+                    return true;
+                }
             }
         }
 
@@ -111,6 +151,12 @@ class Menu extends Model
             return false;
         }
 
+        if ($this->relationLoaded('roles') && $this->roles->isNotEmpty()) {
+            if (! $user->hasAnyRole($this->roles->pluck('name')->all())) {
+                return false;
+            }
+        }
+
         if ($this->permission) {
             return $user->can($this->permission);
         }
@@ -121,21 +167,98 @@ class Menu extends Model
     /**
      * @return Collection<int, Menu>
      */
+    public function breadcrumbTrail(): Collection
+    {
+        $trail = new Collection;
+        $current = $this;
+
+        while ($current) {
+            $trail->prepend($current);
+            $current = $current->parent;
+        }
+
+        return $trail->values();
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    public function breadcrumb(): array
+    {
+        $items = [
+            'Dashboard' => Route::has('dashboard') ? route('dashboard') : '/',
+        ];
+
+        foreach ($this->breadcrumbTrail() as $menu) {
+            if ($menu->route_name === 'dashboard') {
+                continue;
+            }
+
+            $url = $menu->route_name && Route::has($menu->route_name)
+                ? route($menu->route_name)
+                : null;
+
+            $items[$menu->title] = $url;
+        }
+
+        $keys = array_keys($items);
+        $last = end($keys);
+
+        if ($last !== false) {
+            $items[$last] = null;
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return Collection<int, Menu>
+     */
     public static function sidebarFor(?User $user): Collection
     {
+        if (! $user) {
+            return new Collection;
+        }
+
+        $key = static::filteredCacheKey($user);
+
+        if (request()->attributes->has($key)) {
+            /** @var Collection<int, Menu> $memoized */
+            $memoized = request()->attributes->get($key);
+
+            return $memoized;
+        }
+
+        $filtered = static::rememberFiltered($key, function () use ($user) {
+            return static::filterVisible(static::catalog(), $user);
+        });
+
+        request()->attributes->set($key, $filtered);
+
+        return $filtered;
+    }
+
+    /**
+     * @return Collection<int, Menu>
+     */
+    protected static function catalog(): Collection
+    {
         /** @var Collection<int, Menu> $menus */
-        $menus = Cache::rememberForever('sidebar.menus', function () {
+        $menus = Cache::rememberForever(self::CATALOG_CACHE_KEY, function () {
             return static::query()
                 ->with([
+                    'roles:id,name',
                     'children' => fn ($query) => $query
                         ->active()
                         ->orderBy('sort_order')
                         ->orderBy('title')
                         ->with([
+                            'roles:id,name',
                             'children' => fn ($query) => $query
                                 ->active()
                                 ->orderBy('sort_order')
-                                ->orderBy('title'),
+                                ->orderBy('title')
+                                ->with('roles:id,name'),
                         ]),
                 ])
                 ->active()
@@ -145,7 +268,64 @@ class Menu extends Model
                 ->get();
         });
 
-        return static::filterVisible($menus, $user);
+        return $menus;
+    }
+
+    protected static function filteredCacheKey(User $user): string
+    {
+        $fingerprint = sha1(
+            $user->getRoleNames()->sort()->implode('|')
+            .'#'.
+            $user->getAllPermissions()->pluck('name')->sort()->implode('|')
+        );
+
+        return 'sidebar.for.'.$fingerprint;
+    }
+
+    /**
+     * @param  callable(): Collection<int, Menu>  $callback
+     * @return Collection<int, Menu>
+     */
+    protected static function rememberFiltered(string $key, callable $callback): Collection
+    {
+        $keys = Cache::get(self::FILTERED_KEYS_CACHE_KEY, []);
+
+        if (! in_array($key, $keys, true)) {
+            $keys[] = $key;
+            Cache::forever(self::FILTERED_KEYS_CACHE_KEY, $keys);
+        }
+
+        /** @var Collection<int, Menu> $menus */
+        $menus = Cache::rememberForever($key, $callback);
+
+        return $menus;
+    }
+
+    public static function findForRoute(?string $routeName, ?User $user = null): ?self
+    {
+        if (! $routeName) {
+            return null;
+        }
+
+        $query = static::query()
+            ->with('parent.parent.parent')
+            ->where('route_name', $routeName)
+            ->active();
+
+        if ($user) {
+            $roleNames = $user->getRoleNames();
+
+            $assigned = (clone $query)
+                ->whereHas('roles', fn ($roles) => $roles->whereIn('name', $roleNames))
+                ->orderBy('sort_order')
+                ->first();
+
+            if ($assigned) {
+                return $assigned;
+            }
+        }
+
+        return $query->orderBy('sort_order')->first();
     }
 
     /**

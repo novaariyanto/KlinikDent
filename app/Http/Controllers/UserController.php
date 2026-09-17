@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\RoleName;
 use App\Enums\UserStatus;
 use App\Http\Requests\User\ResetPasswordRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
+use App\Models\Branch;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Impersonation;
 use Illuminate\Http\JsonResponse;
@@ -31,6 +34,13 @@ class UserController extends Controller
             ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
         ];
 
+        if (auth()->user()?->isPlatformAdmin()) {
+            array_splice($columns, 3, 0, [
+                ['data' => 'tenant', 'name' => 'tenant.name', 'title' => 'Klinik'],
+                ['data' => 'branch', 'name' => 'branch.name', 'title' => 'Cabang'],
+            ]);
+        }
+
         return view('users.index', compact('columns'));
     }
 
@@ -38,7 +48,7 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $query = User::query()->with('roles');
+        $query = User::query()->with(['roles', 'tenant', 'branch']);
 
         return DataTables::eloquent($query)
             ->addIndexColumn()
@@ -48,6 +58,8 @@ class UserController extends Controller
                     ->map(fn (string $name) => '<span class="badge badge-soft-primary">'.e($name).'</span>')
                     ->implode(' ');
             })
+            ->addColumn('tenant', fn (User $user) => e($user->tenant?->name ?: '-'))
+            ->addColumn('branch', fn (User $user) => e($user->branch?->name ?: '-'))
             ->editColumn('status', function (User $user) {
                 return '<span class="'.$user->status->badgeClass().'">'.e($user->status->label()).'</span>';
             })
@@ -66,10 +78,7 @@ class UserController extends Controller
     {
         $this->authorize('create', User::class);
 
-        return view('users.create', [
-            'roles' => $this->assignableRoles(),
-            'statuses' => UserStatus::cases(),
-        ]);
+        return view('users.create', $this->formData());
     }
 
     public function store(StoreUserRequest $request): RedirectResponse
@@ -81,6 +90,8 @@ class UserController extends Controller
             'email' => $data['email'],
             'password' => $data['password'],
             'status' => $data['status'],
+            'tenant_id' => $request->resolvedTenantId(),
+            'branch_id' => $data['branch_id'] ?? null,
         ]);
 
         $user->syncRoles([$data['role']]);
@@ -96,7 +107,7 @@ class UserController extends Controller
     {
         $this->authorize('view', $user);
 
-        $user->load('roles', 'permissions');
+        $user->load('roles', 'permissions', 'tenant', 'branch');
 
         return view('users.show', compact('user'));
     }
@@ -107,11 +118,7 @@ class UserController extends Controller
 
         $user->load('roles');
 
-        return view('users.edit', [
-            'user' => $user,
-            'roles' => $this->assignableRoles(),
-            'statuses' => UserStatus::cases(),
-        ]);
+        return view('users.edit', $this->formData($user));
     }
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
@@ -122,6 +129,8 @@ class UserController extends Controller
             'name' => $data['name'],
             'email' => $data['email'],
             'status' => $data['status'],
+            'tenant_id' => $request->resolvedTenantId(),
+            'branch_id' => $data['branch_id'] ?? null,
         ];
 
         if (! empty($data['password'])) {
@@ -260,14 +269,33 @@ class UserController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    protected function formData(?User $user = null): array
+    {
+        $isPlatform = (bool) auth()->user()?->isPlatformAdmin();
+
+        return [
+            'user' => $user,
+            'roles' => $this->assignableRoles(),
+            'statuses' => UserStatus::cases(),
+            'tenants' => $isPlatform ? Tenant::query()->orderBy('name')->get() : collect(),
+            'branches' => Branch::query()
+                ->with('tenant')
+                ->orderBy('name')
+                ->get(),
+        ];
+    }
+
+    /**
      * @return Collection<int, Role>
      */
     protected function assignableRoles()
     {
         $roles = Role::query()->orderBy('name')->get();
 
-        if (! auth()->user()?->isSuperAdmin()) {
-            return $roles->reject(fn (Role $role) => $role->name === 'Super Admin');
+        if (! auth()->user()?->isPlatformAdmin()) {
+            return $roles->reject(fn (Role $role) => $role->name === RoleName::SuperAdminSaas->value);
         }
 
         return $roles;

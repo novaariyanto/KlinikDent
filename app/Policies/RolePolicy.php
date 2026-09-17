@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\RoleName;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 
@@ -29,7 +30,7 @@ class RolePolicy
 
     public function delete(User $user, Role $role): bool
     {
-        if ($role->name === 'Super Admin') {
+        if (RoleName::isSystem($role->name)) {
             return false;
         }
 

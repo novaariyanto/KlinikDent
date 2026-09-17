@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Enums\RoleName;
+use App\Models\Menu;
+use App\Support\Access\PermissionCatalog;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -13,51 +16,25 @@ class RolePermissionSeeder extends Seeder
     {
         app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
-        $permissions = [
-            'dashboard.view',
-            'users.view',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'users.impersonate',
-            'roles.view',
-            'roles.create',
-            'roles.edit',
-            'roles.delete',
-            'menus.view',
-            'menus.create',
-            'menus.edit',
-            'menus.delete',
-            'settings.update',
-            'logs.view',
-            'logs.delete',
-        ];
-
-        foreach ($permissions as $permission) {
+        foreach (PermissionCatalog::all() as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
 
-        $superAdmin = Role::findOrCreate('Super Admin', 'web');
-        $admin = Role::findOrCreate('Admin', 'web');
-        $user = Role::findOrCreate('User', 'web');
+        foreach (RoleName::cases() as $roleName) {
+            $role = Role::findOrCreate($roleName->value, 'web');
+            $role->syncPermissions(PermissionCatalog::forRole($roleName));
+        }
 
-        $superAdmin->syncPermissions($permissions);
+        Role::query()
+            ->where('guard_name', 'web')
+            ->whereNotIn('name', RoleName::values())
+            ->get()
+            ->each(function (Role $role) {
+                $role->syncPermissions([]);
+                $role->delete();
+            });
 
-        $admin->syncPermissions([
-            'dashboard.view',
-            'users.view',
-            'users.create',
-            'users.edit',
-            'users.delete',
-            'users.impersonate',
-            'roles.view',
-            'menus.view',
-            'settings.update',
-            'logs.view',
-        ]);
-
-        $user->syncPermissions([
-            'dashboard.view',
-        ]);
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        Menu::clearCache();
     }
 }

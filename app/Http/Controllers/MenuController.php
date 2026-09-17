@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\MenuScope;
 use App\Enums\MenuType;
 use App\Enums\UserStatus;
 use App\Http\Requests\Menu\StoreMenuRequest;
@@ -172,6 +173,7 @@ class MenuController extends Controller
             'menu' => $menu,
             'parents' => $parents,
             'types' => MenuType::cases(),
+            'scopes' => MenuScope::cases(),
             'statuses' => UserStatus::cases(),
             'permissions' => Permission::query()->orderBy('name')->pluck('name', 'name'),
         ];

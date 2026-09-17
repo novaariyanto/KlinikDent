@@ -11,8 +11,12 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RolePermissionSeeder::class,
+            TenantSeeder::class,
             UserSeeder::class,
             MenuSeeder::class,
+            ClinicMasterSeeder::class,
+            RegistrationSeeder::class,
+            ClinicalCareSeeder::class,
         ]);
 
         Setting::setValue('app_name', config('app.name'));

@@ -5,6 +5,7 @@
         ->all();
     $typeOptions = collect($types)->mapWithKeys(fn ($type) => [$type->value => $type->label()])->all();
     $statusOptions = collect($statuses)->mapWithKeys(fn ($status) => [$status->value => $status->label()])->all();
+    $scopeOptions = collect($scopes)->mapWithKeys(fn ($scope) => [$scope->value => $scope->label()])->all();
     $permissionOptions = collect($permissions)->all();
 @endphp
 
@@ -13,11 +14,26 @@
         <x-input name="title" label="Title" :value="$menu?->title" required />
     </div>
     <div class="col-md-6">
+        <x-input name="name" label="Key" :value="$menu?->name" placeholder="registration.patients" />
+    </div>
+    <div class="col-md-12">
+        <x-input name="description" label="Description" :value="$menu?->description" />
+    </div>
+    <div class="col-md-6">
         <x-select
             name="type"
             label="Type"
             :options="$typeOptions"
             :selected="old('type', $menu?->type->value ?? 'item')"
+            required
+        />
+    </div>
+    <div class="col-md-6">
+        <x-select
+            name="scope"
+            label="Scope"
+            :options="$scopeOptions"
+            :selected="old('scope', $menu?->scope->value ?? 'tenant')"
             required
         />
     </div>

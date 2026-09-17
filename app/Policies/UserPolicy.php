@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\RoleName;
 use App\Models\User;
 
 class UserPolicy
@@ -13,7 +14,11 @@ class UserPolicy
 
     public function view(User $user, User $model): bool
     {
-        return $user->can('users.view');
+        if (! $user->can('users.view')) {
+            return false;
+        }
+
+        return $this->sameTenant($user, $model);
     }
 
     public function create(User $user): bool
@@ -27,7 +32,11 @@ class UserPolicy
             return false;
         }
 
-        return $user->can('users.edit');
+        if (! $user->can('users.edit')) {
+            return false;
+        }
+
+        return $this->sameTenant($user, $model);
     }
 
     public function delete(User $user, User $model): bool
@@ -40,7 +49,11 @@ class UserPolicy
             return false;
         }
 
-        return $user->can('users.delete');
+        if (! $user->can('users.delete')) {
+            return false;
+        }
+
+        return $this->sameTenant($user, $model);
     }
 
     public function resetPassword(User $user, User $model): bool
@@ -49,7 +62,11 @@ class UserPolicy
             return false;
         }
 
-        return $user->can('users.edit');
+        if (! $user->can('users.edit')) {
+            return false;
+        }
+
+        return $this->sameTenant($user, $model);
     }
 
     public function toggleStatus(User $user, User $model): bool
@@ -62,7 +79,11 @@ class UserPolicy
             return false;
         }
 
-        return $user->can('users.edit');
+        if (! $user->can('users.edit')) {
+            return false;
+        }
+
+        return $this->sameTenant($user, $model);
     }
 
     public function impersonate(User $user, User $model): bool
@@ -83,6 +104,30 @@ class UserPolicy
             return false;
         }
 
-        return $user->can('users.impersonate');
+        if (! $user->can('users.impersonate')) {
+            return false;
+        }
+
+        return $this->sameTenant($user, $model);
+    }
+
+    public function assignRole(User $user, string $role): bool
+    {
+        if ($role === RoleName::SuperAdminSaas->value) {
+            return $user->isPlatformAdmin();
+        }
+
+        return true;
+    }
+
+    protected function sameTenant(User $actor, User $model): bool
+    {
+        if ($actor->isPlatformAdmin()) {
+            return true;
+        }
+
+        return $actor->tenant_id !== null
+            && $model->tenant_id !== null
+            && (int) $actor->tenant_id === (int) $model->tenant_id;
     }
 }

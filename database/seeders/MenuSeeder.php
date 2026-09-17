@@ -5,106 +5,67 @@ namespace Database\Seeders;
 use App\Enums\MenuType;
 use App\Enums\UserStatus;
 use App\Models\Menu;
+use App\Support\Access\MenuCatalog;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Role;
 
 class MenuSeeder extends Seeder
 {
     public function run(): void
     {
+        Schema::disableForeignKeyConstraints();
+        DB::table('menu_role')->delete();
+        Menu::query()->update(['parent_id' => null]);
+        Menu::query()->delete();
+        Schema::enableForeignKeyConstraints();
+
         Menu::clearCache();
 
-        $this->upsert(null, [
-            'title' => 'Dashboard',
-            'icon' => 'bx bx-home-circle',
-            'type' => MenuType::Item,
-            'route_name' => 'dashboard',
-            'permission' => 'dashboard.view',
-            'sort_order' => 1,
-        ]);
+        foreach (MenuCatalog::trees() as $roleName => $items) {
+            $role = Role::findByName($roleName, 'web');
+            $scope = MenuCatalog::scopeFor($roleName);
 
-        $management = $this->upsert(null, [
-            'title' => 'Management',
-            'icon' => null,
-            'type' => MenuType::Heading,
-            'route_name' => null,
-            'permission' => null,
-            'sort_order' => 10,
-        ]);
+            foreach ($items as $index => $item) {
+                $this->seedItem($role, $scope->value, null, $item, $index + 1);
+            }
+        }
 
-        $this->upsert($management, [
-            'title' => 'Users',
-            'icon' => 'bx bx-user',
-            'type' => MenuType::Item,
-            'route_name' => 'users.index',
-            'permission' => 'users.view',
-            'sort_order' => 11,
-        ]);
-
-        $this->upsert($management, [
-            'title' => 'Roles & Permissions',
-            'icon' => 'bx bx-shield-quarter',
-            'type' => MenuType::Item,
-            'route_name' => 'roles.index',
-            'permission' => 'roles.view',
-            'sort_order' => 12,
-        ]);
-
-        $this->upsert($management, [
-            'title' => 'Menus',
-            'icon' => 'bx bx-menu',
-            'type' => MenuType::Item,
-            'route_name' => 'menus.index',
-            'permission' => 'menus.view',
-            'sort_order' => 13,
-        ]);
-
-        $system = $this->upsert(null, [
-            'title' => 'System',
-            'icon' => null,
-            'type' => MenuType::Heading,
-            'route_name' => null,
-            'permission' => null,
-            'sort_order' => 20,
-        ]);
-
-        $this->upsert($system, [
-            'title' => 'Settings',
-            'icon' => 'bx bx-cog',
-            'type' => MenuType::Item,
-            'route_name' => 'settings.index',
-            'permission' => 'settings.update',
-            'sort_order' => 21,
-        ]);
-
-        $this->upsert($system, [
-            'title' => 'Activity Logs',
-            'icon' => 'bx bx-history',
-            'type' => MenuType::Item,
-            'route_name' => 'logs.index',
-            'permission' => 'logs.view',
-            'sort_order' => 22,
-        ]);
+        Menu::clearCache();
     }
 
     /**
-     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $item
      */
-    protected function upsert(?Menu $parent, array $attributes): Menu
+    protected function seedItem(Role $role, string $scope, ?Menu $parent, array $item, int $sortOrder): Menu
     {
-        return Menu::query()->updateOrCreate(
+        $isGroup = ($item['children'] ?? []) !== [] && empty($item['route']);
+
+        $menu = Menu::query()->updateOrCreate(
+            ['name' => $item['name']],
             [
-                'title' => $attributes['title'],
                 'parent_id' => $parent?->id,
-            ],
-            [
-                'icon' => $attributes['icon'],
-                'type' => $attributes['type'],
-                'route_name' => $attributes['route_name'],
+                'title' => $item['title'],
+                'description' => $item['description'] ?? null,
+                'scope' => $scope,
+                'tenant_id' => null,
+                'icon' => $item['icon'] ?? null,
+                'type' => MenuType::Item,
+                'route_name' => $isGroup ? null : ($item['route'] ?? null),
                 'url' => null,
-                'permission' => $attributes['permission'],
-                'sort_order' => $attributes['sort_order'],
+                'permission' => $item['permission'] ?? null,
+                'sort_order' => $sortOrder,
                 'status' => UserStatus::Active,
             ]
         );
+
+        $menu->roles()->syncWithoutDetaching([$role->id]);
+
+        foreach ($item['children'] ?? [] as $childIndex => $child) {
+            $this->seedItem($role, $scope, $menu, $child, $childIndex + 1);
+        }
+
+        return $menu;
     }
 }

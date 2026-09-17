@@ -21,6 +21,14 @@
                             <td>{{ $user->email }}</td>
                         </tr>
                         <tr>
+                            <th>Klinik</th>
+                            <td>{{ $user->tenant?->name ?: '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Cabang</th>
+                            <td>{{ $user->branch?->name ?: '-' }}</td>
+                        </tr>
+                        <tr>
                             <th>Role</th>
                             <td>
                                 @forelse ($user->roles as $role)

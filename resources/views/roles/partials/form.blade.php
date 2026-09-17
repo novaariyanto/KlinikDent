@@ -8,10 +8,10 @@
         label="Role"
         :value="$role->name ?? null"
         :required="true"
-        :disabled="isset($role) && $role->name === 'Super Admin'"
-    />
-    @if (isset($role) && $role->name === 'Super Admin')
-        <input type="hidden" name="name" value="Super Admin">
+        :disabled="isset($role) && \App\Enums\RoleName::isSystem($role->name)"
+        />
+    @if (isset($role) && \App\Enums\RoleName::isSystem($role->name))
+        <input type="hidden" name="name" value="{{ $role->name }}">
     @endif
 </div>
 

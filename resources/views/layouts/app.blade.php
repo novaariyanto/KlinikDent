@@ -1,7 +1,7 @@
 @extends('layouts.master')
 
 @section('body_attributes')
-    data-sidebar="dark" data-layout-mode="light"
+    data-sidebar="dark" data-layout-mode="light" @if (request()->routeIs('care.show')) class="care-mode" @endif
 @endsection
 
 @section('layout')
