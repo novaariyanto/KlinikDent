@@ -93,6 +93,7 @@ Seeder:
 
 - `RolePermissionSeeder`
 - `UserSeeder`
+- `MenuSeeder`
 - `DatabaseSeeder`
 
 Roles:
@@ -108,10 +109,16 @@ Permissions:
 - `users.create`
 - `users.edit`
 - `users.delete`
+- `users.impersonate`
 - `roles.view`
 - `roles.create`
 - `roles.edit`
 - `roles.delete`
+- `menus.view`
+- `menus.create`
+- `menus.edit`
+- `menus.delete`
+- `settings.update`
 
 Credential Super Admin diambil dari `ADMIN_EMAIL` dan `ADMIN_PASSWORD`.
 
@@ -154,6 +161,7 @@ Endpoint JSON:
 
 - `/users/data`
 - `/roles/data`
+- `/menus/data`
 
 Fitur: search, sorting, pagination, page length, responsive, empty state, processing indicator, dan action column.
 
@@ -168,7 +176,7 @@ Halaman login memakai layout Skote. Semua halaman aplikasi dilindungi middleware
 
 Authorization memakai Spatie Laravel Permission.
 
-Super Admin melewati seluruh permission check. Menu sidebar mengikuti `@can`.
+Super Admin melewati seluruh permission check. Sidebar dibangun dari modul **Menus** dan item-nya mengikuti permission Spatie.
 
 ## Project Structure
 
@@ -191,6 +199,7 @@ resources/
     ├── dashboard/
     ├── users/
     ├── roles/
+    ├── menus/
     └── settings/
 ```
 

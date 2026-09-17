@@ -4,18 +4,18 @@
             <div class="navbar-brand-box">
                 <a href="{{ route('dashboard') }}" class="logo logo-dark">
                     <span class="logo-sm">
-                        <img src="{{ theme('images/logo.svg') }}" alt="{{ $appName }}" height="22">
+                        <img src="{{ app_logo('dark') }}" alt="{{ $appName }}" height="22">
                     </span>
                     <span class="logo-lg">
-                        <img src="{{ theme('images/logo-dark.png') }}" alt="{{ $appName }}" height="17">
+                        <img src="{{ app_logo('dark') }}" alt="{{ $appName }}" height="22">
                     </span>
                 </a>
                 <a href="{{ route('dashboard') }}" class="logo logo-light">
                     <span class="logo-sm">
-                        <img src="{{ theme('images/logo-light.svg') }}" alt="{{ $appName }}" height="22">
+                        <img src="{{ app_logo('light') }}" alt="{{ $appName }}" height="22">
                     </span>
                     <span class="logo-lg">
-                        <img src="{{ theme('images/logo-light.png') }}" alt="{{ $appName }}" height="19">
+                        <img src="{{ app_logo('light') }}" alt="{{ $appName }}" height="22">
                     </span>
                 </a>
             </div>
@@ -38,14 +38,28 @@
                     <img class="rounded-circle header-profile-user" src="{{ theme('images/users/avatar-1.jpg') }}"
                         alt="{{ auth()->user()->name }}">
                     <span class="d-none d-xl-inline-block ms-1" key="t-user">{{ auth()->user()->name }}</span>
+                    @if (is_impersonating())
+                        <span class="badge bg-warning text-dark d-none d-xl-inline-block ms-1">Impersonating</span>
+                    @endif
                     <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
                 </button>
                 <div class="dropdown-menu dropdown-menu-end">
-                    <a class="dropdown-item" href="{{ route('settings.index') }}">
-                        <i class="bx bx-cog font-size-16 align-middle me-1"></i>
-                        <span>Settings</span>
-                    </a>
-                    <div class="dropdown-divider"></div>
+                    @can('settings.update')
+                        <a class="dropdown-item" href="{{ route('settings.index') }}">
+                            <i class="bx bx-cog font-size-16 align-middle me-1"></i>
+                            <span>Settings</span>
+                        </a>
+                    @endcan
+                    @if (is_impersonating())
+                        <form method="POST" action="{{ route('impersonate.leave') }}">
+                            @csrf
+                            <button type="submit" class="dropdown-item text-warning">
+                                <i class="bx bx-undo font-size-16 align-middle me-1 text-warning"></i>
+                                <span>Leave impersonation</span>
+                            </button>
+                        </form>
+                        <div class="dropdown-divider"></div>
+                    @endif
                     <form method="POST" action="{{ route('logout') }}">
                         @csrf
                         <button type="submit" class="dropdown-item text-danger">

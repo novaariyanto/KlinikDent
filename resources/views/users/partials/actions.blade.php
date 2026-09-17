@@ -32,6 +32,16 @@
                 </li>
             @endif
         @endcan
+        @can('impersonate', $user)
+            <li>
+                <form action="{{ route('users.impersonate', $user) }}" method="POST">
+                    @csrf
+                    <button type="submit" class="dropdown-item">
+                        <i class="bx bx-user-check me-1"></i> Impersonate
+                    </button>
+                </form>
+            </li>
+        @endcan
         @can('users.delete')
             @if (auth()->id() !== $user->id)
                 <li><hr class="dropdown-divider"></li>

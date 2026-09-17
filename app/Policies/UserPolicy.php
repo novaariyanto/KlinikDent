@@ -64,4 +64,25 @@ class UserPolicy
 
         return $user->can('users.edit');
     }
+
+    public function impersonate(User $user, User $model): bool
+    {
+        if ($user->id === $model->id) {
+            return false;
+        }
+
+        if (is_impersonating()) {
+            return false;
+        }
+
+        if ($model->isSuperAdmin()) {
+            return false;
+        }
+
+        if (! $model->isActive()) {
+            return false;
+        }
+
+        return $user->can('users.impersonate');
+    }
 }

@@ -7,6 +7,7 @@ use App\Http\Requests\User\ResetPasswordRequest;
 use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Models\User;
+use App\Support\Impersonation;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
@@ -172,6 +173,52 @@ class UserController extends Controller
         ]);
 
         return back()->with('success', 'Password reset successfully.');
+    }
+
+    public function impersonate(User $user): RedirectResponse
+    {
+        $this->authorize('impersonate', $user);
+
+        if ($user->id === auth()->id()) {
+            return back()->with('error', 'You cannot impersonate your own account.');
+        }
+
+        if (Impersonation::active()) {
+            return back()->with('error', 'Leave the current impersonation first.');
+        }
+
+        if ($user->isSuperAdmin()) {
+            return back()->with('error', 'You cannot impersonate a Super Admin.');
+        }
+
+        if (! $user->isActive()) {
+            return back()->with('error', 'You cannot impersonate an inactive user.');
+        }
+
+        Impersonation::start(auth()->user(), $user);
+
+        return redirect()
+            ->route('dashboard')
+            ->with('success', 'You are now impersonating '.$user->name.'.');
+    }
+
+    public function leaveImpersonate(): RedirectResponse
+    {
+        if (! Impersonation::active()) {
+            return redirect()->route('dashboard');
+        }
+
+        $impersonator = Impersonation::stop();
+
+        if (! $impersonator) {
+            return redirect()
+                ->route('login')
+                ->with('error', 'Original account was not found. Please sign in again.');
+        }
+
+        return redirect()
+            ->route('users.index')
+            ->with('success', 'Returned to '.$impersonator->name.'.');
     }
 
     /**

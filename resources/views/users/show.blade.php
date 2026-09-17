@@ -50,6 +50,12 @@
                             Reset Password
                         </x-button>
                     @endcan
+                    @can('impersonate', $user)
+                        <form action="{{ route('users.impersonate', $user) }}" method="POST">
+                            @csrf
+                            <x-button type="submit" variant="info" icon="bx bx-user-check">Impersonate</x-button>
+                        </form>
+                    @endcan
                     <x-button href="{{ route('users.index') }}" variant="secondary">Back</x-button>
                 </div>
             </x-card>

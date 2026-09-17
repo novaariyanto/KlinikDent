@@ -19,10 +19,16 @@ class RolePermissionSeeder extends Seeder
             'users.create',
             'users.edit',
             'users.delete',
+            'users.impersonate',
             'roles.view',
             'roles.create',
             'roles.edit',
             'roles.delete',
+            'menus.view',
+            'menus.create',
+            'menus.edit',
+            'menus.delete',
+            'settings.update',
         ];
 
         foreach ($permissions as $permission) {
@@ -41,7 +47,10 @@ class RolePermissionSeeder extends Seeder
             'users.create',
             'users.edit',
             'users.delete',
+            'users.impersonate',
             'roles.view',
+            'menus.view',
+            'settings.update',
         ]);
 
         $user->syncPermissions([

@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolePermissionSeeder::class,
             UserSeeder::class,
+            MenuSeeder::class,
         ]);
 
         Setting::setValue('app_name', config('app.name'));
