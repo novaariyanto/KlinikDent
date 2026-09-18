@@ -51,10 +51,19 @@ final class MenuCatalog
             'settings.index',
             'settings.clinic',
             'logs.index',
+            'integrations.index',
+            'integrations.satusehat',
+            'integrations.bpjs',
             'saas.tenants.index',
             'saas.tenants.create',
             'saas.tenants.show',
             'saas.tenants.status',
+            'saas.users.activity',
+            'saas.packages.index',
+            'saas.subscriptions.index',
+            'saas.invoices.index',
+            'saas.system.integrations',
+            'saas.system.audit',
             'branches.index',
             'branches.create',
             'management.clinic',
@@ -92,6 +101,34 @@ final class MenuCatalog
             'cashier.shifts.transactions',
             'cashier.shifts.close',
             'cashier.reports',
+            'finance.index',
+            'finance.revenue.daily',
+            'finance.revenue.monthly',
+            'finance.revenue.doctors',
+            'finance.expenses',
+            'finance.expenses.categories',
+            'finance.expenses.suppliers',
+            'finance.receivables',
+            'finance.payables',
+            'finance.cash-bank',
+            'finance.reports.expenses',
+            'finance.reports.cashflow',
+            'finance.reports.receivables',
+            'finance.reports.profit-loss',
+            'finance.reports.revenue',
+            'reports.index',
+            'reports.visits',
+            'reports.revenue',
+            'reports.procedures',
+            'reports.patients',
+            'reports.personal',
+            'reports.operational',
+            'reports.medical',
+            'reports.finance',
+            'doctors.index',
+            'doctors.schedule',
+            'doctors.schedule.today',
+            'doctors.schedule.mine',
             'registration.payers.general',
             'registration.payers.bpjs',
             'registration.payers.insurance',
@@ -197,17 +234,21 @@ final class MenuCatalog
     {
         return [
             self::item('owner.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan klinik.'),
-            self::item('owner.registration', 'Pendaftaran', 'bx bx-user-plus', 'registration.index', 'registration.view', 'Manajemen pendaftaran pasien.'),
-            self::item('owner.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
-            self::item('owner.odontogram', 'Odontogram', 'bx bx-grid-alt', 'odontogram.index', 'odontogram.view', 'Odontogram pasien.'),
-            self::item('owner.doctors', 'Dokter & Tenaga Medis', 'bx bx-user', 'doctors.index', 'doctor.view', 'Dokter dan tenaga medis klinik.'),
-            self::item('owner.queue', 'Antrean', 'bx bx-list-ol', 'queue.index', 'queue.view', 'Antrean pelayanan klinik.'),
-            self::item('owner.pharmacy', 'Farmasi', 'bx bx-capsule', 'pharmacy.index', 'pharmacy.view', 'Manajemen farmasi klinik.'),
-            self::item('owner.billing', 'Billing & Kasir', 'bx bx-credit-card', 'billing.index', 'billing.view', 'Tagihan dan kasir klinik.'),
-            self::item('owner.finance', 'Keuangan', 'bx bx-wallet', 'finance.index', 'finance.view', 'Keuangan klinik.'),
-            self::item('owner.reports', 'Laporan', 'bx bx-bar-chart-alt-2', 'reports.index', 'report.view', 'Laporan klinik.'),
-            self::item('owner.branches', 'Cabang', 'bx bx-git-branch', 'branches.index', 'branch.view', 'Cabang klinik.'),
-            self::item('owner.master', 'Master Data', 'bx bx-data', null, 'clinic.view', 'Master data klinik.', [
+            self::heading('owner.group.operational', 'Operasional', [
+                self::item('owner.registration', 'Pendaftaran', 'bx bx-user-plus', 'registration.index', 'registration.view', 'Manajemen pendaftaran pasien.'),
+                self::item('owner.queue', 'Antrean', 'bx bx-list-ol', 'queue.index', 'queue.view', 'Antrean pelayanan klinik.'),
+                self::item('owner.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
+                self::item('owner.pharmacy', 'Farmasi', 'bx bx-capsule', 'pharmacy.index', 'pharmacy.view', 'Manajemen farmasi klinik.'),
+                self::item('owner.billing', 'Billing & Kasir', 'bx bx-credit-card', 'billing.index', 'billing.view', 'Tagihan dan kasir klinik.'),
+            ]),
+            self::heading('owner.group.medical-staff', 'Tenaga Medis', [
+                self::item('owner.doctors', 'Dokter & Tenaga Medis', 'bx bx-user', 'doctors.index', 'doctor.view', 'Dokter dan tenaga medis klinik.'),
+            ]),
+            self::heading('owner.group.finance', 'Keuangan', [
+                self::item('owner.finance', 'Keuangan', 'bx bx-wallet', 'finance.index', 'finance.view', 'Keuangan klinik.'),
+                self::item('owner.reports', 'Laporan', 'bx bx-bar-chart-alt-2', 'reports.index', 'report.view', 'Laporan klinik.'),
+            ]),
+            self::heading('owner.group.master', 'Master Data', [
                 self::item('owner.master.clinic', 'Klinik', 'bx bx-building-house', 'management.clinic', 'clinic.view', 'Ringkasan master data klinik.'),
                 self::item('owner.master.services', 'Layanan', 'bx bx-list-check', 'management.services.index', 'service.view', 'Master layanan klinik.'),
                 self::item('owner.master.procedures', 'Tindakan', 'bx bx-first-aid', 'management.procedures.index', 'procedure.view', 'Master tindakan.'),
@@ -216,13 +257,21 @@ final class MenuCatalog
                 self::item('owner.master.payers', 'Penjamin', 'bx bx-id-card', 'management.payers.index', 'payer.view', 'Master penjamin.'),
                 self::item('owner.master.rooms', 'Ruangan', 'bx bx-door-open', 'management.rooms.index', 'room.view', 'Ruangan pelayanan per cabang.'),
             ]),
-            self::item('owner.users', 'Users & Roles', 'bx bx-group', null, 'users.view', 'Pengguna dan peran klinik.', [
-                self::item('owner.users.index', 'Users', 'bx bx-user', 'users.index', 'users.view', 'Pengguna tenant klinik.'),
-                self::item('owner.roles.index', 'Roles', 'bx bx-shield-quarter', 'roles.index', 'roles.view', 'Peran dan permission klinik.'),
+            self::heading('owner.group.management', 'Manajemen Klinik', [
+                self::item('owner.branches', 'Cabang', 'bx bx-git-branch', 'branches.index', 'branch.view', 'Cabang klinik.'),
+                self::item('owner.users', 'Users & Roles', 'bx bx-group', null, 'users.view', 'Pengguna dan peran klinik.', [
+                    self::item('owner.users.index', 'Users', 'bx bx-user', 'users.index', 'users.view', 'Pengguna tenant klinik.'),
+                    self::item('owner.roles.index', 'Roles', 'bx bx-shield-quarter', 'roles.index', 'roles.view', 'Peran dan permission klinik.'),
+                ]),
+                self::item('owner.settings', 'Pengaturan Klinik', 'bx bx-cog', 'settings.clinic', 'setting.view', 'Pengaturan operasional klinik.'),
             ]),
-            self::item('owner.integrations', 'Integrasi', 'bx bx-plug', 'integrations.index', 'integration.view', 'Integrasi eksternal klinik.'),
-            self::item('owner.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log klinik.'),
-            self::item('owner.settings', 'Pengaturan Klinik', 'bx bx-cog', 'settings.clinic', 'setting.view', 'Pengaturan operasional klinik.'),
+            self::heading('owner.group.integrations', 'Integrasi', [
+                self::item('owner.satusehat', 'SATUSEHAT', 'bx bx-cloud', 'integrations.satusehat', 'satusehat.view', 'Modul SATUSEHAT klinik ini.'),
+                self::item('owner.bpjs', 'BPJS VClaim', 'bx bx-id-card', 'integrations.bpjs', 'bpjs.view', 'Modul BPJS VClaim klinik ini.'),
+            ]),
+            self::heading('owner.group.system', 'Sistem', [
+                self::item('owner.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log klinik.'),
+            ]),
         ];
     }
 
@@ -274,7 +323,8 @@ final class MenuCatalog
                 self::item('manager.users.index', 'Users', 'bx bx-user', 'users.index', 'users.view', 'Pengguna klinik.'),
                 self::item('manager.roles.index', 'Roles', 'bx bx-shield-quarter', 'roles.index', 'roles.view', 'Peran klinik.'),
             ]),
-            self::item('manager.integrations', 'Integrasi', 'bx bx-plug', 'integrations.index', 'integration.view', 'Integrasi eksternal klinik.'),
+            self::item('manager.satusehat', 'SATUSEHAT', 'bx bx-cloud', 'integrations.satusehat', 'satusehat.view', 'Modul SATUSEHAT klinik ini.'),
+            self::item('manager.bpjs', 'BPJS VClaim', 'bx bx-id-card', 'integrations.bpjs', 'bpjs.view', 'Modul BPJS VClaim klinik ini.'),
             self::item('manager.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log klinik.'),
             self::item('manager.settings', 'Pengaturan Klinik', 'bx bx-cog', 'settings.clinic', 'setting.view', 'Pengaturan operasional klinik.'),
         ];
@@ -307,6 +357,7 @@ final class MenuCatalog
                 self::item('registration.payers.corporate', 'Corporate', 'bx bx-buildings', 'registration.payers.corporate', 'payer.view', 'Penjamin perusahaan.'),
                 self::item('registration.payers.membership', 'Membership', 'bx bx-star', 'registration.payers.membership', 'payer.view', 'Penjamin membership.'),
             ]),
+            self::item('registration.bpjs.vclaim', 'Cek BPJS', 'bx bx-check-shield', 'integrations.bpjs', 'bpjs.view', 'Cek kepesertaan BPJS klinik ini.'),
         ];
     }
 
@@ -326,6 +377,7 @@ final class MenuCatalog
             self::heading('dentist.group.other', 'Lainnya', [
                 self::item('dentist.schedule', 'Jadwal Saya', 'bx bx-calendar', 'doctors.schedule.mine', 'schedule.view', 'Jadwal praktik dokter yang login.'),
                 self::item('dentist.reports', 'Laporan Pribadi', 'bx bx-bar-chart-alt-2', 'reports.personal', 'report.view', 'Laporan kinerja dokter.'),
+                self::item('dentist.satusehat', 'SATUSEHAT', 'bx bx-cloud', 'integrations.satusehat', 'satusehat.view', 'Kirim kunjungan ke SATUSEHAT klinik ini.'),
             ]),
         ];
     }

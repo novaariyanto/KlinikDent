@@ -8,7 +8,7 @@
         <x-select name="branch_id" label="Cabang" :options="$branchOptions" :selected="old('branch_id', $room?->branch_id)" required />
     </div>
     <div class="col-md-6">
-        <x-input name="name" label="Nama Ruangan" :value="$room?->name" required />
+        <x-input name="name" label="Nama Poli / Ruangan" :value="$room?->name" required />
     </div>
     <div class="col-md-6">
         <x-select name="type" label="Tipe" :options="\App\Enums\RoomType::options()" :selected="old('type', $room?->type?->value)" required />

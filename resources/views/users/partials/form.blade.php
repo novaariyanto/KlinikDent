@@ -1,15 +1,8 @@
 @php
     $user = $user ?? null;
-    $roleOptions = $roles->mapWithKeys(fn ($role) => [$role->name => $role->name])->all();
+    $selectedRoles = collect(old('roles', isset($user) ? $user->roles->pluck('name')->all() : []))->map(fn ($name) => (string) $name);
     $statusOptions = collect($statuses)->mapWithKeys(fn ($status) => [$status->value => $status->label()])->all();
     $tenantOptions = collect($tenants ?? [])->mapWithKeys(fn ($tenant) => [$tenant->id => $tenant->name])->all();
-    $branchOptions = collect($branches ?? [])->mapWithKeys(function ($branch) {
-        $label = $branch->tenant?->name
-            ? $branch->tenant->name.' — '.$branch->name
-            : $branch->name;
-
-        return [$branch->id => $label];
-    })->all();
 @endphp
 
 <div class="row">
@@ -25,14 +18,36 @@
     <div class="col-md-6">
         <x-input name="password_confirmation" type="password" label="Confirm Password" :required="! $user" autocomplete="new-password" />
     </div>
-    <div class="col-md-6">
-        <x-select
-            name="role"
-            label="Role"
-            :options="$roleOptions"
-            :selected="old('role', isset($user) ? $user->roles->first()?->name : null)"
-            required
-        />
+    <div class="col-12">
+        <label class="form-label">Role <span class="text-danger">*</span></label>
+        <p class="text-muted small mb-2">Boleh lebih dari satu. Klinik kecil biasanya cukup Owner, Dokter, Pendaftaran, Kasir, Farmasi.</p>
+        <div class="row">
+            @foreach ($roles as $role)
+                @php
+                    $roleEnum = \App\Enums\RoleName::tryFrom($role->name);
+                    $label = $roleEnum?->label() ?? $role->name;
+                @endphp
+                <div class="col-md-4 col-lg-3">
+                    <div class="form-check mb-2">
+                        <input
+                            class="form-check-input @error('roles') is-invalid @enderror"
+                            type="checkbox"
+                            name="roles[]"
+                            id="role-{{ $role->name }}"
+                            value="{{ $role->name }}"
+                            @checked($selectedRoles->contains($role->name))
+                        >
+                        <label class="form-check-label" for="role-{{ $role->name }}">{{ $label }}</label>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        @error('roles')
+            <div class="invalid-feedback d-block">{{ $message }}</div>
+        @enderror
+        @error('roles.*')
+            <div class="invalid-feedback d-block">{{ $message }}</div>
+        @enderror
     </div>
     <div class="col-md-6">
         <x-select
@@ -54,13 +69,40 @@
             />
         </div>
     @endif
-    <div class="col-md-6">
-        <x-select
-            name="branch_id"
-            label="Cabang"
-            :options="$branchOptions"
-            :selected="old('branch_id', $user?->branch_id)"
-            placeholder="Tanpa cabang"
-        />
+    <div class="col-12">
+        <label class="form-label">Cabang</label>
+        <p class="text-muted small mb-2">Boleh lebih dari satu. Cabang pertama menjadi cabang utama.</p>
+        <div class="row">
+            @php
+                $selectedBranches = collect(old('branch_ids', isset($user) ? $user->assignedBranchIds() : []))->map(fn ($id) => (string) $id);
+            @endphp
+            @forelse ($branches as $branch)
+                @php
+                    $label = $branch->tenant?->name
+                        ? $branch->tenant->name.' — '.$branch->name
+                        : $branch->name;
+                @endphp
+                <div class="col-md-4 col-lg-3">
+                    <div class="form-check mb-2">
+                        <input
+                            class="form-check-input @error('branch_ids') is-invalid @enderror"
+                            type="checkbox"
+                            name="branch_ids[]"
+                            id="branch-{{ $branch->id }}"
+                            value="{{ $branch->id }}"
+                            @checked($selectedBranches->contains((string) $branch->id))
+                        >
+                        <label class="form-check-label" for="branch-{{ $branch->id }}">{{ $label }}</label>
+                    </div>
+                </div>
+            @empty
+                <div class="col-12">
+                    <p class="text-muted mb-0">Belum ada cabang.</p>
+                </div>
+            @endforelse
+        </div>
+        @error('branch_ids')
+            <div class="invalid-feedback d-block">{{ $message }}</div>
+        @enderror
     </div>
 </div>

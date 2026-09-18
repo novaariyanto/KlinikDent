@@ -18,14 +18,13 @@ use App\Models\ProcedureRecord;
 use App\Models\User;
 use App\Models\Visit;
 use App\Support\Registration\DocumentSequenceGenerator;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
 class BillingService
 {
-    public function __construct(protected DocumentSequenceGenerator $sequences)
-    {
-    }
+    public function __construct(protected DocumentSequenceGenerator $sequences) {}
 
     public function generateForVisit(Visit $visit, ?User $user = null): ?Invoice
     {
@@ -68,7 +67,9 @@ class BillingService
 
             $this->recalculate($invoice);
 
-            activity_log('invoiced', $invoice, ['number' => $invoice->number], 'Tagihan '.$invoice->number.' dibuat/diperbarui.', 'billing', $user);
+            activity_audit('invoiced', $invoice, [], 'Tagihan '.$invoice->number.' dibuat/diperbarui.', 'billing', [
+                'number' => $invoice->number,
+            ], $user);
 
             return $invoice->fresh(['items', 'patient', 'visit']);
         });
@@ -112,9 +113,14 @@ class BillingService
                 'notes' => $notes,
             ]);
 
+            $before = activity_snapshot($locked);
+
             $this->recalculate($locked);
 
-            activity_log('paid', $locked, ['amount' => $amount, 'method' => $method->value], 'Pembayaran tagihan '.$locked->number, 'billing', $user);
+            activity_audit('paid', $locked->fresh(), $before, 'Pembayaran tagihan '.$locked->number, 'billing', [
+                'amount' => $amount,
+                'method' => $method->value,
+            ], $user);
 
             return $payment;
         });
@@ -144,6 +150,8 @@ class BillingService
                 }
             }
 
+            $before = activity_snapshot($locked);
+
             $locked->update([
                 'status' => InvoiceStatus::Void,
                 'void_reason' => $reason,
@@ -151,7 +159,9 @@ class BillingService
                 'voided_at' => now(),
             ]);
 
-            activity_log('voided', $locked, ['reason' => $reason], 'Tagihan '.$locked->number.' dibatalkan.', 'billing', $user);
+            activity_audit('voided', $locked, $before, 'Tagihan '.$locked->number.' dibatalkan.', 'billing', [
+                'reason' => $reason,
+            ], $user);
         });
     }
 
@@ -288,7 +298,7 @@ class BillingService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, PrescriptionItem>
+     * @return Collection<int, PrescriptionItem>
      */
     protected function unbilledMedicines(Visit $visit)
     {

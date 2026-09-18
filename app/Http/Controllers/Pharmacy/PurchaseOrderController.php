@@ -7,11 +7,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pharmacy\Concerns\ScopesPharmacyBranch;
 use App\Http\Requests\Pharmacy\ReceivePurchaseOrderRequest;
 use App\Http\Requests\Pharmacy\StorePurchaseOrderRequest;
-use App\Models\Branch;
 use App\Models\Medicine;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
 use App\Support\Pharmacy\PharmacyStockService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,9 +21,7 @@ class PurchaseOrderController extends Controller
 {
     use ScopesPharmacyBranch;
 
-    public function __construct(protected PharmacyStockService $stocks)
-    {
-    }
+    public function __construct(protected PharmacyStockService $stocks) {}
 
     public function index(Request $request): View
     {
@@ -140,7 +138,7 @@ class PurchaseOrderController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<PurchaseOrder>
+     * @return Builder<PurchaseOrder>
      */
     protected function orderQuery(Request $request)
     {
@@ -167,12 +165,7 @@ class PurchaseOrderController extends Controller
      */
     protected function formData(Request $request): array
     {
-        $user = $request->user();
-        $branchId = $this->restrictedBranchId($user);
-
-        $branches = Branch::query()
-            ->when($branchId, fn ($query) => $query->whereKey($branchId))
-            ->orderBy('name')
+        $branches = $this->assignedBranches($user)
             ->pluck('name', 'id')
             ->all();
 
@@ -180,7 +173,7 @@ class PurchaseOrderController extends Controller
             'suppliers' => Supplier::query()->orderBy('name')->pluck('name', 'id')->all(),
             'branches' => $branches,
             'medicines' => Medicine::query()->active()->orderBy('name')->get(['id', 'name', 'unit', 'base_price']),
-            'defaultBranchId' => $branchId ?: $user?->branch_id,
+            'defaultBranchId' => $user?->branch_id ?: array_key_first($branches),
         ];
     }
 

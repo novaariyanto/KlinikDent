@@ -8,6 +8,7 @@ use App\Http\Controllers\Pharmacy\Concerns\ScopesPharmacyBranch;
 use App\Models\MedicineStock;
 use App\Models\StockMovement;
 use App\Support\Pharmacy\PharmacyStockService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -84,11 +85,10 @@ class PharmacyReportController extends Controller
     {
         abort_unless($request->user()?->can('report.view') || $request->user()?->can('pharmacy.view') || $request->user()?->can('stock.view'), 403);
 
-        $branchId = $this->restrictedBranchId($request->user());
-
         $movements = StockMovement::query()
-            ->when($type, fn ($query) => $query->where('type', $type))
-            ->when($branchId, fn ($query) => $query->whereHas('stock', fn ($stock) => $stock->where('branch_id', $branchId)))
+            ->when($type, fn ($query) => $query->where('type', $type));
+        $this->constrainRelatedBranch($movements, $request->user(), 'stock');
+        $movements = $movements
             ->when($request->filled('date_from'), fn ($query) => $query->whereDate('created_at', '>=', $request->date('date_from')))
             ->when($request->filled('date_to'), fn ($query) => $query->whereDate('created_at', '<=', $request->date('date_to')))
             ->with(['stock.medicine', 'stock.branch', 'user'])
@@ -100,7 +100,7 @@ class PharmacyReportController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<MedicineStock>
+     * @return Builder<MedicineStock>
      */
     protected function stockQuery(Request $request)
     {

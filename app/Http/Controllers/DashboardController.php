@@ -3,37 +3,39 @@
 namespace App\Http\Controllers;
 
 use App\Enums\RoleName;
-use App\Enums\VisitStatus;
-use App\Models\Visit;
+use App\Models\User;
+use App\Support\Reports\DashboardMetricsService;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(): View
+    public function index(DashboardMetricsService $dashboards): View
     {
-        abort_unless(auth()->user()?->can('dashboard.view'), 403);
-
-        $role = auth()->user()?->primaryRole() ?? RoleName::tryFrom(
-            (string) auth()->user()?->getRoleNames()->first()
-        );
-
-        $title = $role?->dashboardTitle() ?? 'Dashboard';
-        $description = $role
-            ? 'Selamat datang. '.$role->dashboardDescription()
-            : 'Selamat datang. Dashboard akan dikembangkan pada tahap berikutnya.';
-        $icon = $role?->isPlatform() ? 'bx bx-buildings' : 'bx bx-home-circle';
-        $registrationStats = null;
-
-        if ($role === RoleName::Registration) {
-            $today = Visit::query()->visibleTo(auth()->user())->today();
-            $registrationStats = [
-                'visits_today' => (clone $today)->count(),
-                'waiting' => (clone $today)->where('status', VisitStatus::Waiting)->count(),
-                'in_service' => (clone $today)->where('status', VisitStatus::InService)->count(),
-                'done' => (clone $today)->where('status', VisitStatus::Done)->count(),
-            ];
+        $user = auth()->user();
+        if (! $user instanceof User || ! $user->can('dashboard.view')) {
+            abort(403);
         }
 
-        return view('dashboard.index', compact('title', 'description', 'icon', 'registrationStats'));
+        $roles = $user->getRoleNames()
+            ->map(fn (string $name) => RoleName::tryFrom($name))
+            ->filter()
+            ->unique()
+            ->values();
+        $primary = $roles->count() === 1 ? $roles->first() : null;
+        $title = $primary?->dashboardTitle() ?? 'Dashboard';
+        $metrics = $dashboards->forUser($user);
+
+        $description = $primary
+            ? 'Selamat datang. '.$primary->dashboardDescription()
+            : 'Selamat datang. Ringkasan gabungan untuk '.$roles->map(fn (RoleName $role) => $role->label())->join(', ').'.';
+
+        return view('dashboard.index', [
+            'title' => $title,
+            'cards' => $metrics['cards'],
+            'links' => $metrics['links'],
+            'note' => $metrics['note'],
+            'icon' => $primary?->isPlatform() ? 'bx bx-buildings' : 'bx bx-home-circle',
+            'description' => $description,
+        ]);
     }
 }

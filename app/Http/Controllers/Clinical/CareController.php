@@ -31,13 +31,13 @@ use App\Models\ProcedureRecord;
 use App\Models\Referral;
 use App\Models\User;
 use App\Models\Visit;
+use App\Support\Billing\BillingService;
 use App\Support\Clinical\CareExamOptions;
 use App\Support\Clinical\CareProgress;
 use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
 use App\Support\Clinical\FdiTeeth;
 use App\Support\Clinical\IcdCatalog;
-use App\Support\Billing\BillingService;
 use App\Support\ClinicSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -180,9 +180,10 @@ class CareController extends Controller
             ];
         }
 
+        $before = activity_snapshot($record);
         $record->update($data);
 
-        activity_log('updated', $record, $data, 'Updated medical record', 'medical_records');
+        activity_audit('updated', $record, $before, 'Updated medical record', 'medical_records');
 
         $tab = array_key_exists('plan_instructions', $request->validated()) || array_key_exists('clinical_notes', $request->validated())
             ? 'instruksi'
@@ -194,9 +195,10 @@ class CareController extends Controller
     public function updateExamination(UpdateExaminationRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $record = $this->care->ensureRecord($visit);
+        $before = activity_snapshot($record);
         $record->update($request->validated());
 
-        activity_log('updated', $record, $request->validated(), 'Updated initial examination', 'medical_records');
+        activity_audit('updated', $record, $before, 'Updated initial examination', 'medical_records');
 
         return $this->respondCare($visit, 'pemeriksaan', 'Pemeriksaan awal disimpan.');
     }
@@ -212,9 +214,10 @@ class CareController extends Controller
             'weight',
             'height',
         ])->all();
+        $before = activity_snapshot($record);
         $record->update(['vital_signs' => $vitals]);
 
-        activity_log('updated', $record, $vitals, 'Updated vital signs', 'medical_records');
+        activity_audit('updated', $record, $before, 'Updated vital signs', 'medical_records');
 
         return $this->respondCare($visit, 'screening', 'Tanda vital disimpan.');
     }
@@ -222,9 +225,10 @@ class CareController extends Controller
     public function updateAnamnesis(UpdateAnamnesisRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $record = $this->care->ensureRecord($visit);
+        $before = activity_snapshot($record);
         $record->update($request->validated());
 
-        activity_log('updated', $record, $request->validated(), 'Updated anamnesis', 'medical_records');
+        activity_audit('updated', $record, $before, 'Updated anamnesis', 'medical_records');
 
         return $this->respondCare($visit, 'keluhan', 'Anamnesis disimpan.');
     }
@@ -232,9 +236,10 @@ class CareController extends Controller
     public function updateNotes(UpdateCareNotesRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $record = $this->care->ensureRecord($visit);
+        $before = activity_snapshot($record);
         $record->update($request->validated());
 
-        activity_log('updated', $record, $request->validated(), 'Updated care notes', 'medical_records');
+        activity_audit('updated', $record, $before, 'Updated care notes', 'medical_records');
 
         return $this->respondCare($visit, 'instruksi', 'Catatan pelayanan disimpan.');
     }
@@ -332,9 +337,10 @@ class CareController extends Controller
     {
         abort_unless((int) $diagnosis->visit_id === (int) $visit->id, 404);
 
+        $before = activity_snapshot($diagnosis);
         $diagnosis->update($request->validated());
 
-        activity_log('updated', $diagnosis, $request->validated(), 'Updated diagnosis', 'diagnoses');
+        activity_audit('updated', $diagnosis, $before, 'Updated diagnosis', 'diagnoses');
 
         return $this->respondCare($visit, 'diagnosis', 'Diagnosis diperbarui.');
     }
@@ -586,11 +592,14 @@ class CareController extends Controller
             abort_unless(request()->user()?->can('queue.manage'), 403);
         }
 
+        $before = activity_snapshot($visit);
         $visit->update(['status' => VisitStatus::Done]);
 
         $invoice = $this->billing->generateForVisit($visit->fresh(), request()->user());
 
-        activity_log('updated', $visit, ['status' => VisitStatus::Done->value], 'Completed clinical visit', 'visits');
+        activity_audit('updated', $visit, $before, 'Completed clinical visit', 'visits', [
+            'status' => VisitStatus::Done->value,
+        ]);
 
         $message = 'Pelayanan kunjungan diselesaikan.';
         if ($invoice) {

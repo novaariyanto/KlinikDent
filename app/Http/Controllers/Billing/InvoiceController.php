@@ -22,9 +22,7 @@ class InvoiceController extends Controller
 {
     use ScopesBillingBranch;
 
-    public function __construct(protected BillingService $billing)
-    {
-    }
+    public function __construct(protected BillingService $billing) {}
 
     public function index(Request $request): View
     {
@@ -59,8 +57,7 @@ class InvoiceController extends Controller
         $visit = Visit::withoutGlobalScopes()->findOrFail($request->validated('visit_id'));
         abort_unless($request->user()?->belongsToTenantId($visit->tenant_id), 403);
 
-        $branchId = $this->restrictedBranchId($request->user());
-        abort_if($branchId && (int) $visit->branch_id !== $branchId, 403);
+        abort_unless($request->user()?->canAccessBranch((int) $visit->branch_id), 403);
 
         $invoice = $this->billing->generateForVisit($visit, $request->user());
 
@@ -132,8 +129,9 @@ class InvoiceController extends Controller
 
         if ($showUnbilled) {
             $unbilled = Visit::query()
-                ->whereHas('procedureRecords', fn ($records) => $records->where('billing_status', BillingStatus::Unbilled))
-                ->when($this->restrictedBranchId($request->user()), fn ($query, $branchId) => $query->where('branch_id', $branchId))
+                ->whereHas('procedureRecords', fn ($records) => $records->where('billing_status', BillingStatus::Unbilled));
+            $this->constrainBranch($unbilled, $request->user());
+            $unbilled = $unbilled
                 ->with(['patient', 'branch'])
                 ->latest('id')
                 ->limit(15)

@@ -20,4 +20,15 @@
             required
         />
     </div>
+    @if (($packages ?? collect())->isNotEmpty())
+        <div class="col-md-6">
+            <x-select
+                name="package_id"
+                label="Paket"
+                :options="collect($packages)->mapWithKeys(fn ($package) => [$package->id => $package->name])->all()"
+                :selected="old('package_id', $tenant?->plan_id)"
+                placeholder="Tanpa paket"
+            />
+        </div>
+    @endif
 </div>

@@ -26,6 +26,8 @@ class PurchaseOrder extends Model
         'status',
         'order_date',
         'received_at',
+        'paid_at',
+        'paid_from_account_id',
         'created_by',
     ];
 
@@ -41,6 +43,8 @@ class PurchaseOrder extends Model
             'status' => PurchaseOrderStatus::class,
             'order_date' => 'date',
             'received_at' => 'datetime',
+            'paid_at' => 'datetime',
+            'paid_from_account_id' => 'integer',
             'created_by' => 'integer',
         ];
     }
@@ -77,6 +81,14 @@ class PurchaseOrder extends Model
         return $this->hasMany(PurchaseOrderItem::class);
     }
 
+    /**
+     * @return BelongsTo<CashAccount, $this>
+     */
+    public function paidFromAccount(): BelongsTo
+    {
+        return $this->belongsTo(CashAccount::class, 'paid_from_account_id');
+    }
+
     public function isDraft(): bool
     {
         return $this->status === PurchaseOrderStatus::Draft;
@@ -90,5 +102,29 @@ class PurchaseOrder extends Model
     public function isReceived(): bool
     {
         return $this->status === PurchaseOrderStatus::Received;
+    }
+
+    public function isPayable(): bool
+    {
+        return $this->isReceived() && $this->paid_at === null;
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->paid_at !== null;
+    }
+
+    public function totalAmount(): string
+    {
+        $items = $this->relationLoaded('items') ? $this->items : $this->items()->get();
+
+        return $items->reduce(
+            fn (string $carry, PurchaseOrderItem $item) => bcadd(
+                $carry,
+                bcmul((string) $item->unit_price, (string) $item->quantity, 2),
+                2
+            ),
+            '0.00'
+        );
     }
 }

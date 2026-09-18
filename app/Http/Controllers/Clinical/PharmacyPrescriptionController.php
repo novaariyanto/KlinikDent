@@ -17,9 +17,7 @@ class PharmacyPrescriptionController extends Controller
 {
     use ScopesPharmacyBranch;
 
-    public function __construct(protected PharmacyStockService $stocks)
-    {
-    }
+    public function __construct(protected PharmacyStockService $stocks) {}
 
     public function incoming(Request $request): View
     {
@@ -100,11 +98,10 @@ class PharmacyPrescriptionController extends Controller
         abort_unless($request->user()?->can('prescription.view') && $request->user()?->can('pharmacy.view'), 403);
 
         $user = $request->user();
-        $branchId = $this->restrictedBranchId($user);
-
         $prescriptions = Prescription::query()
-            ->where('status', $status)
-            ->when($branchId, fn ($query) => $query->whereHas('visit', fn ($visit) => $visit->where('branch_id', $branchId)))
+            ->where('status', $status);
+        $this->constrainRelatedBranch($prescriptions, $user);
+        $prescriptions = $prescriptions
             ->with(['visit.patient', 'visit.doctor', 'visit.branch', 'doctor', 'items.medicine'])
             ->latest('id')
             ->paginate(20)
@@ -121,11 +118,7 @@ class PharmacyPrescriptionController extends Controller
 
         abort_unless($user->belongsToTenantId($prescription->visit?->tenant_id), 403);
 
-        $branchId = $this->restrictedBranchId($user);
-
-        if ($branchId && (int) $prescription->visit?->branch_id !== $branchId) {
-            abort(403);
-        }
+        abort_unless($user->canAccessBranch((int) $prescription->visit?->branch_id), 403);
 
         if ($viewOnly) {
             abort_unless($prescription->isSent() || $prescription->isFulfilled(), 403);

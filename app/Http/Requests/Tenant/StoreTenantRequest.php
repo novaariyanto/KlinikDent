@@ -23,6 +23,7 @@ class StoreTenantRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'subdomain' => ['required', 'string', 'max:63', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:tenants,subdomain'],
             'status' => ['required', Rule::enum(TenantStatus::class)],
+            'package_id' => ['nullable', 'integer', 'exists:saas_packages,id'],
         ];
     }
 

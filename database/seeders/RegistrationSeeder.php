@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\Gender;
 use App\Models\Branch;
+use App\Models\DoctorSchedule;
 use App\Models\Payer;
 use App\Models\Room;
 use App\Models\Tenant;
@@ -25,6 +26,18 @@ class RegistrationSeeder extends Seeder
             $room = $branch
                 ? Room::withoutGlobalScopes()->where('branch_id', $branch->id)->orderBy('id')->first()
                 : null;
+
+            if ($dentist && $branch) {
+                $scheduledRoomId = DoctorSchedule::withoutGlobalScopes()
+                    ->where('branch_id', $branch->id)
+                    ->whereNotNull('room_id')
+                    ->whereHas('doctor', fn ($doctor) => $doctor->where('user_id', $dentist->id))
+                    ->value('room_id');
+
+                if ($scheduledRoomId) {
+                    $room = Room::withoutGlobalScopes()->find($scheduledRoomId) ?: $room;
+                }
+            }
 
             if (! $branch || ! $payer || ! $actor) {
                 return;

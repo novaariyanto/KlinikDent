@@ -3,7 +3,6 @@
     $payerOptions = collect($payers ?? [])->mapWithKeys(fn ($payer) => [$payer->id => $payer->name])->all();
     $branchOptions = collect($branches ?? [])->mapWithKeys(fn ($branch) => [$branch->id => $branch->name])->all();
     $doctorOptions = collect($doctors ?? [])->mapWithKeys(fn ($doctor) => [$doctor->id => $doctor->name])->all();
-    $roomOptions = collect($rooms ?? [])->mapWithKeys(fn ($room) => [$room->id => $room->name.($room->branch ? ' ('.$room->branch->name.')' : '')])->all();
 @endphp
 
 <div class="mb-4">
@@ -41,9 +40,30 @@
         <x-select name="payer_id" label="Penjamin Kunjungan" :options="$payerOptions" :selected="old('payer_id', $patient?->default_payer_id)" required />
     </div>
     <div class="col-md-6">
-        <x-select name="doctor_id" label="Dokter" :options="$doctorOptions" :selected="old('doctor_id')" placeholder="Pilih dokter" />
+        <x-input name="visit_date" type="date" label="Tanggal Kunjungan" :value="old('visit_date', now()->toDateString())" required />
     </div>
     <div class="col-md-6">
-        <x-select name="room_id" label="Poli / Ruangan" :options="$roomOptions" :selected="old('room_id')" placeholder="Pilih ruangan" />
+        <div class="mb-3">
+            <label for="room_id" class="form-label">Poli / Ruangan</label>
+            <select name="room_id" id="room_id" class="form-select @error('room_id') is-invalid @enderror">
+                <option value="">Pilih poli</option>
+                @foreach ($rooms ?? [] as $room)
+                    <option
+                        value="{{ $room->id }}"
+                        data-branch="{{ $room->branch_id }}"
+                        @selected((string) old('room_id') === (string) $room->id)
+                    >
+                        {{ $room->name }}{{ $room->type?->label() ? ' — '.$room->type->label() : '' }}
+                    </option>
+                @endforeach
+            </select>
+            @error('room_id')
+                <div class="invalid-feedback d-block">{{ $message }}</div>
+            @enderror
+        </div>
+    </div>
+    <div class="col-md-6">
+        <x-select name="doctor_id" label="Dokter" :options="$doctorOptions" :selected="old('doctor_id')" placeholder="Pilih dokter sesuai jadwal poli" />
+        <p class="text-muted small" id="doctor-schedule-hint">Pilih cabang dan poli untuk melihat dokter yang praktik.</p>
     </div>
 </div>

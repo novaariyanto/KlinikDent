@@ -23,6 +23,19 @@
         @can('patient_history.view')
             <x-button href="{{ route('patients.history.show', $visit->patient) }}" variant="light" icon="bx bx-history">Riwayat</x-button>
         @endcan
+        @can('satusehat.view')
+            @if ($visit->status === \App\Enums\VisitStatus::Done)
+                <form action="{{ route('care.satusehat.send', $visit) }}" method="POST" class="d-inline">
+                    @csrf
+                    <x-button type="submit" variant="info" icon="bx bx-cloud-upload">
+                        Kirim SATUSEHAT
+                        @if ($visit->satusehat_status)
+                            ({{ $visit->satusehat_status->label() }})
+                        @endif
+                    </x-button>
+                </form>
+            @endif
+        @endcan
         <x-button href="{{ route('queue.today') }}" variant="secondary">Antrean</x-button>
     </div>
 </section>

@@ -18,11 +18,29 @@
                         <tr><th>Telepon</th><td>{{ $patient->phone ?: '-' }}</td></tr>
                         <tr><th>Alamat</th><td>{{ $patient->address ?: '-' }}</td></tr>
                         <tr><th>Penjamin</th><td>{{ $patient->defaultPayer?->name ?: '-' }}</td></tr>
+                        <tr>
+                            <th>BPJS</th>
+                            <td>
+                                {{ $patient->bpjs_number ?: '-' }}
+                                @if ($patient->bpjs_status)
+                                    <span class="{{ $patient->bpjs_status->badgeClass() }}">{{ $patient->bpjs_status->label() }}</span>
+                                @endif
+                                @if ($patient->bpjs_checked_at)
+                                    <small class="text-muted">dicek {{ $patient->bpjs_checked_at->format('d M Y H:i') }}</small>
+                                @endif
+                            </td>
+                        </tr>
                     </tbody>
                 </x-table>
                 <div class="mt-3 d-flex flex-wrap gap-2">
                     @can('update', $patient)
                         <x-button href="{{ route('registration.patients.edit', $patient) }}" icon="bx bx-edit">Edit</x-button>
+                    @endcan
+                    @can('bpjs.view')
+                        <form action="{{ route('registration.patients.bpjs', $patient) }}" method="POST">
+                            @csrf
+                            <x-button type="submit" variant="info" icon="bx bx-search">Cek BPJS</x-button>
+                        </form>
                     @endcan
                     @can('create', App\Models\Visit::class)
                         <x-button href="{{ route('registration.new', ['patient_id' => $patient->id]) }}" icon="bx bx-plus">Daftarkan</x-button>

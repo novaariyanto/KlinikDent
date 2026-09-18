@@ -101,7 +101,7 @@ class TenantIsolationTest extends TestCase
                 'password' => 'password',
                 'password_confirmation' => 'password',
                 'status' => 'active',
-                'role' => RoleName::Registration->value,
+                'roles' => [RoleName::Registration->value],
                 'branch_id' => $this->branchA->id,
             ])
             ->assertRedirect(route('users.index'));
@@ -136,7 +136,7 @@ class TenantIsolationTest extends TestCase
             'name' => 'Hacked',
             'email' => $userB->email,
             'status' => 'active',
-            'role' => RoleName::Manager->value,
+            'roles' => [RoleName::Manager->value],
         ])->assertForbidden();
         $this->actingAs($ownerA)->delete(route('users.destroy', $userB))->assertForbidden();
     }
@@ -152,9 +152,9 @@ class TenantIsolationTest extends TestCase
                 'password' => 'password',
                 'password_confirmation' => 'password',
                 'status' => 'active',
-                'role' => RoleName::SuperAdminSaas->value,
+                'roles' => [RoleName::SuperAdminSaas->value],
             ])
-            ->assertSessionHasErrors('role');
+            ->assertSessionHasErrors('roles');
     }
 
     public function test_manager_can_access_branches(): void

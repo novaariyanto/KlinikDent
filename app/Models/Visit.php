@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RoleName;
+use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\VisitFactory;
@@ -30,6 +31,9 @@ class Visit extends Model
         'payer_id',
         'status',
         'visit_date',
+        'satusehat_status',
+        'satusehat_id',
+        'satusehat_synced_at',
     ];
 
     /**
@@ -46,6 +50,8 @@ class Visit extends Model
             'payer_id' => 'integer',
             'status' => VisitStatus::class,
             'visit_date' => 'date',
+            'satusehat_status' => SatuSehatStatus::class,
+            'satusehat_synced_at' => 'datetime',
         ];
     }
 
@@ -172,16 +178,12 @@ class Visit extends Model
             return $query;
         }
 
-        if ($user->branch_id && ! $user->can('branch.manage')) {
-            $query->where('branch_id', $user->branch_id);
-        }
-
         if ($user->hasRole(RoleName::Dentist) && ! $user->can('branch.manage')) {
             $query->where(function (Builder $inner) use ($user) {
                 $inner->where('doctor_id', $user->id)->orWhereNull('doctor_id');
             });
         }
 
-        return $query;
+        return $user->applyBranchLimit($query);
     }
 }

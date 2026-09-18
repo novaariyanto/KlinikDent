@@ -20,22 +20,18 @@ class BillingDashboardController extends Controller
         abort_unless($request->user()?->can('billing.view'), 403);
 
         $user = $request->user();
-        $branchId = $this->restrictedBranchId($user);
-
-        $openInvoices = Invoice::query()
-            ->whereIn('status', [InvoiceStatus::Unpaid, InvoiceStatus::Partial])
-            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
-            ->count();
+        $openInvoices = $user->applyBranchLimit(
+            Invoice::query()->whereIn('status', [InvoiceStatus::Unpaid, InvoiceStatus::Partial])
+        )->count();
 
         $todayPaid = Payment::query()
             ->whereDate('paid_at', now()->toDateString())
-            ->when($branchId, fn ($query) => $query->whereHas('invoice', fn ($invoice) => $invoice->where('branch_id', $branchId)))
+            ->whereHas('invoice', fn ($invoice) => $user->applyBranchLimit($invoice))
             ->sum('amount');
 
-        $todayInvoices = Invoice::query()
-            ->whereDate('created_at', now()->toDateString())
-            ->when($branchId, fn ($query) => $query->where('branch_id', $branchId))
-            ->count();
+        $todayInvoices = $user->applyBranchLimit(
+            Invoice::query()->whereDate('created_at', now()->toDateString())
+        )->count();
 
         $shift = $billing->currentShift($user);
 

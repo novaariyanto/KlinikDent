@@ -8,6 +8,7 @@ use App\Http\Requests\Pharmacy\StoreStockAdjustmentRequest;
 use App\Models\MedicineStock;
 use App\Support\Pharmacy\InsufficientStockException;
 use App\Support\Pharmacy\PharmacyStockService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,9 +17,7 @@ class StockController extends Controller
 {
     use ScopesPharmacyBranch;
 
-    public function __construct(protected PharmacyStockService $stocks)
-    {
-    }
+    public function __construct(protected PharmacyStockService $stocks) {}
 
     public function index(Request $request): View
     {
@@ -101,8 +100,7 @@ class StockController extends Controller
         $stock = MedicineStock::query()->findOrFail($request->validated('medicine_stock_id'));
         $this->authorize('update', $stock);
 
-        $branchId = $this->restrictedBranchId($request->user());
-        abort_if($branchId && (int) $stock->branch_id !== $branchId, 403);
+        abort_unless($request->user()?->canAccessBranch((int) $stock->branch_id), 403);
 
         try {
             $this->stocks->adjust(
@@ -119,7 +117,7 @@ class StockController extends Controller
     }
 
     /**
-     * @return \Illuminate\Database\Eloquent\Builder<MedicineStock>
+     * @return Builder<MedicineStock>
      */
     protected function stockQuery(Request $request)
     {

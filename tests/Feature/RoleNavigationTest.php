@@ -55,13 +55,26 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Owner);
         $titles = $this->sidebarTitles($user);
 
-        $this->assertContains('Dashboard', $titles);
-        $this->assertContains('Pendaftaran', $titles);
-        $this->assertContains('Pengaturan Klinik', $titles);
+        foreach ([
+            'Dashboard',
+            'Operasional', 'Pendaftaran', 'Antrean', 'Rekam Medis', 'Farmasi', 'Billing & Kasir',
+            'Tenaga Medis', 'Dokter & Tenaga Medis',
+            'Keuangan', 'Laporan',
+            'Master Data', 'Klinik', 'Layanan', 'Tindakan', 'Tarif', 'Obat', 'Penjamin', 'Ruangan',
+            'Manajemen Klinik', 'Cabang', 'Users & Roles', 'Users', 'Roles', 'Pengaturan Klinik',
+            'Integrasi', 'SATUSEHAT', 'BPJS VClaim',
+            'Sistem', 'Audit Log',
+        ] as $title) {
+            $this->assertContains($title, $titles);
+        }
+
+        $this->assertNotContains('Odontogram', $titles);
         $this->assertNotContains('Semua Klinik', $titles);
         $this->assertNotContains('Platform Settings', $titles);
 
         $this->actingAs($user)->get(route('registration.index'))->assertOk();
+        $this->actingAs($user)->get(route('doctors.index'))->assertOk()->assertDontSee('Coming Soon');
+        $this->actingAs($user)->get(route('doctors.schedule'))->assertOk()->assertDontSee('Coming Soon');
         $this->actingAs($user)->get(route('saas.tenants.index'))->assertForbidden();
     }
 
@@ -70,7 +83,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Registration);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard Pendaftaran', 'Pendaftaran', 'Pendaftaran Baru', 'Antrean', 'Jadwal Dokter', 'Penjamin'] as $title) {
+        foreach (['Dashboard Pendaftaran', 'Pendaftaran', 'Pendaftaran Baru', 'Antrean', 'Jadwal Dokter', 'Penjamin', 'Cek BPJS'] as $title) {
             $this->assertContains($title, $titles);
         }
 
@@ -79,6 +92,8 @@ class RoleNavigationTest extends TestCase
         }
 
         $this->actingAs($user)->get(route('registration.patients'))->assertOk();
+        $this->actingAs($user)->get(route('doctors.schedule.today'))->assertOk()->assertDontSee('Coming Soon');
+        $this->actingAs($user)->get(route('doctors.index'))->assertForbidden();
         $this->actingAs($user)->get(route('pharmacy.medicines.index'))->assertForbidden();
     }
 
@@ -87,7 +102,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Dentist);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard', 'Dashboard Dokter', 'Pelayanan', 'Pemeriksaan', 'Riwayat Pasien', 'Lainnya', 'Jadwal Saya', 'Laporan Pribadi'] as $title) {
+        foreach (['Dashboard', 'Dashboard Dokter', 'Pelayanan', 'Pemeriksaan', 'Riwayat Pasien', 'Lainnya', 'Jadwal Saya', 'Laporan Pribadi', 'SATUSEHAT'] as $title) {
             $this->assertContains($title, $titles);
         }
 
@@ -96,6 +111,8 @@ class RoleNavigationTest extends TestCase
         }
 
         $this->actingAs($user)->get(route('examinations.index'))->assertOk();
+        $this->actingAs($user)->get(route('doctors.schedule.mine'))->assertOk()->assertDontSee('Coming Soon');
+        $this->actingAs($user)->get(route('doctors.index'))->assertForbidden();
         $this->actingAs($user)->get(route('billing.payments'))->assertForbidden();
     }
 

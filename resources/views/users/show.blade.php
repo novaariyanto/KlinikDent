@@ -26,13 +26,21 @@
                         </tr>
                         <tr>
                             <th>Cabang</th>
-                            <td>{{ $user->branch?->name ?: '-' }}</td>
+                            <td>
+                                @php
+                                    $branchNames = $user->branches->pluck('name');
+                                    if ($branchNames->isEmpty() && $user->branch) {
+                                        $branchNames = collect([$user->branch->name]);
+                                    }
+                                @endphp
+                                {{ $branchNames->implode(', ') ?: '-' }}
+                            </td>
                         </tr>
                         <tr>
                             <th>Role</th>
                             <td>
                                 @forelse ($user->roles as $role)
-                                    <span class="badge badge-soft-primary">{{ $role->name }}</span>
+                                    <span class="badge badge-soft-primary">{{ \App\Enums\RoleName::tryFrom($role->name)?->label() ?? $role->name }}</span>
                                 @empty
                                     <span class="text-muted">-</span>
                                 @endforelse

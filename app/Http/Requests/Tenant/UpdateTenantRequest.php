@@ -35,6 +35,7 @@ class UpdateTenantRequest extends FormRequest
                 Rule::unique('tenants', 'subdomain')->ignore($tenant->id),
             ],
             'status' => ['required', Rule::enum(TenantStatus::class)],
+            'package_id' => ['nullable', 'integer', 'exists:saas_packages,id'],
         ];
     }
 

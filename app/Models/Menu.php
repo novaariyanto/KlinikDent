@@ -18,9 +18,9 @@ use Spatie\Permission\Models\Role;
 
 class Menu extends Model
 {
-    private const CATALOG_CACHE_KEY = 'sidebar.menus';
+    private const CATALOG_CACHE_KEY = 'sidebar.menus.v2';
 
-    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys';
+    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys.v2';
 
     protected $fillable = [
         'parent_id',
@@ -230,7 +230,7 @@ class Menu extends Model
         }
 
         $filtered = static::rememberFiltered($key, function () use ($user) {
-            return static::filterVisible(static::catalog(), $user);
+            return static::collapseDuplicateRoutes(static::filterVisible(static::catalog(), $user));
         });
 
         request()->attributes->set($key, $filtered);
@@ -279,7 +279,7 @@ class Menu extends Model
             $user->getAllPermissions()->pluck('name')->sort()->implode('|')
         );
 
-        return 'sidebar.for.'.$fingerprint;
+        return 'sidebar.for.v2.'.$fingerprint;
     }
 
     /**
@@ -353,6 +353,56 @@ class Menu extends Model
                 return true;
             })
             ->values();
+    }
+
+    /**
+     * Gabungkan sibling dengan route_name yang sama (mis. beberapa item Dashboard).
+     *
+     * @param  Collection<int, Menu>  $menus
+     * @return Collection<int, Menu>
+     */
+    protected static function collapseDuplicateRoutes(Collection $menus): Collection
+    {
+        $result = new Collection;
+        $keepers = [];
+
+        foreach ($menus as $menu) {
+            $copy = clone $menu;
+
+            if ($copy->relationLoaded('children')) {
+                $copy->setRelation('children', static::collapseDuplicateRoutes($copy->children));
+            }
+
+            $route = $copy->route_name;
+
+            if (! $route) {
+                $result->push($copy);
+
+                continue;
+            }
+
+            if (! isset($keepers[$route])) {
+                $keepers[$route] = $copy;
+                $result->push($copy);
+
+                continue;
+            }
+
+            $keeper = $keepers[$route];
+
+            if ($copy->children->isNotEmpty()) {
+                $keeper->setRelation(
+                    'children',
+                    static::collapseDuplicateRoutes($keeper->children->concat($copy->children)->values())
+                );
+            }
+
+            if ($route === 'dashboard') {
+                $keeper->title = 'Dashboard';
+            }
+        }
+
+        return $result->values();
     }
 
     protected function userCanAccessRoute(User $user): bool

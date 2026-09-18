@@ -19,15 +19,15 @@ class OpenShiftRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = $this->user()?->tenant_id;
-        $branchId = $this->user()?->can('branch.manage') ? null : $this->user()?->branch_id;
+        $ids = $this->user()?->restrictedBranchIds();
 
         return [
             'branch_id' => [
                 'required',
-                Rule::exists('branches', 'id')->where(function ($query) use ($tenantId, $branchId) {
+                Rule::exists('branches', 'id')->where(function ($query) use ($tenantId, $ids) {
                     $query->where('tenant_id', $tenantId);
-                    if ($branchId) {
-                        $query->where('id', $branchId);
+                    if ($ids !== null) {
+                        $query->whereIn('id', $ids);
                     }
                 }),
             ],

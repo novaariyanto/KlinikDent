@@ -311,6 +311,8 @@ final class PermissionCatalog
             'branch.view',
             'branch.manage',
             'integration.view',
+            'satusehat.view',
+            'bpjs.view',
             'audit_log.view',
             'logs.view',
             'setting.view',
@@ -336,6 +338,7 @@ final class PermissionCatalog
             'queue.view',
             'schedule.view',
             'payer.view',
+            'bpjs.view',
         ];
     }
 
@@ -368,6 +371,7 @@ final class PermissionCatalog
             'referral.manage',
             'schedule.view',
             'report.view',
+            'satusehat.view',
         ];
     }
 

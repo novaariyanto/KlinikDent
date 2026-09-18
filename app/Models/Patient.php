@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BpjsMembershipStatus;
 use App\Enums\Gender;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\PatientFactory;
@@ -29,6 +30,9 @@ class Patient extends Model
         'phone',
         'address',
         'default_payer_id',
+        'bpjs_number',
+        'bpjs_status',
+        'bpjs_checked_at',
     ];
 
     /**
@@ -41,6 +45,8 @@ class Patient extends Model
             'default_payer_id' => 'integer',
             'dob' => 'date',
             'gender' => Gender::class,
+            'bpjs_status' => BpjsMembershipStatus::class,
+            'bpjs_checked_at' => 'datetime',
         ];
     }
 

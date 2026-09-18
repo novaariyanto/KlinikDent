@@ -8,11 +8,12 @@ use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Visit\StoreVisitRequest;
 use App\Models\Branch;
-use App\Models\Payer;
 use App\Models\Patient;
+use App\Models\Payer;
 use App\Models\Room;
 use App\Models\User;
 use App\Models\Visit;
+use App\Support\Doctors\ScheduleAvailability;
 use App\Support\Registration\VisitRegistrar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,7 +23,10 @@ use Yajra\DataTables\Facades\DataTables;
 
 class VisitController extends Controller
 {
-    public function __construct(protected VisitRegistrar $registrar) {}
+    public function __construct(
+        protected VisitRegistrar $registrar,
+        protected ScheduleAvailability $schedules,
+    ) {}
 
     public function hub(): View
     {
@@ -109,6 +113,39 @@ class VisitController extends Controller
         return view('registration.visits.create', $this->formData($patient));
     }
 
+    public function availability(Request $request): JsonResponse
+    {
+        $this->authorize('create', Visit::class);
+
+        $data = $request->validate([
+            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'room_id' => ['nullable', 'integer', 'exists:rooms,id'],
+            'visit_date' => ['required', 'date'],
+        ]);
+
+        $user = $request->user();
+        $branch = Branch::query()->findOrFail((int) $data['branch_id']);
+
+        abort_unless(
+            $user && $user->belongsToTenantId((int) $branch->tenant_id) && $user->canAccessBranch((int) $branch->id),
+            403
+        );
+
+        $roomId = ! empty($data['room_id']) ? (int) $data['room_id'] : null;
+
+        if ($roomId) {
+            $room = Room::query()->find($roomId);
+
+            if (! $room || (int) $room->branch_id !== (int) $branch->id) {
+                return response()->json(['doctors' => []]);
+            }
+        }
+
+        return response()->json([
+            'doctors' => $this->schedules->doctorsFor((int) $branch->id, $data['visit_date'], $roomId),
+        ]);
+    }
+
     public function store(StoreVisitRequest $request): RedirectResponse
     {
         $visit = $this->registrar->register($request->user(), $request->validated());
@@ -132,10 +169,13 @@ class VisitController extends Controller
     {
         $this->authorize('cancel', $visit);
 
+        $before = activity_snapshot($visit);
         $visit->update(['status' => VisitStatus::Cancelled]);
         $visit->queue?->update(['status' => QueueStatus::Skipped]);
 
-        activity_log('cancelled', $visit, ['status' => VisitStatus::Cancelled->value], 'Cancelled visit', 'visits');
+        activity_audit('cancelled', $visit, $before, 'Cancelled visit', 'visits', [
+            'status' => VisitStatus::Cancelled->value,
+        ]);
 
         return back()->with('success', 'Kunjungan dibatalkan.');
     }
@@ -146,13 +186,31 @@ class VisitController extends Controller
     protected function formData(?Patient $patient = null): array
     {
         $user = auth()->user();
+        $branches = Branch::query()->orderBy('name');
+        $rooms = Room::query()
+            ->active()
+            ->with('branch')
+            ->orderByRaw("CASE WHEN type = 'poli' THEN 0 ELSE 1 END")
+            ->orderBy('name');
+
+        if ($user) {
+            $user->applyBranchLimit($branches, 'id');
+            $user->applyBranchLimit($rooms);
+        }
 
         return [
             'patient' => $patient,
             'payers' => Payer::query()->orderBy('name')->get(),
-            'branches' => Branch::query()->orderBy('name')->get(),
-            'rooms' => Room::query()->active()->with('branch')->orderBy('name')->get(),
-            'doctors' => User::query()->doctors()->orderBy('name')->get(),
+            'branches' => $branches->get(),
+            'rooms' => $rooms->get(),
+            'doctors' => User::query()
+                ->doctors()
+                ->where(function ($query) {
+                    $query->whereDoesntHave('doctorProfile')
+                        ->orWhereHas('doctorProfile', fn ($profile) => $profile->where('is_active', true));
+                })
+                ->orderBy('name')
+                ->get(),
             'genders' => Gender::options(),
             'defaultBranchId' => $user?->branch_id,
         ];

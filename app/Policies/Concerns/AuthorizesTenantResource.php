@@ -19,7 +19,8 @@ trait AuthorizesTenantResource
     public function view(User $user, Model $model): bool
     {
         return $user->can($this->viewPermission())
-            && $user->belongsToTenantId($this->tenantIdOf($model));
+            && $user->belongsToTenantId($this->tenantIdOf($model))
+            && $this->canAccessModelBranch($user, $model);
     }
 
     public function create(User $user): bool
@@ -30,7 +31,8 @@ trait AuthorizesTenantResource
     public function update(User $user, Model $model): bool
     {
         return $user->can($this->managePermission())
-            && $user->belongsToTenantId($this->tenantIdOf($model));
+            && $user->belongsToTenantId($this->tenantIdOf($model))
+            && $this->canAccessModelBranch($user, $model);
     }
 
     public function delete(User $user, Model $model): bool
@@ -43,5 +45,16 @@ trait AuthorizesTenantResource
         $tenantId = $model->getAttribute('tenant_id');
 
         return $tenantId !== null ? (int) $tenantId : null;
+    }
+
+    protected function canAccessModelBranch(User $user, Model $model): bool
+    {
+        $branchId = $model->getAttribute('branch_id');
+
+        if ($branchId === null) {
+            return true;
+        }
+
+        return $user->canAccessBranch((int) $branchId);
     }
 }

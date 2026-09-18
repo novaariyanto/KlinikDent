@@ -26,6 +26,9 @@
     <div class="col-md-6">
         <x-select name="default_payer_id" label="Penjamin Default" :options="$payerOptions" :selected="old('default_payer_id', $patient?->default_payer_id)" placeholder="Pilih penjamin" />
     </div>
+    <div class="col-md-6">
+        <x-input name="bpjs_number" label="No. Kartu BPJS" :value="$patient?->bpjs_number" />
+    </div>
     @if (! $patient)
         <div class="col-md-6">
             <x-select name="branch_id" label="Cabang (untuk No. RM)" :options="$branchOptions" :selected="old('branch_id', auth()->user()?->branch_id)" required />

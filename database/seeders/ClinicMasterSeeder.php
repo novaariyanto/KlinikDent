@@ -97,7 +97,9 @@ class ClinicMasterSeeder extends Seeder
 
         foreach ($branches as $branch) {
             foreach ([
-                ['name' => 'Poli Gigi', 'type' => RoomType::Poli],
+                ['name' => 'Poli Umum', 'type' => RoomType::Poli],
+                ['name' => 'Poli Gigi 1', 'type' => RoomType::Poli],
+                ['name' => 'Poli Gigi 2', 'type' => RoomType::Poli],
                 ['name' => 'Ruang Tindakan', 'type' => RoomType::Tindakan],
                 ['name' => 'Ruang Tunggu', 'type' => RoomType::Tunggu],
             ] as $room) {

@@ -81,9 +81,24 @@
 
         <div class="col-lg-4">
             <x-card title="Properties">
-                @if ($log->properties)
-                    <pre class="bg-light border rounded p-3 mb-0 small text-wrap">{{ json_encode($log->properties, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
-                @else
+                @php
+                    $properties = $log->properties ?? [];
+                    $before = $properties['before'] ?? null;
+                    $after = $properties['after'] ?? null;
+                    $rest = collect($properties)->except(['before', 'after'])->all();
+                @endphp
+                @if ($before || $after)
+                    <h6 class="text-muted">Sebelum</h6>
+                    <pre class="bg-light border rounded p-3 small text-wrap">{{ json_encode($before ?: new \stdClass, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
+                    <h6 class="text-muted mt-3">Sesudah</h6>
+                    <pre class="bg-light border rounded p-3 small text-wrap">{{ json_encode($after ?: new \stdClass, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
+                @endif
+                @if ($rest)
+                    @if ($before || $after)
+                        <h6 class="text-muted mt-3">Lainnya</h6>
+                    @endif
+                    <pre class="bg-light border rounded p-3 mb-0 small text-wrap">{{ json_encode($rest, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) }}</pre>
+                @elseif (! $before && ! $after)
                     <p class="text-muted mb-0">No additional properties.</p>
                 @endif
             </x-card>

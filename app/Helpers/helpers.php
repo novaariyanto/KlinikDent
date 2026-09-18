@@ -5,6 +5,7 @@ use App\Models\User;
 use App\Support\AppSettings;
 use App\Support\ClinicSettings;
 use App\Support\Impersonation;
+use Illuminate\Database\Eloquent\Model;
 
 if (! function_exists('theme')) {
     function theme(string $path = ''): string
@@ -33,6 +34,48 @@ if (! function_exists('activity_log')) {
         ?User $causer = null,
     ): void {
         ActivityLog::record($event, $subject, $properties, $description, $module, $causer);
+    }
+}
+
+if (! function_exists('activity_snapshot')) {
+    /**
+     * @return array<string, mixed>
+     */
+    function activity_snapshot(mixed $model): array
+    {
+        if (! $model instanceof Model) {
+            return [];
+        }
+
+        return ActivityLog::sanitize($model->attributesToArray());
+    }
+}
+
+if (! function_exists('activity_audit')) {
+    /**
+     * @param  array<string, mixed>|null  $before
+     * @param  array<string, mixed>  $extra
+     */
+    function activity_audit(
+        string $event,
+        mixed $subject = null,
+        ?array $before = null,
+        ?string $description = null,
+        ?string $module = null,
+        array $extra = [],
+        ?User $causer = null,
+    ): void {
+        $properties = $extra;
+
+        if ($before !== null) {
+            $properties['before'] = $before;
+        }
+
+        if ($event !== 'deleted' && $subject instanceof Model) {
+            $properties['after'] = activity_snapshot($subject);
+        }
+
+        activity_log($event, $subject, $properties, $description, $module, $causer);
     }
 }
 

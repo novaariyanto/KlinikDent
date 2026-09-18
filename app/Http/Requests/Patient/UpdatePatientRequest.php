@@ -47,6 +47,7 @@ class UpdatePatientRequest extends FormRequest
                 'integer',
                 Rule::exists('payers', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
             ],
+            'bpjs_number' => ['nullable', 'string', 'max:20'],
         ];
     }
 

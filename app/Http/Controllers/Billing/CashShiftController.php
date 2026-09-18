@@ -8,7 +8,6 @@ use App\Http\Controllers\Billing\Concerns\ScopesBillingBranch;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Billing\CloseShiftRequest;
 use App\Http\Requests\Billing\OpenShiftRequest;
-use App\Models\Branch;
 use App\Models\CashierShift;
 use App\Support\Billing\BillingException;
 use App\Support\Billing\BillingService;
@@ -20,28 +19,23 @@ class CashShiftController extends Controller
 {
     use ScopesBillingBranch;
 
-    public function __construct(protected BillingService $billing)
-    {
-    }
+    public function __construct(protected BillingService $billing) {}
 
     public function openForm(Request $request): View
     {
         $this->authorize('create', CashierShift::class);
 
         $user = $request->user();
-        $branchId = $this->restrictedBranchId($user);
         $current = $this->billing->currentShift($user);
 
-        $branches = Branch::query()
-            ->when($branchId, fn ($query) => $query->whereKey($branchId))
-            ->orderBy('name')
+        $branches = $this->assignedBranches($user)
             ->pluck('name', 'id')
             ->all();
 
         return view('billing.shifts.open', [
             'branches' => $branches,
             'current' => $current,
-            'defaultBranchId' => $branchId ?: $user?->branch_id,
+            'defaultBranchId' => $user?->branch_id ?: array_key_first($branches),
         ]);
     }
 

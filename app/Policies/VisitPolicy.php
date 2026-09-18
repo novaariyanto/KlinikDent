@@ -18,7 +18,7 @@ class VisitPolicy
 
     public function view(User $user, Visit $visit): bool
     {
-        if (! $this->viewAny($user) || ! $user->belongsToTenantId($visit->tenant_id)) {
+        if (! $this->viewAny($user) || ! $user->belongsToTenantId($visit->tenant_id) || ! $user->canAccessBranch((int) $visit->branch_id)) {
             return false;
         }
 
@@ -33,7 +33,8 @@ class VisitPolicy
     public function update(User $user, Visit $visit): bool
     {
         return $user->can('registration.update')
-            && $user->belongsToTenantId($visit->tenant_id);
+            && $user->belongsToTenantId($visit->tenant_id)
+            && $user->canAccessBranch((int) $visit->branch_id);
     }
 
     public function cancel(User $user, Visit $visit): bool
@@ -43,7 +44,8 @@ class VisitPolicy
         }
 
         return $user->can('registration.cancel')
-            && $user->belongsToTenantId($visit->tenant_id);
+            && $user->belongsToTenantId($visit->tenant_id)
+            && $user->canAccessBranch((int) $visit->branch_id);
     }
 
     public function delete(User $user, Visit $visit): bool

@@ -10,12 +10,16 @@ use App\Models\Queue;
 use App\Models\Room;
 use App\Models\User;
 use App\Models\Visit;
+use App\Support\Doctors\ScheduleAvailability;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class VisitRegistrar
 {
-    public function __construct(protected DocumentSequenceGenerator $sequences) {}
+    public function __construct(
+        protected DocumentSequenceGenerator $sequences,
+        protected ScheduleAvailability $schedules,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -27,15 +31,27 @@ class VisitRegistrar
             $branch = $this->resolveBranch($actor, $data['branch_id'] ?? null);
             $patient = $this->resolvePatient($actor, $tenantId, $branch, $data);
 
+            $visitDate = $data['visit_date'] ?? now()->toDateString();
+            $doctorId = $data['doctor_id'] ?? null;
+            $roomId = $this->resolveRoomId($tenantId, $branch, $data['room_id'] ?? null);
+
+            if ($doctorId) {
+                $this->schedules->assertDoctorCanServe((int) $doctorId, (int) $branch->id, (string) $visitDate, $roomId);
+
+                if (! $roomId) {
+                    $roomId = $this->schedules->defaultRoomId((int) $doctorId, (int) $branch->id, (string) $visitDate);
+                }
+            }
+
             $visit = Visit::query()->create([
                 'tenant_id' => $tenantId,
                 'branch_id' => $branch->id,
                 'patient_id' => $patient->id,
-                'doctor_id' => $data['doctor_id'] ?? null,
-                'room_id' => $this->resolveRoomId($tenantId, $branch, $data['room_id'] ?? null),
+                'doctor_id' => $doctorId,
+                'room_id' => $roomId,
                 'payer_id' => $data['payer_id'],
                 'status' => VisitStatus::Waiting,
-                'visit_date' => $data['visit_date'] ?? now()->toDateString(),
+                'visit_date' => $visitDate,
             ]);
 
             Queue::query()->create([
@@ -115,9 +131,9 @@ class VisitRegistrar
             ]);
         }
 
-        if ($actor->branch_id && ! $actor->can('branch.manage') && (int) $branch->id !== (int) $actor->branch_id) {
+        if (! $actor->canAccessBranch((int) $branch->id)) {
             throw ValidationException::withMessages([
-                'branch_id' => 'Anda hanya dapat mendaftar pada cabang Anda.',
+                'branch_id' => 'Anda hanya dapat mendaftar pada cabang yang ditugaskan.',
             ]);
         }
 

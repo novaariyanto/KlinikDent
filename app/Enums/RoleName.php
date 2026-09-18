@@ -38,6 +38,27 @@ enum RoleName: string
         return $this === self::SuperAdminSaas;
     }
 
+    public function isMedicalStaff(): bool
+    {
+        return in_array($this, [
+            self::Dentist,
+            self::DentalAssistant,
+            self::Nurse,
+        ], true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function medicalStaffValues(): array
+    {
+        return [
+            self::Dentist->value,
+            self::DentalAssistant->value,
+            self::Nurse->value,
+        ];
+    }
+
     public function dashboardTitle(): string
     {
         return match ($this) {
@@ -54,7 +75,7 @@ enum RoleName: string
     public function dashboardDescription(): string
     {
         return match ($this) {
-            self::SuperAdminSaas => 'Dashboard pengelolaan platform SaaS akan dikembangkan pada tahap berikutnya.',
+            self::SuperAdminSaas => 'Ringkasan tenant, langganan, dan status klinik di platform.',
             self::Owner => 'Dashboard pemilik klinik akan dikembangkan pada tahap berikutnya.',
             self::Manager => 'Dashboard operasional klinik akan dikembangkan pada tahap berikutnya.',
             self::Registration => 'Dashboard pendaftaran pasien akan dikembangkan pada tahap berikutnya.',

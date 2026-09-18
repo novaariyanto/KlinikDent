@@ -86,7 +86,7 @@ class PatientController extends Controller
         $user = $request->user();
         $branch = Branch::query()->find($data['branch_id'] ?? $user?->branch_id);
 
-        abort_unless($branch && $user?->belongsToTenantId($branch->tenant_id), 403);
+        abort_unless($branch && $user?->belongsToTenantId($branch->tenant_id) && $user->canAccessBranch((int) $branch->id), 403);
 
         $patient = DB::transaction(function () use ($data, $user, $branch) {
             unset($data['branch_id']);
@@ -96,7 +96,7 @@ class PatientController extends Controller
             return Patient::query()->create($data);
         });
 
-        activity_log('created', $patient, $data, 'Created patient '.$patient->name, 'patients');
+        activity_audit('created', $patient, [], 'Created patient '.$patient->name, 'patients');
 
         return redirect()->route('registration.patients.show', $patient)
             ->with('success', 'Pasien created successfully.');
@@ -120,9 +120,10 @@ class PatientController extends Controller
     public function update(UpdatePatientRequest $request, Patient $patient): RedirectResponse
     {
         $data = $request->validated();
+        $before = activity_snapshot($patient);
         $patient->update($data);
 
-        activity_log('updated', $patient, $data, 'Updated patient '.$patient->name, 'patients');
+        activity_audit('updated', $patient, $before, 'Updated patient '.$patient->name, 'patients');
 
         return redirect()->route('registration.patients.show', $patient)
             ->with('success', 'Pasien updated successfully.');
@@ -136,7 +137,9 @@ class PatientController extends Controller
             return back()->with('error', 'Pasien tidak dapat dihapus karena sudah memiliki kunjungan.');
         }
 
-        activity_log('deleted', $patient, ['name' => $patient->name], 'Deleted patient '.$patient->name, 'patients');
+        activity_audit('deleted', $patient, activity_snapshot($patient), 'Deleted patient '.$patient->name, 'patients', [
+            'name' => $patient->name,
+        ]);
         $patient->delete();
 
         return redirect()->route('registration.patients')->with('success', 'Pasien deleted successfully.');

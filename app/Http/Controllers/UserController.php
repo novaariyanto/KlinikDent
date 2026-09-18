@@ -48,18 +48,29 @@ class UserController extends Controller
     {
         $this->authorize('viewAny', User::class);
 
-        $query = User::query()->with(['roles', 'tenant', 'branch']);
+        $query = User::query()->with(['roles', 'tenant', 'branch', 'branches']);
 
         return DataTables::eloquent($query)
             ->addIndexColumn()
             ->addColumn('role', function (User $user) {
                 return $user->roles
                     ->pluck('name')
-                    ->map(fn (string $name) => '<span class="badge badge-soft-primary">'.e($name).'</span>')
+                    ->map(function (string $name) {
+                        $label = RoleName::tryFrom($name)?->label() ?? $name;
+
+                        return '<span class="badge badge-soft-primary">'.e($label).'</span>';
+                    })
                     ->implode(' ');
             })
             ->addColumn('tenant', fn (User $user) => e($user->tenant?->name ?: '-'))
-            ->addColumn('branch', fn (User $user) => e($user->branch?->name ?: '-'))
+            ->addColumn('branch', function (User $user) {
+                $names = $user->branches->pluck('name');
+                if ($names->isEmpty() && $user->branch) {
+                    $names = collect([$user->branch->name]);
+                }
+
+                return e($names->implode(', ') ?: '-');
+            })
             ->editColumn('status', function (User $user) {
                 return '<span class="'.$user->status->badgeClass().'">'.e($user->status->label()).'</span>';
             })
@@ -84,6 +95,7 @@ class UserController extends Controller
     public function store(StoreUserRequest $request): RedirectResponse
     {
         $data = $request->validated();
+        $branchIds = array_values(array_unique(array_map('intval', $data['branch_ids'] ?? [])));
 
         $user = User::query()->create([
             'name' => $data['name'],
@@ -91,12 +103,16 @@ class UserController extends Controller
             'password' => $data['password'],
             'status' => $data['status'],
             'tenant_id' => $request->resolvedTenantId(),
-            'branch_id' => $data['branch_id'] ?? null,
+            'branch_id' => $branchIds[0] ?? null,
         ]);
 
-        $user->syncRoles([$data['role']]);
+        $user->syncRoles($data['roles']);
+        $user->syncAssignedBranches($branchIds);
 
-        activity_log('created', $user, ['role' => $data['role']], 'Created user '.$user->name, 'users');
+        activity_audit('created', $user, [], 'Created user '.$user->name, 'users', [
+            'roles' => $data['roles'],
+            'branch_ids' => $branchIds,
+        ]);
 
         return redirect()
             ->route('users.index')
@@ -107,7 +123,7 @@ class UserController extends Controller
     {
         $this->authorize('view', $user);
 
-        $user->load('roles', 'permissions', 'tenant', 'branch');
+        $user->load('roles', 'permissions', 'tenant', 'branch', 'branches');
 
         return view('users.show', compact('user'));
     }
@@ -116,7 +132,7 @@ class UserController extends Controller
     {
         $this->authorize('update', $user);
 
-        $user->load('roles');
+        $user->load('roles', 'branches');
 
         return view('users.edit', $this->formData($user));
     }
@@ -124,13 +140,15 @@ class UserController extends Controller
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
         $data = $request->validated();
+        $before = activity_snapshot($user);
+        $branchIds = array_values(array_unique(array_map('intval', $data['branch_ids'] ?? [])));
 
         $payload = [
             'name' => $data['name'],
             'email' => $data['email'],
             'status' => $data['status'],
             'tenant_id' => $request->resolvedTenantId(),
-            'branch_id' => $data['branch_id'] ?? null,
+            'branch_id' => $branchIds[0] ?? null,
         ];
 
         if (! empty($data['password'])) {
@@ -138,12 +156,14 @@ class UserController extends Controller
         }
 
         $user->update($payload);
-        $user->syncRoles([$data['role']]);
+        $user->syncRoles($data['roles']);
+        $user->syncAssignedBranches($branchIds);
 
-        activity_log('updated', $user, [
-            'role' => $data['role'],
+        activity_audit('updated', $user->fresh(), $before, 'Updated user '.$user->name, 'users', [
+            'roles' => $data['roles'],
             'password_changed' => ! empty($data['password']),
-        ], 'Updated user '.$user->name, 'users');
+            'branch_ids' => $branchIds,
+        ]);
 
         return redirect()
             ->route('users.index')
@@ -158,10 +178,12 @@ class UserController extends Controller
             return back()->with('error', 'You cannot delete your own account.');
         }
 
-        activity_log('deleted', $user, [
+        $before = activity_snapshot($user);
+
+        activity_audit('deleted', $user, $before, 'Deleted user '.$user->name, 'users', [
             'name' => $user->name,
             'email' => $user->email,
-        ], 'Deleted user '.$user->name, 'users');
+        ]);
 
         $user->delete();
 

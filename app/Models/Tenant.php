@@ -51,6 +51,38 @@ class Tenant extends Model
         return $this->hasMany(User::class);
     }
 
+    /**
+     * @return BelongsTo<SaasPackage, $this>
+     */
+    public function package(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(SaasPackage::class, 'plan_id');
+    }
+
+    /**
+     * @return HasMany<TenantIntegration, $this>
+     */
+    public function integrations(): HasMany
+    {
+        return $this->hasMany(TenantIntegration::class);
+    }
+
+    /**
+     * @return HasMany<SaasSubscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(SaasSubscription::class);
+    }
+
+    public function currentSubscription(): ?SaasSubscription
+    {
+        return $this->subscriptions()
+            ->with('package')
+            ->latest('id')
+            ->first();
+    }
+
     public function isActive(): bool
     {
         return $this->status === TenantStatus::Active || $this->status === TenantStatus::Trial;

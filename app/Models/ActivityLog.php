@@ -122,9 +122,20 @@ class ActivityLog extends Model
      * @param  array<string, mixed>  $properties
      * @return array<string, mixed>
      */
-    protected static function sanitize(array $properties): array
+    public static function sanitize(array $properties): array
     {
-        $hidden = ['password', 'password_confirmation', 'remember_token', 'mail_password', 'token'];
+        $hidden = [
+            'password',
+            'password_confirmation',
+            'remember_token',
+            'mail_password',
+            'token',
+            'client_secret',
+            'secret_key',
+            'user_key',
+            'cons_id',
+            'credentials',
+        ];
 
         foreach ($properties as $key => $value) {
             if (in_array(strtolower((string) $key), $hidden, true)) {

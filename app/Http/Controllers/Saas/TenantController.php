@@ -2,11 +2,15 @@
 
 namespace App\Http\Controllers\Saas;
 
+use App\Enums\IntegrationProvider;
 use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\StoreTenantRequest;
 use App\Http\Requests\Tenant\UpdateTenantRequest;
+use App\Models\SaasPackage;
 use App\Models\Tenant;
+use App\Models\TenantIntegration;
+use App\Support\Saas\SubscriptionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -56,12 +60,25 @@ class TenantController extends Controller
 
         return view('saas.tenants.create', [
             'statuses' => TenantStatus::cases(),
+            'packages' => SaasPackage::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
-    public function store(StoreTenantRequest $request): RedirectResponse
+    public function store(StoreTenantRequest $request, SubscriptionService $subscriptions): RedirectResponse
     {
-        $tenant = Tenant::query()->create($request->validated());
+        $data = $request->validated();
+        $packageId = $data['package_id'] ?? null;
+        unset($data['package_id']);
+        $data['plan_id'] = $packageId;
+
+        $tenant = Tenant::query()->create($data);
+
+        if ($packageId) {
+            $package = SaasPackage::query()->find($packageId);
+            if ($package) {
+                $subscriptions->start($tenant, $package, $tenant->status === TenantStatus::Trial);
+            }
+        }
 
         activity_log('created', $tenant, $request->validated(), 'Created tenant '.$tenant->name, 'tenants');
 
@@ -74,9 +91,17 @@ class TenantController extends Controller
     {
         $this->authorize('view', $tenant);
 
-        $tenant->load(['branches', 'users.roles']);
+        $tenant->load(['branches', 'users.roles', 'package', 'subscriptions.package', 'integrations']);
 
-        return view('saas.tenants.show', compact('tenant'));
+        return view('saas.tenants.show', [
+            'tenant' => $tenant,
+            'satusehat' => $tenant->integrations->first(
+                fn ($row) => $row->provider === IntegrationProvider::SatuSehat
+            ) ?? TenantIntegration::forTenant($tenant->id, IntegrationProvider::SatuSehat),
+            'bpjs' => $tenant->integrations->first(
+                fn ($row) => $row->provider === IntegrationProvider::Bpjs
+            ) ?? TenantIntegration::forTenant($tenant->id, IntegrationProvider::Bpjs),
+        ]);
     }
 
     public function edit(Tenant $tenant): View
@@ -86,6 +111,7 @@ class TenantController extends Controller
         return view('saas.tenants.edit', [
             'tenant' => $tenant,
             'statuses' => TenantStatus::cases(),
+            'packages' => SaasPackage::query()->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 

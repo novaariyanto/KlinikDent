@@ -46,6 +46,7 @@ class StorePatientRequest extends FormRequest
                 'integer',
                 Rule::exists('branches', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
             ],
+            'bpjs_number' => ['nullable', 'string', 'max:20'],
         ];
     }
 

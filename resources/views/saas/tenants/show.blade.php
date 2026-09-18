@@ -21,9 +21,19 @@
                             <td><code>{{ $tenant->subdomain }}</code></td>
                         </tr>
                         <tr>
-                            <th>Status</th>
+                            <th>Paket</th>
+                            <td>{{ $tenant->package?->name ?: '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Langganan</th>
                             <td>
-                                <span class="{{ $tenant->status->badgeClass() }}">{{ $tenant->status->label() }}</span>
+                                @php($current = $tenant->currentSubscription())
+                                @if ($current)
+                                    <span class="{{ $current->status->badgeClass() }}">{{ $current->status->label() }}</span>
+                                    sampai {{ $current->ends_at?->format('d M Y') }}
+                                @else
+                                    -
+                                @endif
                             </td>
                         </tr>
                         <tr>
@@ -50,6 +60,16 @@
             </x-card>
         </div>
         <div class="col-lg-5">
+            <x-card title="Integrasi klinik">
+                <div class="d-flex justify-content-between border-bottom py-2">
+                    <span>SATUSEHAT</span>
+                    <span>{{ $satusehat->statusLabel() }}</span>
+                </div>
+                <div class="d-flex justify-content-between py-2">
+                    <span>BPJS</span>
+                    <span>{{ $bpjs->statusLabel() }}</span>
+                </div>
+            </x-card>
             <x-card title="Cabang">
                 @forelse ($tenant->branches as $branch)
                     <div class="d-flex justify-content-between border-bottom py-2">

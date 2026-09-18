@@ -13,11 +13,17 @@ use App\Http\Controllers\Clinical\ClinicalIndexController;
 use App\Http\Controllers\Clinical\PatientHistoryController;
 use App\Http\Controllers\Clinical\PharmacyPrescriptionController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Pharmacy\PharmacyDashboardController;
-use App\Http\Controllers\Pharmacy\PharmacyReportController;
-use App\Http\Controllers\Pharmacy\PurchaseOrderController;
-use App\Http\Controllers\Pharmacy\StockController;
-use App\Http\Controllers\Pharmacy\SupplierController;
+use App\Http\Controllers\DoctorController;
+use App\Http\Controllers\DoctorScheduleController;
+use App\Http\Controllers\Finance\CashBankController;
+use App\Http\Controllers\Finance\ExpenseCategoryController;
+use App\Http\Controllers\Finance\ExpenseController;
+use App\Http\Controllers\Finance\FinanceDashboardController;
+use App\Http\Controllers\Finance\FinanceReportController;
+use App\Http\Controllers\Finance\PayableController;
+use App\Http\Controllers\Finance\ReceivableController;
+use App\Http\Controllers\Finance\RevenueController;
+use App\Http\Controllers\Integration\IntegrationController;
 use App\Http\Controllers\Management\ClinicController;
 use App\Http\Controllers\Management\MedicineController;
 use App\Http\Controllers\Management\PayerController;
@@ -26,11 +32,21 @@ use App\Http\Controllers\Management\RoomController;
 use App\Http\Controllers\Management\ServiceController;
 use App\Http\Controllers\Management\TariffController;
 use App\Http\Controllers\MenuController;
+use App\Http\Controllers\Pharmacy\PharmacyDashboardController;
+use App\Http\Controllers\Pharmacy\PharmacyReportController;
+use App\Http\Controllers\Pharmacy\PurchaseOrderController;
+use App\Http\Controllers\Pharmacy\StockController;
+use App\Http\Controllers\Pharmacy\SupplierController;
 use App\Http\Controllers\Registration\PatientController;
 use App\Http\Controllers\Registration\QueueController;
 use App\Http\Controllers\Registration\QueueMonitorController;
 use App\Http\Controllers\Registration\VisitController;
+use App\Http\Controllers\Reports\ReportController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\Saas\InvoiceController as SaasInvoiceController;
+use App\Http\Controllers\Saas\PackageController;
+use App\Http\Controllers\Saas\PlatformOpsController;
+use App\Http\Controllers\Saas\SubscriptionController;
 use App\Http\Controllers\Saas\TenantController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\Settings\ClinicSettingController;
@@ -45,7 +61,9 @@ Route::get('/', function () {
 
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'create'])->name('login');
-    Route::post('/login', [LoginController::class, 'store'])->name('login.store');
+    Route::post('/login', [LoginController::class, 'store'])
+        ->middleware('throttle:login')
+        ->name('login.store');
 });
 
 Route::post('/logout', [LoginController::class, 'destroy'])
@@ -55,12 +73,12 @@ Route::post('/logout', [LoginController::class, 'destroy'])
 Route::get('/antrean/{token}', [QueueMonitorController::class, 'public'])->name('queue.monitor.public');
 Route::get('/antrean/{token}/data', [QueueMonitorController::class, 'feed'])->name('queue.monitor.feed');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'route.permission'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])
         ->middleware('permission:dashboard.view')
         ->name('dashboard');
 
-    Route::middleware('tenant.scope')->group(function () {
+    Route::middleware(['tenant.scope', 'tenant.active'])->group(function () {
         Route::get('/users/data', [UserController::class, 'data'])
             ->middleware('permission:users.view')
             ->name('users.data');
@@ -116,6 +134,38 @@ Route::middleware('auth')->group(function () {
             Route::resource('rooms', RoomController::class);
         });
 
+        Route::get('/doctors/data', [DoctorController::class, 'data'])
+            ->middleware('permission:doctor.view')
+            ->name('doctors.data');
+        Route::get('/doctors/schedule/today', [DoctorScheduleController::class, 'today'])
+            ->middleware('permission:schedule.view')
+            ->name('doctors.schedule.today');
+        Route::get('/doctors/schedule/mine', [DoctorScheduleController::class, 'mine'])
+            ->middleware('permission:schedule.view')
+            ->name('doctors.schedule.mine');
+        Route::get('/doctors/schedule/create', [DoctorScheduleController::class, 'create'])
+            ->middleware('permission:schedule.manage')
+            ->name('doctors.schedule.create');
+        Route::get('/doctors/schedule', [DoctorScheduleController::class, 'index'])
+            ->middleware('permission:schedule.view')
+            ->name('doctors.schedule');
+        Route::post('/doctors/schedules', [DoctorScheduleController::class, 'store'])
+            ->middleware('permission:schedule.manage')
+            ->name('doctors.schedule.store');
+        Route::post('/doctors/{doctor}/schedules', [DoctorScheduleController::class, 'store'])
+            ->middleware('permission:schedule.manage')
+            ->name('doctors.schedules.store');
+        Route::get('/doctors/schedules/{doctorSchedule}/edit', [DoctorScheduleController::class, 'edit'])
+            ->middleware('permission:schedule.manage')
+            ->name('doctors.schedules.edit');
+        Route::put('/doctors/schedules/{doctorSchedule}', [DoctorScheduleController::class, 'update'])
+            ->middleware('permission:schedule.manage')
+            ->name('doctors.schedules.update');
+        Route::delete('/doctors/schedules/{doctorSchedule}', [DoctorScheduleController::class, 'destroy'])
+            ->middleware('permission:schedule.manage')
+            ->name('doctors.schedules.destroy');
+        Route::resource('doctors', DoctorController::class);
+
         Route::get('/pharmacy/medicines', [MedicineController::class, 'index'])
             ->middleware('permission:medicine.view')
             ->name('pharmacy.medicines.index');
@@ -129,6 +179,7 @@ Route::middleware('auth')->group(function () {
 
         Route::get('/registration', [VisitController::class, 'hub'])->name('registration.index');
         Route::get('/registration/new', [VisitController::class, 'create'])->name('registration.new');
+        Route::get('/registration/availability', [VisitController::class, 'availability'])->name('registration.availability');
         Route::post('/registration/visits', [VisitController::class, 'store'])->name('registration.visits.store');
         Route::get('/registration/visits/data', [VisitController::class, 'data'])->name('registration.visits.data');
         Route::get('/registration/visits/today', [VisitController::class, 'index'])->name('registration.visits.today');
@@ -238,6 +289,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/pharmacy/reports/expired', [PharmacyReportController::class, 'expired'])->name('pharmacy.reports.expired');
         Route::get('/reports/pharmacy', [PharmacyReportController::class, 'landing'])->name('reports.pharmacy');
 
+        Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+        Route::get('/reports/visits', [ReportController::class, 'visits'])->name('reports.visits');
+        Route::get('/reports/revenue', [ReportController::class, 'revenue'])->name('reports.revenue');
+        Route::get('/reports/procedures', [ReportController::class, 'procedures'])->name('reports.procedures');
+        Route::get('/reports/patients', [ReportController::class, 'patients'])->name('reports.patients');
+        Route::get('/reports/personal', [ReportController::class, 'personal'])->name('reports.personal');
+        Route::get('/reports/operational', [ReportController::class, 'operational'])->name('reports.operational');
+        Route::get('/reports/medical', [ReportController::class, 'medical'])->name('reports.medical');
+        Route::get('/reports/finance', [ReportController::class, 'finance'])->name('reports.finance');
+
         Route::get('/billing', [BillingDashboardController::class, 'index'])->name('billing.index');
         Route::get('/billing/invoices', [InvoiceController::class, 'index'])->name('billing.invoices');
         Route::get('/billing/invoices/today', [InvoiceController::class, 'today'])->name('billing.invoices.today');
@@ -257,12 +318,66 @@ Route::middleware('auth')->group(function () {
         Route::post('/cashier/shifts/close', [CashShiftController::class, 'close'])->name('cashier.shifts.close.store');
         Route::get('/cashier/reports', [CashShiftController::class, 'reports'])->name('cashier.reports');
 
+        Route::get('/finance', [FinanceDashboardController::class, 'index'])->name('finance.index');
+        Route::get('/finance/revenue/daily', [RevenueController::class, 'daily'])->name('finance.revenue.daily');
+        Route::get('/finance/revenue/monthly', [RevenueController::class, 'monthly'])->name('finance.revenue.monthly');
+        Route::get('/finance/revenue/doctors', [RevenueController::class, 'doctors'])->name('finance.revenue.doctors');
+        Route::get('/finance/expenses', [ExpenseController::class, 'index'])->name('finance.expenses');
+        Route::post('/finance/expenses', [ExpenseController::class, 'store'])->name('finance.expenses.store');
+        Route::get('/finance/expenses/categories', [ExpenseCategoryController::class, 'index'])->name('finance.expenses.categories');
+        Route::post('/finance/expenses/categories', [ExpenseCategoryController::class, 'store'])->name('finance.expenses.categories.store');
+        Route::put('/finance/expenses/categories/{expenseCategory}', [ExpenseCategoryController::class, 'update'])->name('finance.expenses.categories.update');
+        Route::delete('/finance/expenses/categories/{expenseCategory}', [ExpenseCategoryController::class, 'destroy'])->name('finance.expenses.categories.destroy');
+        Route::get('/finance/expenses/suppliers', [ExpenseController::class, 'suppliers'])->name('finance.expenses.suppliers');
+        Route::get('/finance/receivables', [ReceivableController::class, 'index'])->name('finance.receivables');
+        Route::get('/finance/payables', [PayableController::class, 'index'])->name('finance.payables');
+        Route::post('/finance/payables/{purchaseOrder}/pay', [PayableController::class, 'pay'])->name('finance.payables.pay');
+        Route::get('/finance/cash-bank', [CashBankController::class, 'index'])->name('finance.cash-bank');
+        Route::get('/finance/reports/revenue', [FinanceReportController::class, 'revenue'])->name('finance.reports.revenue');
+        Route::get('/finance/reports/expenses', [FinanceReportController::class, 'expenses'])->name('finance.reports.expenses');
+        Route::get('/finance/reports/cashflow', [FinanceReportController::class, 'cashflow'])->name('finance.reports.cashflow');
+        Route::get('/finance/reports/receivables', [FinanceReportController::class, 'receivables'])->name('finance.reports.receivables');
+        Route::get('/finance/reports/profit-loss', [FinanceReportController::class, 'profitLoss'])->name('finance.reports.profit-loss');
+
         Route::get('/settings/clinic', [ClinicSettingController::class, 'index'])
             ->middleware('permission:setting.view')
             ->name('settings.clinic');
         Route::put('/settings/clinic', [ClinicSettingController::class, 'update'])
             ->middleware('permission:setting.manage')
             ->name('settings.clinic.update');
+
+        Route::get('/integrations', [IntegrationController::class, 'index'])
+            ->name('integrations.index');
+        Route::get('/integrations/satusehat', [IntegrationController::class, 'satusehat'])
+            ->middleware('permission:satusehat.view')
+            ->name('integrations.satusehat');
+        Route::put('/integrations/satusehat', [IntegrationController::class, 'updateSatuSehat'])
+            ->middleware('permission:integration.manage')
+            ->name('integrations.satusehat.update');
+        Route::post('/integrations/satusehat', [IntegrationController::class, 'sendSatuSehat'])
+            ->middleware('permission:satusehat.view')
+            ->name('integrations.satusehat.send');
+        Route::post('/visits/{visit}/satusehat', [IntegrationController::class, 'sendSatuSehat'])
+            ->middleware('permission:satusehat.view')
+            ->name('care.satusehat.send');
+        Route::get('/integrations/bpjs', [IntegrationController::class, 'bpjs'])
+            ->middleware('permission:bpjs.view')
+            ->name('integrations.bpjs');
+        Route::put('/integrations/bpjs', [IntegrationController::class, 'updateBpjs'])
+            ->middleware('permission:integration.manage')
+            ->name('integrations.bpjs.update');
+        Route::post('/integrations/bpjs', [IntegrationController::class, 'checkBpjs'])
+            ->middleware('permission:bpjs.view')
+            ->name('integrations.bpjs.check');
+        Route::post('/registration/patients/{patient}/bpjs', [IntegrationController::class, 'checkBpjs'])
+            ->middleware('permission:bpjs.view')
+            ->name('registration.patients.bpjs');
+        Route::post('/integrations/claims', [IntegrationController::class, 'storeClaim'])
+            ->middleware('permission:integration.manage')
+            ->name('integrations.claims.store');
+        Route::get('/integrations/claims/{insuranceClaim}/download', [IntegrationController::class, 'downloadClaim'])
+            ->middleware('permission:integration.view')
+            ->name('integrations.claims.download');
     });
 
     Route::post('/impersonate/leave', [UserController::class, 'leaveImpersonate'])
@@ -311,6 +426,21 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:tenant.manage')
             ->name('tenants.status');
         Route::resource('tenants', TenantController::class);
+
+        Route::get('packages', [PackageController::class, 'index'])->middleware('permission:package.view')->name('packages.index');
+        Route::post('packages', [PackageController::class, 'store'])->middleware('permission:package.manage')->name('packages.store');
+        Route::put('packages/{saasPackage}', [PackageController::class, 'update'])->middleware('permission:package.manage')->name('packages.update');
+        Route::delete('packages/{saasPackage}', [PackageController::class, 'destroy'])->middleware('permission:package.manage')->name('packages.destroy');
+
+        Route::get('subscriptions', [SubscriptionController::class, 'index'])->middleware('permission:subscription.view')->name('subscriptions.index');
+        Route::post('subscriptions', [SubscriptionController::class, 'store'])->middleware('permission:subscription.manage')->name('subscriptions.store');
+
+        Route::get('invoices', [SaasInvoiceController::class, 'index'])->middleware('permission:invoice.view')->name('invoices.index');
+        Route::post('invoices/{saasInvoice}/pay', [SaasInvoiceController::class, 'pay'])->middleware('permission:subscription.manage')->name('invoices.pay');
+
+        Route::get('system/integrations', [PlatformOpsController::class, 'integrations'])->middleware('permission:saas.integration.view')->name('system.integrations');
+        Route::get('system/audit', [PlatformOpsController::class, 'audit'])->middleware('permission:saas.audit.view')->name('system.audit');
+        Route::get('users/activity', [PlatformOpsController::class, 'userActivity'])->middleware('permission:saas.activity.view')->name('users.activity');
     });
 
     require __DIR__.'/modules.php';

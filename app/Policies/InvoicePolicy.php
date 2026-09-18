@@ -15,7 +15,8 @@ class InvoicePolicy
     public function view(User $user, Invoice $invoice): bool
     {
         return $user->can('billing.view')
-            && $user->belongsToTenantId($invoice->tenant_id);
+            && $user->belongsToTenantId($invoice->tenant_id)
+            && $user->canAccessBranch((int) $invoice->branch_id);
     }
 
     public function create(User $user): bool
@@ -26,13 +27,15 @@ class InvoicePolicy
     public function update(User $user, Invoice $invoice): bool
     {
         return $user->can('billing.update')
-            && $user->belongsToTenantId($invoice->tenant_id);
+            && $user->belongsToTenantId($invoice->tenant_id)
+            && $user->canAccessBranch((int) $invoice->branch_id);
     }
 
     public function void(User $user, Invoice $invoice): bool
     {
         return $user->can('billing.void')
             && $user->belongsToTenantId($invoice->tenant_id)
+            && $user->canAccessBranch((int) $invoice->branch_id)
             && ! $invoice->isVoid();
     }
 

@@ -22,7 +22,7 @@ class QueuePolicy
 
         $visit = $queue->visit;
 
-        if (! $visit) {
+        if (! $visit || ! $user->canAccessBranch((int) $visit->branch_id)) {
             return false;
         }
 

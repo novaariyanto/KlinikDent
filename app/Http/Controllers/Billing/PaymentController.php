@@ -19,9 +19,7 @@ class PaymentController extends Controller
 {
     use ScopesBillingBranch;
 
-    public function __construct(protected BillingService $billing)
-    {
-    }
+    public function __construct(protected BillingService $billing) {}
 
     public function index(Request $request): View
     {
@@ -29,10 +27,7 @@ class PaymentController extends Controller
 
         $query = Payment::query()->with(['invoice.patient', 'cashier', 'shift']);
 
-        $branchId = $this->restrictedBranchId($request->user());
-        if ($branchId) {
-            $query->whereHas('invoice', fn ($invoice) => $invoice->where('branch_id', $branchId));
-        }
+        $this->constrainRelatedBranch($query, $request->user(), 'invoice');
 
         if ($request->filled('date_from')) {
             $query->whereDate('paid_at', '>=', $request->date('date_from'));

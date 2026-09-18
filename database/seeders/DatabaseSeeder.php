@@ -15,10 +15,13 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             MenuSeeder::class,
             ClinicMasterSeeder::class,
+            DoctorSeeder::class,
             RegistrationSeeder::class,
             ClinicalCareSeeder::class,
             PharmacySeeder::class,
             BillingSeeder::class,
+            FinanceSeeder::class,
+            SaasSeeder::class,
         ]);
 
         Setting::setValue('app_name', config('app.name'));
