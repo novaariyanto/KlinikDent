@@ -3,12 +3,21 @@
 use App\Enums\PayerType;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Billing\BillingDashboardController;
+use App\Http\Controllers\Billing\CashShiftController;
+use App\Http\Controllers\Billing\InvoiceController;
+use App\Http\Controllers\Billing\PaymentController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Clinical\CareController;
 use App\Http\Controllers\Clinical\ClinicalIndexController;
 use App\Http\Controllers\Clinical\PatientHistoryController;
 use App\Http\Controllers\Clinical\PharmacyPrescriptionController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\Pharmacy\PharmacyDashboardController;
+use App\Http\Controllers\Pharmacy\PharmacyReportController;
+use App\Http\Controllers\Pharmacy\PurchaseOrderController;
+use App\Http\Controllers\Pharmacy\StockController;
+use App\Http\Controllers\Pharmacy\SupplierController;
 use App\Http\Controllers\Management\ClinicController;
 use App\Http\Controllers\Management\MedicineController;
 use App\Http\Controllers\Management\PayerController;
@@ -24,6 +33,7 @@ use App\Http\Controllers\Registration\VisitController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\Saas\TenantController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\Settings\ClinicSettingController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -170,20 +180,89 @@ Route::middleware('auth')->group(function () {
         Route::put('/visits/{visit}/care/anamnesis', [CareController::class, 'updateAnamnesis'])->name('care.anamnesis.update');
         Route::put('/visits/{visit}/care/notes', [CareController::class, 'updateNotes'])->name('care.notes.update');
         Route::put('/visits/{visit}/care/tooth', [CareController::class, 'updateTooth'])->name('care.tooth.update');
+        Route::delete('/visits/{visit}/care/tooth/{toothNumber}', [CareController::class, 'destroyTooth'])
+            ->where('toothNumber', '[0-9]{2}')
+            ->name('care.tooth.destroy');
         Route::put('/visits/{visit}/care/dental-exam', [CareController::class, 'updateDentalExam'])->name('care.dental-exam.update');
         Route::put('/visits/{visit}/care/systemic', [CareController::class, 'updateSystemicHistory'])->name('care.systemic.update');
         Route::post('/visits/{visit}/care/diagnoses', [CareController::class, 'storeDiagnosis'])->name('care.diagnosis.store');
+        Route::put('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'updateDiagnosis'])->name('care.diagnosis.update');
         Route::delete('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'destroyDiagnosis'])->name('care.diagnosis.destroy');
         Route::post('/visits/{visit}/care/procedures', [CareController::class, 'storeProcedure'])->name('care.procedure.store');
         Route::delete('/visits/{visit}/care/procedures/{procedure_record}', [CareController::class, 'destroyProcedure'])->name('care.procedure.destroy');
         Route::post('/visits/{visit}/care/prescription-items', [CareController::class, 'storePrescriptionItem'])->name('care.prescription-item.store');
+        Route::put('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'updatePrescriptionItem'])->name('care.prescription-item.update');
+        Route::delete('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'destroyPrescriptionItem'])->name('care.prescription-item.destroy');
         Route::post('/visits/{visit}/care/prescriptions/{prescription}/send', [CareController::class, 'sendPrescription'])->name('care.prescription.send');
         Route::post('/visits/{visit}/care/referrals', [CareController::class, 'storeReferral'])->name('care.referral.store');
+        Route::put('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'updateReferral'])->name('care.referral.update');
         Route::delete('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'destroyReferral'])->name('care.referral.destroy');
+        Route::get('/visits/{visit}/care/referrals/{referral}/pdf', [CareController::class, 'printReferral'])->name('care.referral.pdf');
+        Route::get('/visits/{visit}/care/instructions/pdf', [CareController::class, 'printInstructions'])->name('care.instructions.pdf');
         Route::post('/visits/{visit}/care/complete', [CareController::class, 'complete'])->name('care.complete');
 
+        Route::get('/pharmacy', [PharmacyDashboardController::class, 'index'])->name('pharmacy.index');
         Route::get('/pharmacy/prescriptions/incoming', [PharmacyPrescriptionController::class, 'incoming'])->name('pharmacy.prescriptions.incoming');
+        Route::get('/pharmacy/prescriptions/processing', [PharmacyPrescriptionController::class, 'processing'])->name('pharmacy.prescriptions.processing');
+        Route::get('/pharmacy/prescriptions/completed', [PharmacyPrescriptionController::class, 'completed'])->name('pharmacy.prescriptions.completed');
+        Route::get('/pharmacy/prescriptions/history', [PharmacyPrescriptionController::class, 'history'])->name('pharmacy.prescriptions.history');
         Route::get('/pharmacy/prescriptions/{prescription}', [PharmacyPrescriptionController::class, 'show'])->name('pharmacy.prescriptions.show');
+        Route::post('/pharmacy/prescriptions/{prescription}/fulfill', [PharmacyPrescriptionController::class, 'fulfill'])->name('pharmacy.prescriptions.fulfill');
+
+        Route::get('/pharmacy/stock', [StockController::class, 'index'])->name('pharmacy.stock.index');
+        Route::get('/pharmacy/stock/batches', [StockController::class, 'batches'])->name('pharmacy.stock.batches');
+        Route::get('/pharmacy/stock/expired', [StockController::class, 'expired'])->name('pharmacy.stock.expired');
+        Route::get('/pharmacy/stock/adjustments', [StockController::class, 'adjustments'])->name('pharmacy.stock.adjustments');
+        Route::post('/pharmacy/stock/adjustments', [StockController::class, 'storeAdjustment'])->name('pharmacy.stock.adjustments.store');
+
+        Route::get('/pharmacy/purchases/suppliers', [SupplierController::class, 'index'])->name('pharmacy.purchases.suppliers');
+        Route::get('/pharmacy/purchases/suppliers/create', [SupplierController::class, 'create'])->name('pharmacy.suppliers.create');
+        Route::post('/pharmacy/purchases/suppliers', [SupplierController::class, 'store'])->name('pharmacy.suppliers.store');
+        Route::get('/pharmacy/purchases/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('pharmacy.suppliers.edit');
+        Route::put('/pharmacy/purchases/suppliers/{supplier}', [SupplierController::class, 'update'])->name('pharmacy.suppliers.update');
+        Route::delete('/pharmacy/purchases/suppliers/{supplier}', [SupplierController::class, 'destroy'])->name('pharmacy.suppliers.destroy');
+
+        Route::get('/pharmacy/purchases/orders', [PurchaseOrderController::class, 'index'])->name('pharmacy.purchases.orders');
+        Route::get('/pharmacy/purchases/orders/create', [PurchaseOrderController::class, 'create'])->name('pharmacy.orders.create');
+        Route::post('/pharmacy/purchases/orders', [PurchaseOrderController::class, 'store'])->name('pharmacy.orders.store');
+        Route::get('/pharmacy/purchases/orders/{purchaseOrder}', [PurchaseOrderController::class, 'show'])->name('pharmacy.orders.show');
+        Route::post('/pharmacy/purchases/orders/{purchaseOrder}/submit', [PurchaseOrderController::class, 'submit'])->name('pharmacy.orders.submit');
+        Route::get('/pharmacy/purchases/orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receiveForm'])->name('pharmacy.orders.receive');
+        Route::post('/pharmacy/purchases/orders/{purchaseOrder}/receive', [PurchaseOrderController::class, 'receive'])->name('pharmacy.orders.receive.store');
+        Route::get('/pharmacy/purchases/receipts', [PurchaseOrderController::class, 'receipts'])->name('pharmacy.purchases.receipts');
+
+        Route::get('/pharmacy/transactions', [PharmacyReportController::class, 'transactions'])->name('pharmacy.transactions');
+        Route::get('/pharmacy/reports/stock', [PharmacyReportController::class, 'stock'])->name('pharmacy.reports.stock');
+        Route::get('/pharmacy/reports/outgoing', [PharmacyReportController::class, 'outgoing'])->name('pharmacy.reports.outgoing');
+        Route::get('/pharmacy/reports/incoming', [PharmacyReportController::class, 'incoming'])->name('pharmacy.reports.incoming');
+        Route::get('/pharmacy/reports/expired', [PharmacyReportController::class, 'expired'])->name('pharmacy.reports.expired');
+        Route::get('/reports/pharmacy', [PharmacyReportController::class, 'landing'])->name('reports.pharmacy');
+
+        Route::get('/billing', [BillingDashboardController::class, 'index'])->name('billing.index');
+        Route::get('/billing/invoices', [InvoiceController::class, 'index'])->name('billing.invoices');
+        Route::get('/billing/invoices/today', [InvoiceController::class, 'today'])->name('billing.invoices.today');
+        Route::get('/billing/history', [InvoiceController::class, 'history'])->name('billing.history');
+        Route::post('/billing/invoices/generate', [InvoiceController::class, 'generate'])->name('billing.invoices.generate');
+        Route::get('/billing/invoices/{invoice}', [InvoiceController::class, 'show'])->name('billing.invoices.show');
+        Route::post('/billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('billing.invoices.pay');
+        Route::post('/billing/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('billing.invoices.void');
+        Route::get('/billing/payments', [PaymentController::class, 'index'])->name('billing.payments');
+        Route::post('/billing/payments', [PaymentController::class, 'store'])->name('billing.payments.store');
+        Route::get('/billing/receivables', [PaymentController::class, 'receivables'])->name('billing.receivables');
+
+        Route::get('/cashier/shifts/open', [CashShiftController::class, 'openForm'])->name('cashier.shifts.open');
+        Route::post('/cashier/shifts/open', [CashShiftController::class, 'open'])->name('cashier.shifts.open.store');
+        Route::get('/cashier/shifts/transactions', [CashShiftController::class, 'transactions'])->name('cashier.shifts.transactions');
+        Route::get('/cashier/shifts/close', [CashShiftController::class, 'closeForm'])->name('cashier.shifts.close');
+        Route::post('/cashier/shifts/close', [CashShiftController::class, 'close'])->name('cashier.shifts.close.store');
+        Route::get('/cashier/reports', [CashShiftController::class, 'reports'])->name('cashier.reports');
+
+        Route::get('/settings/clinic', [ClinicSettingController::class, 'index'])
+            ->middleware('permission:setting.view')
+            ->name('settings.clinic');
+        Route::put('/settings/clinic', [ClinicSettingController::class, 'update'])
+            ->middleware('permission:setting.manage')
+            ->name('settings.clinic.update');
     });
 
     Route::post('/impersonate/leave', [UserController::class, 'leaveImpersonate'])

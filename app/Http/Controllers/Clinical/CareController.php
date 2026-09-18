@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Clinical;
 use App\Enums\PrescriptionStatus;
 use App\Enums\QueueStatus;
 use App\Enums\ToothStatus;
+use App\Enums\ToothSurface;
 use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Clinical\StoreDiagnosisRequest;
@@ -16,15 +17,19 @@ use App\Http\Requests\Clinical\UpdateCareNotesRequest;
 use App\Http\Requests\Clinical\UpdateDentalExamRequest;
 use App\Http\Requests\Clinical\UpdateExaminationRequest;
 use App\Http\Requests\Clinical\UpdateMedicalRecordRequest;
+use App\Http\Requests\Clinical\UpdatePrescriptionItemRequest;
 use App\Http\Requests\Clinical\UpdateSystemicHistoryRequest;
 use App\Http\Requests\Clinical\UpdateToothRequest;
 use App\Http\Requests\Clinical\UpdateVitalsRequest;
 use App\Models\Diagnosis;
 use App\Models\Medicine;
+use App\Models\OdontogramTooth;
 use App\Models\Prescription;
+use App\Models\PrescriptionItem;
 use App\Models\Procedure;
 use App\Models\ProcedureRecord;
 use App\Models\Referral;
+use App\Models\User;
 use App\Models\Visit;
 use App\Support\Clinical\CareExamOptions;
 use App\Support\Clinical\CareProgress;
@@ -32,14 +37,22 @@ use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
 use App\Support\Clinical\FdiTeeth;
 use App\Support\Clinical\IcdCatalog;
+use App\Support\Billing\BillingService;
+use App\Support\ClinicSettings;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class CareController extends Controller
 {
-    public function __construct(protected ClinicalCareService $care) {}
+    public function __construct(
+        protected ClinicalCareService $care,
+        protected BillingService $billing,
+    ) {}
 
     public function show(Request $request, Visit $visit): View
     {
@@ -233,7 +246,7 @@ class CareController extends Controller
             ? $data['status']
             : ToothStatus::from($data['status']);
 
-        $this->care->updateTooth(
+        $tooth = $this->care->updateTooth(
             $visit,
             $request->user(),
             $data['tooth_number'],
@@ -244,7 +257,28 @@ class CareController extends Controller
 
         activity_log('updated', $visit, $data, 'Updated odontogram tooth '.$data['tooth_number'], 'odontogram');
 
-        return $this->respondCare($visit, 'odontogram', 'Status gigi '.$data['tooth_number'].' diperbarui.');
+        return $this->respondTooth($visit, $tooth, 'Status gigi '.$tooth->tooth_number.' diperbarui.');
+    }
+
+    public function destroyTooth(Request $request, Visit $visit, string $toothNumber): RedirectResponse|JsonResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('odontogram.manage'), 403);
+        abort_unless($visit->status !== VisitStatus::Cancelled, 403);
+        abort_unless(FdiTeeth::isValid($toothNumber), 404);
+
+        $tooth = $this->care->updateTooth(
+            $visit,
+            $request->user(),
+            $toothNumber,
+            ToothStatus::Healthy,
+            null,
+            [],
+        );
+
+        activity_log('updated', $visit, ['tooth_number' => $toothNumber, 'status' => ToothStatus::Healthy->value], 'Removed odontogram finding '.$toothNumber, 'odontogram');
+
+        return $this->respondTooth($visit, $tooth, 'Temuan gigi '.$toothNumber.' dihapus.');
     }
 
     public function updateDentalExam(UpdateDentalExamRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -278,7 +312,11 @@ class CareController extends Controller
         $this->authorize('view', $visit);
         abort_unless($request->user()?->can('diagnosis.view'), 403);
 
-        return response()->json(IcdCatalog::search((string) $request->query('q', '')));
+        return response()->json(IcdCatalog::search(
+            (string) $request->query('q', ''),
+            30,
+            max(1, (int) $request->query('page', 1)),
+        ));
     }
 
     public function storeDiagnosis(StoreDiagnosisRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -288,6 +326,17 @@ class CareController extends Controller
         activity_log('created', $diagnosis, $request->validated(), 'Added diagnosis', 'diagnoses');
 
         return $this->respondCare($visit, 'diagnosis', 'Diagnosis ditambahkan.');
+    }
+
+    public function updateDiagnosis(StoreDiagnosisRequest $request, Visit $visit, Diagnosis $diagnosis): RedirectResponse|JsonResponse
+    {
+        abort_unless((int) $diagnosis->visit_id === (int) $visit->id, 404);
+
+        $diagnosis->update($request->validated());
+
+        activity_log('updated', $diagnosis, $request->validated(), 'Updated diagnosis', 'diagnoses');
+
+        return $this->respondCare($visit, 'diagnosis', 'Diagnosis diperbarui.');
     }
 
     public function destroyDiagnosis(Visit $visit, Diagnosis $diagnosis): RedirectResponse|JsonResponse
@@ -348,6 +397,35 @@ class CareController extends Controller
         return $this->respondCare($visit, 'resep', 'Obat ditambahkan ke resep draft.');
     }
 
+    public function updatePrescriptionItem(UpdatePrescriptionItemRequest $request, Visit $visit, PrescriptionItem $prescriptionItem): RedirectResponse|JsonResponse
+    {
+        $prescriptionItem->update($request->validated());
+
+        activity_log('updated', $prescriptionItem, $request->validated(), 'Updated prescription item', 'prescriptions');
+
+        return $this->respondCare($visit, 'resep', 'Item resep diperbarui.');
+    }
+
+    public function destroyPrescriptionItem(Visit $visit, PrescriptionItem $prescriptionItem): RedirectResponse|JsonResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('prescription.update'), 403);
+        abort_unless($visit->status !== VisitStatus::Cancelled, 403);
+
+        $prescription = $prescriptionItem->prescription;
+        abort_unless($prescription && (int) $prescription->visit_id === (int) $visit->id, 404);
+        abort_unless($prescription->isDraft(), 403);
+
+        activity_log('deleted', $prescriptionItem, ['medicine_id' => $prescriptionItem->medicine_id], 'Deleted prescription item', 'prescriptions');
+        $prescriptionItem->delete();
+
+        if (! $prescription->items()->exists()) {
+            $prescription->delete();
+        }
+
+        return $this->respondCare($visit, 'resep', 'Item resep dihapus.');
+    }
+
     public function sendPrescription(Visit $visit, Prescription $prescription): RedirectResponse|JsonResponse
     {
         $this->authorize('view', $visit);
@@ -372,6 +450,17 @@ class CareController extends Controller
         return $this->respondCare($visit, 'rujukan', 'Rujukan ditambahkan.');
     }
 
+    public function updateReferral(StoreReferralRequest $request, Visit $visit, Referral $referral): RedirectResponse|JsonResponse
+    {
+        abort_unless((int) $referral->visit_id === (int) $visit->id, 404);
+
+        $referral->update($request->validated());
+
+        activity_log('updated', $referral, $request->validated(), 'Updated referral', 'referrals');
+
+        return $this->respondCare($visit, 'rujukan', 'Rujukan diperbarui.');
+    }
+
     public function destroyReferral(Visit $visit, Referral $referral): RedirectResponse|JsonResponse
     {
         $this->authorize('view', $visit);
@@ -382,6 +471,105 @@ class CareController extends Controller
         $referral->delete();
 
         return $this->respondCare($visit, 'rujukan', 'Rujukan dihapus.');
+    }
+
+    public function printReferral(Visit $visit, Referral $referral): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('referral.view'), 403);
+        abort_unless((int) $referral->visit_id === (int) $visit->id, 404);
+
+        $visit->loadMissing(['patient', 'doctor', 'branch', 'room', 'diagnoses']);
+
+        $meta = $this->printMeta($visit);
+        $letterDate = $referral->created_at ?? $visit->visit_date ?? now();
+
+        return Pdf::loadView('clinical.care.print.referral', [
+            ...$meta,
+            'title' => 'Surat Rujukan',
+            'referral' => $referral,
+            'diagnoses' => $visit->diagnoses,
+            'letterNumber' => $this->letterNumber('RJU', (int) $referral->id, $letterDate),
+        ])->setPaper('a4')->stream('surat-rujukan-'.$visit->id.'.pdf');
+    }
+
+    public function printInstructions(Visit $visit): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('medical_record.view'), 403);
+
+        $visit->loadMissing(['patient', 'doctor', 'branch', 'room', 'medicalRecord']);
+        $record = $visit->medicalRecord;
+        $instructions = $record?->plan_instructions ?? [];
+        $labels = CareExamOptions::instructions();
+        $items = collect($instructions['items'] ?? [])
+            ->map(fn ($key) => $labels[$key] ?? $key)
+            ->filter()
+            ->values();
+        $extra = trim((string) ($instructions['extra'] ?? ''));
+
+        $meta = $this->printMeta($visit);
+        $letterDate = $visit->visit_date ?? now();
+
+        return Pdf::loadView('clinical.care.print.instructions', [
+            ...$meta,
+            'title' => 'Instruksi Perawatan Pasien',
+            'items' => $items,
+            'extra' => $extra,
+            'clinicalNotes' => $record?->clinical_notes,
+            'letterNumber' => $this->letterNumber('INS', (int) $visit->id, $letterDate),
+        ])->setPaper('a4')->stream('instruksi-pasien-'.$visit->id.'.pdf');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function printMeta(Visit $visit): array
+    {
+        $tenantId = (int) $visit->tenant_id;
+        $settings = ClinicSettings::current($tenantId);
+        $printedAt = now();
+
+        return [
+            'clinicName' => ClinicSettings::name($tenantId),
+            'clinicTagline' => $settings['tagline'] ?: null,
+            'clinicLegalName' => $settings['legal_name'] ?: null,
+            'clinicAddressLines' => ClinicSettings::addressLines($tenantId) ?: array_values(array_filter([
+                $visit->branch?->address,
+            ])),
+            'clinicPhone' => $settings['phone'] ?: $visit->branch?->phone,
+            'clinicEmail' => $settings['email'] ?: null,
+            'clinicWebsite' => $settings['website'] ?: null,
+            'clinicLicense' => $settings['license_number'] ?: null,
+            'clinicNpwp' => $settings['npwp'] ?: null,
+            'picName' => $settings['pic_name'] ?: null,
+            'picSip' => $settings['pic_sip'] ?: null,
+            'printCity' => $settings['print_city'] ?: ($settings['city'] ?: $visit->branch?->name),
+            'printFooter' => $settings['print_footer'] ?: null,
+            'branch' => $visit->branch,
+            'visit' => $visit,
+            'patient' => $visit->patient,
+            'logoSrc' => ClinicSettings::printLogoSrc($tenantId),
+            'printedAt' => $printedAt,
+            'printedDateLabel' => $this->indonesianDate($printedAt),
+            'visitDateLabel' => $this->indonesianDate($visit->visit_date ?? $printedAt),
+        ];
+    }
+
+    protected function letterNumber(string $code, int $number, mixed $date): string
+    {
+        $carbon = Carbon::parse($date);
+        $roman = [1 => 'I', 2 => 'II', 3 => 'III', 4 => 'IV', 5 => 'V', 6 => 'VI', 7 => 'VII', 8 => 'VIII', 9 => 'IX', 10 => 'X', 11 => 'XI', 12 => 'XII'];
+
+        return sprintf('%03d/%s/%s/%s', $number, $code, $roman[(int) $carbon->format('n')], $carbon->format('Y'));
+    }
+
+    protected function indonesianDate(mixed $date): string
+    {
+        $carbon = Carbon::parse($date);
+        $months = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
+
+        return $carbon->format('j').' '.$months[(int) $carbon->format('n')].' '.$carbon->format('Y');
     }
 
     public function complete(Visit $visit): RedirectResponse
@@ -400,11 +588,40 @@ class CareController extends Controller
 
         $visit->update(['status' => VisitStatus::Done]);
 
+        $invoice = $this->billing->generateForVisit($visit->fresh(), request()->user());
+
         activity_log('updated', $visit, ['status' => VisitStatus::Done->value], 'Completed clinical visit', 'visits');
+
+        $message = 'Pelayanan kunjungan diselesaikan.';
+        if ($invoice) {
+            $message .= ' Tagihan '.$invoice->number.' dibuat.';
+        }
 
         return redirect()
             ->route('care.show', $visit)
-            ->with('success', 'Pelayanan kunjungan diselesaikan.');
+            ->with('success', $message);
+    }
+
+    protected function respondTooth(Visit $visit, OdontogramTooth $tooth, string $message): RedirectResponse|JsonResponse
+    {
+        if (request()->wantsJson() || request()->ajax()) {
+            return response()->json([
+                'ok' => true,
+                'message' => $message,
+                'section' => 'odontogram',
+                'tooth' => [
+                    'number' => $tooth->tooth_number,
+                    'status' => $tooth->status->value,
+                    'status_label' => $tooth->status->label(),
+                    'color' => $tooth->status->color(),
+                    'surfaces' => $tooth->surfaces ?? [],
+                    'surface_labels' => ToothSurface::shortList($tooth->surfaces ?? []),
+                    'notes' => $tooth->notes,
+                ],
+            ]);
+        }
+
+        return $this->respondCare($visit, 'odontogram', $message);
     }
 
     protected function respondCare(Visit $visit, string $section, string $message): RedirectResponse|JsonResponse
@@ -428,7 +645,7 @@ class CareController extends Controller
         abort_unless(CareTabs::canAccessCare($request->user()), 403);
     }
 
-    protected function canWriteAny(\App\Models\User $user): bool
+    protected function canWriteAny(User $user): bool
     {
         foreach ([
             'medical_record.update',

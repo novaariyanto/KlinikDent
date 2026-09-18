@@ -1,7 +1,7 @@
 <section class="care-section" id="resep">
     <div class="care-section__head">
         <h5 class="care-section__title">Resep</h5>
-        <p class="care-section__hint">Isi hanya jika ada obat. Draft dapat diedit; stok belum dipotong saat dikirim ke farmasi.</p>
+        <p class="care-section__hint">Isi hanya jika ada obat. Draft dapat diubah atau dihapus; stok belum dipotong saat dikirim ke farmasi.</p>
     </div>
     <div class="care-section__body">
         @forelse ($visit->prescriptions as $prescription)
@@ -18,6 +18,9 @@
                             <th>Frekuensi</th>
                             <th>Aturan pakai</th>
                             <th>Qty</th>
+                            @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
+                                <th></th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -28,7 +31,42 @@
                                 <td>{{ $item->frequency ?: '-' }}</td>
                                 <td>{{ $item->duration ?: '-' }}</td>
                                 <td>{{ $item->quantity }}</td>
+                                @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
+                                    <td class="text-end text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-soft-primary" data-toggle-panel="#rx-edit-{{ $item->id }}">Ubah</button>
+                                        <form action="{{ route('care.prescription-item.destroy', [$visit, $item]) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus obat ini dari resep?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="btn btn-sm btn-soft-danger" type="submit">Hapus</button>
+                                        </form>
+                                    </td>
+                                @endif
                             </tr>
+                            @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
+                                <tr id="rx-edit-{{ $item->id }}" hidden>
+                                    <td colspan="6">
+                                        <form action="{{ route('care.prescription-item.update', [$visit, $item]) }}" method="POST" class="care-inline-form">
+                                            @csrf
+                                            @method('PUT')
+                                            <div class="row">
+                                                <div class="col-md-3">
+                                                    <x-input name="dosage" :id="'rx-dosage-'.$item->id" label="Dosis" :value="old('dosage', $item->dosage)" />
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <x-input name="frequency" :id="'rx-frequency-'.$item->id" label="Frekuensi" :value="old('frequency', $item->frequency)" />
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <x-input name="duration" :id="'rx-duration-'.$item->id" label="Aturan pakai" :value="old('duration', $item->duration)" />
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <x-input name="quantity" type="number" :id="'rx-qty-'.$item->id" label="Qty" :value="old('quantity', $item->quantity)" required />
+                                                </div>
+                                            </div>
+                                            <x-button type="submit" icon="bx bx-save">Simpan</x-button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            @endif
                         @endforeach
                     </tbody>
                 </x-table>

@@ -1,7 +1,7 @@
 <section class="care-section" id="tindakan">
     <div class="care-section__head">
         <h5 class="care-section__title">Tindakan</h5>
-        <p class="care-section__hint">Cari master tindakan. Tarif di-snapshot saat dicatat.</p>
+        <p class="care-section__hint">Cari master tindakan. Gigi opsional dari temuan odontogram. Tarif di-snapshot saat dicatat.</p>
     </div>
     <div class="care-section__body">
         <x-table>
@@ -53,7 +53,7 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6">
-                            <x-input name="tooth_number" label="Gigi (opsional)" :value="old('tooth_number')" />
+                            @include('clinical.care.partials.tooth-select', ['id' => 'procedure-tooth', 'selected' => old('tooth_number')])
                         </div>
                         <div class="col-md-6">
                             <x-input name="quantity" type="number" label="Qty" :value="old('quantity', 1)" required />

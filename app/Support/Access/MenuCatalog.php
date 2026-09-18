@@ -3,6 +3,7 @@
 namespace App\Support\Access;
 
 use App\Enums\MenuScope;
+use App\Enums\MenuType;
 use App\Enums\RoleName;
 
 final class MenuCatalog
@@ -48,6 +49,7 @@ final class MenuCatalog
             'roles.show',
             'menus.index',
             'settings.index',
+            'settings.clinic',
             'logs.index',
             'saas.tenants.index',
             'saas.tenants.create',
@@ -63,6 +65,33 @@ final class MenuCatalog
             'management.payers.index',
             'management.rooms.index',
             'pharmacy.medicines.index',
+            'pharmacy.index',
+            'pharmacy.prescriptions.processing',
+            'pharmacy.prescriptions.completed',
+            'pharmacy.prescriptions.history',
+            'pharmacy.stock.index',
+            'pharmacy.stock.batches',
+            'pharmacy.stock.expired',
+            'pharmacy.stock.adjustments',
+            'pharmacy.purchases.suppliers',
+            'pharmacy.purchases.orders',
+            'pharmacy.purchases.receipts',
+            'pharmacy.reports.stock',
+            'pharmacy.reports.outgoing',
+            'pharmacy.reports.incoming',
+            'pharmacy.reports.expired',
+            'pharmacy.transactions',
+            'reports.pharmacy',
+            'billing.index',
+            'billing.invoices',
+            'billing.invoices.today',
+            'billing.payments',
+            'billing.receivables',
+            'billing.history',
+            'cashier.shifts.open',
+            'cashier.shifts.transactions',
+            'cashier.shifts.close',
+            'cashier.reports',
             'registration.payers.general',
             'registration.payers.bpjs',
             'registration.payers.insurance',
@@ -247,6 +276,7 @@ final class MenuCatalog
             ]),
             self::item('manager.integrations', 'Integrasi', 'bx bx-plug', 'integrations.index', 'integration.view', 'Integrasi eksternal klinik.'),
             self::item('manager.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log klinik.'),
+            self::item('manager.settings', 'Pengaturan Klinik', 'bx bx-cog', 'settings.clinic', 'setting.view', 'Pengaturan operasional klinik.'),
         ];
     }
 
@@ -286,23 +316,17 @@ final class MenuCatalog
     protected static function dentist(): array
     {
         return [
-            self::item('dentist.dashboard', 'Dashboard Dokter', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan pelayanan dokter.'),
-            self::item('dentist.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pasien dokter.', [
-                self::item('dentist.queue.mine', 'Antrean Saya', 'bx bx-user-check', 'queue.mine', 'queue.view', 'Antrean pasien untuk dokter yang login.'),
-                self::item('dentist.queue.waiting', 'Pasien Menunggu', 'bx bx-time-five', 'queue.waiting', 'queue.view', 'Pasien yang menunggu dilayani.'),
+            self::heading('dentist.group.dashboard', 'Dashboard', [
+                self::item('dentist.dashboard', 'Dashboard Dokter', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan pelayanan dokter.'),
             ]),
-            self::item('dentist.care', 'Pelayanan', 'bx bx-plus-medical', null, 'examination.view', 'Pelayanan medis dokter gigi.', [
-                self::item('dentist.care.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.index', 'examination.view', 'Pemeriksaan pasien.'),
-                self::item('dentist.care.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
-                self::item('dentist.care.odontogram', 'Odontogram', 'bx bx-grid-alt', 'odontogram.index', 'odontogram.view', 'Odontogram pasien.'),
-                self::item('dentist.care.diagnosis', 'Diagnosis', 'bx bx-file-find', 'diagnosis.index', 'diagnosis.view', 'Diagnosis pasien.'),
-                self::item('dentist.care.procedures', 'Tindakan', 'bx bx-first-aid', 'procedures.index', 'procedure.view', 'Tindakan medis.'),
-                self::item('dentist.care.prescriptions', 'Resep', 'bx bx-receipt', 'prescriptions.index', 'prescription.view', 'Resep obat pasien.'),
-                self::item('dentist.care.referrals', 'Rujukan', 'bx bx-share-alt', 'referrals.index', 'referral.view', 'Rujukan pasien.'),
+            self::heading('dentist.group.care', 'Pelayanan', [
+                self::item('dentist.care.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.index', 'examination.view', 'Antrean, panggil pasien, dan buka pelayanan.'),
+                self::item('dentist.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat kunjungan dan rekam medis pasien.'),
             ]),
-            self::item('dentist.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat kunjungan dan rekam medis pasien.'),
-            self::item('dentist.schedule', 'Jadwal Saya', 'bx bx-calendar', 'doctors.schedule.mine', 'schedule.view', 'Jadwal praktik dokter yang login.'),
-            self::item('dentist.reports', 'Laporan Pribadi', 'bx bx-bar-chart-alt-2', 'reports.personal', 'report.view', 'Laporan kinerja dokter.'),
+            self::heading('dentist.group.other', 'Lainnya', [
+                self::item('dentist.schedule', 'Jadwal Saya', 'bx bx-calendar', 'doctors.schedule.mine', 'schedule.view', 'Jadwal praktik dokter yang login.'),
+                self::item('dentist.reports', 'Laporan Pribadi', 'bx bx-bar-chart-alt-2', 'reports.personal', 'report.view', 'Laporan kinerja dokter.'),
+            ]),
         ];
     }
 
@@ -466,6 +490,24 @@ final class MenuCatalog
                 self::item('auditor.reports.finance', 'Keuangan', 'bx bx-wallet', 'reports.finance', 'report.view', 'Laporan keuangan.'),
             ]),
             self::item('auditor.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log sistem.'),
+        ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $children
+     * @return array<string, mixed>
+     */
+    protected static function heading(string $name, string $title, array $children): array
+    {
+        return [
+            'name' => $name,
+            'title' => $title,
+            'icon' => null,
+            'route' => null,
+            'permission' => '',
+            'type' => MenuType::Heading->value,
+            'description' => '',
+            'children' => $children,
         ];
     }
 

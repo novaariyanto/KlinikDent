@@ -26,4 +26,9 @@ class PrescriptionFactory extends Factory
     {
         return $this->state(fn () => ['status' => PrescriptionStatus::Sent]);
     }
+
+    public function fulfilled(): static
+    {
+        return $this->state(fn () => ['status' => PrescriptionStatus::Fulfilled]);
+    }
 }

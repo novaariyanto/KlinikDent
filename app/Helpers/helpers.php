@@ -3,6 +3,7 @@
 use App\Models\ActivityLog;
 use App\Models\User;
 use App\Support\AppSettings;
+use App\Support\ClinicSettings;
 use App\Support\Impersonation;
 
 if (! function_exists('theme')) {
@@ -56,11 +57,30 @@ if (! function_exists('app_logo')) {
     function app_logo(string $variant = 'dark'): string
     {
         try {
+            if (current_tenant_id()) {
+                return ClinicSettings::logoUrl($variant);
+            }
+
             return AppSettings::logoUrl($variant);
         } catch (Throwable) {
             return $variant === 'light'
                 ? theme('images/logo-light.png')
                 : theme('images/logo-dark.png');
         }
+    }
+}
+
+if (! function_exists('clinic_name')) {
+    function clinic_name(?string $fallback = null): string
+    {
+        try {
+            if (current_tenant_id()) {
+                return ClinicSettings::name();
+            }
+        } catch (Throwable) {
+            //
+        }
+
+        return $fallback ?: (string) config('app.name');
     }
 }

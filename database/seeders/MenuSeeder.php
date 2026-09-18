@@ -40,6 +40,7 @@ class MenuSeeder extends Seeder
      */
     protected function seedItem(Role $role, string $scope, ?Menu $parent, array $item, int $sortOrder): Menu
     {
+        $isHeading = ($item['type'] ?? null) === MenuType::Heading->value;
         $isGroup = ($item['children'] ?? []) !== [] && empty($item['route']);
 
         $menu = Menu::query()->updateOrCreate(
@@ -51,10 +52,10 @@ class MenuSeeder extends Seeder
                 'scope' => $scope,
                 'tenant_id' => null,
                 'icon' => $item['icon'] ?? null,
-                'type' => MenuType::Item,
-                'route_name' => $isGroup ? null : ($item['route'] ?? null),
+                'type' => $isHeading ? MenuType::Heading : MenuType::Item,
+                'route_name' => ($isGroup || $isHeading) ? null : ($item['route'] ?? null),
                 'url' => null,
-                'permission' => $item['permission'] ?? null,
+                'permission' => $item['permission'] ?: null,
                 'sort_order' => $sortOrder,
                 'status' => UserStatus::Active,
             ]

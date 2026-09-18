@@ -7,6 +7,7 @@ use Database\Factories\MedicineFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Medicine extends Model
 {
@@ -77,5 +78,13 @@ class Medicine extends Model
     public function unitLabel(): string
     {
         return self::UNITS[$this->unit] ?? $this->unit;
+    }
+
+    /**
+     * @return HasMany<MedicineStock, $this>
+     */
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(MedicineStock::class);
     }
 }

@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Visit;
 use App\Support\Clinical\CareTabs;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ClinicalIndexController extends Controller
@@ -18,14 +20,78 @@ class ClinicalIndexController extends Controller
 
         abort_unless($request->user()->can($meta['permission']), 403);
 
-        $visits = Visit::query()
+        $filters = $this->filters($request);
+
+        $visitsQuery = Visit::query()
             ->visibleTo($request->user())
             ->with(['patient', 'queue', 'doctor', 'room', 'medicalRecord'])
-            ->today()
-            ->latest('id')
-            ->paginate(20);
+            ->whereDate('visit_date', '>=', $filters['date_from'])
+            ->whereDate('visit_date', '<=', $filters['date_to'])
+            ->when($filters['status'], fn ($query) => $query->where('visits.status', $filters['status']))
+            ->when($filters['q'] !== '', function ($query) use ($filters) {
+                $like = '%'.$filters['q'].'%';
 
-        return view('clinical.index', compact('visits', 'meta'));
+                $query->whereHas('patient', function ($patient) use ($like) {
+                    $patient->where(function ($inner) use ($like) {
+                        $inner->where('name', 'like', $like)
+                            ->orWhere('medical_record_number', 'like', $like);
+                    });
+                });
+            });
+
+        if ($request->routeIs('examinations.index')) {
+            $visitsQuery
+                ->leftJoin('queues', 'queues.visit_id', '=', 'visits.id')
+                ->orderByRaw("CASE visits.status WHEN 'waiting' THEN 1 WHEN 'in-service' THEN 2 WHEN 'done' THEN 3 ELSE 4 END")
+                ->orderBy('queues.queue_number')
+                ->orderBy('visits.id')
+                ->select('visits.*');
+        } else {
+            $visitsQuery->latest('visit_date')->latest('id');
+        }
+
+        $visits = $visitsQuery
+            ->paginate(20)
+            ->withQueryString();
+
+        $statuses = collect(VisitStatus::cases())
+            ->mapWithKeys(fn (VisitStatus $status) => [$status->value => $status->label()])
+            ->all();
+
+        return view('clinical.index', compact('visits', 'meta', 'filters', 'statuses'));
+    }
+
+    /**
+     * @return array{date_from: string, date_to: string, status: string|null, q: string}
+     */
+    protected function filters(Request $request): array
+    {
+        $validated = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', Rule::when($request->filled('date_from'), ['after_or_equal:date_from'])],
+            'status' => ['nullable', Rule::enum(VisitStatus::class)],
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $dateFrom = $validated['date_from'] ?? null;
+        $dateTo = $validated['date_to'] ?? null;
+
+        if (blank($dateFrom) && blank($dateTo)) {
+            $today = now()->toDateString();
+            $dateFrom = $today;
+            $dateTo = $today;
+        } elseif (blank($dateFrom)) {
+            $dateFrom = $dateTo;
+        } elseif (blank($dateTo)) {
+            $dateTo = $dateFrom;
+        }
+
+        return [
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'status' => $validated['status'] ?? null,
+            'q' => trim((string) ($validated['q'] ?? '')),
+        ];
     }
 
     /**

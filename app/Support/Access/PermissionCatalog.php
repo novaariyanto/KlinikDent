@@ -133,6 +133,7 @@ final class PermissionCatalog
             'billing.view',
             'billing.create',
             'billing.update',
+            'billing.void',
             'payment.view',
             'payment.create',
             'receivable.view',
@@ -213,7 +214,7 @@ final class PermissionCatalog
 
     public static function isWritePermission(string $permission): bool
     {
-        foreach (['.create', '.update', '.delete', '.manage', '.edit', '.cancel', '.impersonate'] as $suffix) {
+        foreach (['.create', '.update', '.delete', '.manage', '.edit', '.cancel', '.impersonate', '.void'] as $suffix) {
             if (str_ends_with($permission, $suffix)) {
                 return true;
             }
@@ -282,6 +283,7 @@ final class PermissionCatalog
             'billing.view',
             'billing.create',
             'billing.update',
+            'billing.void',
             'payment.view',
             'payment.create',
             'receivable.view',
@@ -311,6 +313,8 @@ final class PermissionCatalog
             'integration.view',
             'audit_log.view',
             'logs.view',
+            'setting.view',
+            'setting.manage',
         ];
     }
 

@@ -65,7 +65,12 @@
     </div>
 @endsection
 
+@push('styles')
+    <link href="{{ theme('libs/select2/css/select2.min.css') }}" rel="stylesheet" type="text/css">
+@endpush
+
 @push('scripts')
+<script src="{{ theme('libs/select2/js/select2.min.js') }}"></script>
 <script>
 (function () {
     var csrf = document.querySelector('meta[name="csrf-token"]');
@@ -73,6 +78,7 @@
     var statusEl = document.querySelector('[data-care-save]');
     var timers = new WeakMap();
     var pending = new WeakMap();
+    var $ = window.jQuery;
 
     function setStatus(text) {
         if (statusEl) statusEl.textContent = text;
@@ -109,6 +115,7 @@
         }).then(function (data) {
             setStatus('✓ Tersimpan');
             if (data && data.section) markDone(data.section);
+            return data;
         }).catch(function () {
             setStatus('Gagal menyimpan');
         }).finally(function () {
@@ -132,6 +139,7 @@
         var url = new URL(window.location.href);
         url.searchParams.set('tab', key);
         history.replaceState({ tab: key }, '', url);
+        document.dispatchEvent(new CustomEvent('care:tab', { detail: key }));
     }
 
     document.querySelectorAll('[data-care-section]').forEach(function (link) {
@@ -173,6 +181,9 @@
             var target = document.querySelector(btn.getAttribute('data-toggle-panel'));
             if (!target) return;
             target.hidden = !target.hidden;
+            if (!target.hidden && $) {
+                $(target).find('.select2-container').css('width', '100%');
+            }
         });
     });
 
@@ -274,6 +285,104 @@
             if (queueEmpty) queueEmpty.hidden = q !== '' || queueItems.length > 0;
         });
     }
+
+    function toothOptionText(tooth) {
+        var text = String(tooth.number) + ' — ' + (tooth.status_label || tooth.status || '');
+        if (tooth.surface_labels) text += ' (' + tooth.surface_labels + ')';
+        return text;
+    }
+
+    window.careSyncOdoToothOption = function (tooth) {
+        if (!$ || !$.fn || !$.fn.select2 || !tooth) return;
+        var val = String(tooth.number);
+        $('[data-odo-tooth-select]').each(function () {
+            var $el = $(this);
+            var $opt = $el.find('option[value="' + val + '"]');
+            if (tooth.status === 'healthy') {
+                if (String($el.val()) === val) $el.val(null).trigger('change');
+                $opt.remove();
+                return;
+            }
+            if ($opt.length) {
+                $opt.text(toothOptionText(tooth));
+            } else {
+                $el.append(new Option(toothOptionText(tooth), val, false, false));
+            }
+        });
+    };
+
+    if ($ && $.fn && $.fn.select2) {
+        $('[data-odo-tooth-select]').each(function () {
+            $(this).select2({
+                width: '100%',
+                placeholder: 'Pilih dari temuan odontogram',
+                allowClear: true,
+                dropdownParent: $(document.body),
+                language: {
+                    noResults: function () { return 'Belum ada temuan odontogram'; }
+                }
+            });
+        });
+
+        $('[data-icd-select]').each(function () {
+            var icd = this;
+            var $icd = $(icd);
+            var icdForm = icd.closest('form');
+            var codeInput = icdForm ? icdForm.querySelector('[name="code"]') : null;
+            var descInput = icdForm ? icdForm.querySelector('[name="description"]') : null;
+
+            $icd.select2({
+                width: '100%',
+                placeholder: 'Ketik kode atau nama, mis. karies / K02.1',
+                allowClear: true,
+                minimumInputLength: 1,
+                dropdownParent: $(document.body),
+                ajax: {
+                    url: icd.getAttribute('data-icd-url'),
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term || '', page: params.page || 1 };
+                    },
+                    processResults: function (data, params) {
+                        params.page = params.page || 1;
+                        return {
+                            results: data.results || [],
+                            pagination: { more: !!(data.pagination && data.pagination.more) }
+                        };
+                    },
+                    cache: true
+                },
+                language: {
+                    noResults: function () { return 'ICD-10 tidak ditemukan'; },
+                    searching: function () { return 'Mencari…'; },
+                    loadingMore: function () { return 'Memuat lainnya…'; }
+                }
+            });
+
+            $icd.on('select2:select', function (e) {
+                var data = e.params.data || {};
+                if (codeInput) codeInput.value = data.code || data.id || '';
+                if (descInput) descInput.value = data.description || '';
+            });
+            $icd.on('select2:clear', function () {
+                if (codeInput) codeInput.value = '';
+                if (descInput) descInput.value = '';
+            });
+
+            if (icdForm) {
+                icdForm.addEventListener('submit', function (e) {
+                    if (codeInput && codeInput.value && descInput && descInput.value) return;
+                    e.preventDefault();
+                    $icd.select2('open');
+                });
+            }
+        });
+    }
+
+    document.addEventListener('care:tab', function () {
+        if ($) $('.care-workspace .select2-container').css('width', '100%');
+    });
 })();
 </script>
 @endpush

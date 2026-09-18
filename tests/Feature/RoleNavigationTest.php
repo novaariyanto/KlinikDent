@@ -87,15 +87,15 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Dentist);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard Dokter', 'Antrean Saya', 'Pemeriksaan', 'Odontogram', 'Jadwal Saya', 'Laporan Pribadi'] as $title) {
+        foreach (['Dashboard', 'Dashboard Dokter', 'Pelayanan', 'Pemeriksaan', 'Riwayat Pasien', 'Lainnya', 'Jadwal Saya', 'Laporan Pribadi'] as $title) {
             $this->assertContains($title, $titles);
         }
 
-        $this->assertNotContains('Pendaftaran Baru', $titles);
-        $this->assertNotContains('Stok', $titles);
-        $this->assertNotContains('Tagihan Hari Ini', $titles);
+        foreach (['Antrean Saya', 'Odontogram', 'Diagnosis', 'Tindakan', 'Resep', 'Rujukan', 'Rekam Medis', 'Pendaftaran Baru'] as $title) {
+            $this->assertNotContains($title, $titles);
+        }
 
-        $this->actingAs($user)->get(route('queue.mine'))->assertOk();
+        $this->actingAs($user)->get(route('examinations.index'))->assertOk();
         $this->actingAs($user)->get(route('billing.payments'))->assertForbidden();
     }
 

@@ -9,7 +9,7 @@ class UpdateSettingRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('settings.update') ?? false;
+        return (bool) ($this->user()?->isPlatformAdmin() && $this->user()?->can('settings.update'));
     }
 
     /**

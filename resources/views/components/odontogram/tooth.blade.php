@@ -35,7 +35,11 @@
         'occlusal' => "M{$inset},{$inset} H{$inner} V{$inner} H{$inset} Z",
     ];
 
-    $fillFor = function (?string $value): string {
+    $fillFor = function (?string $value) use ($status): string {
+        if ($status->isWholeTooth() || $status === \App\Enums\ToothStatus::Healthy) {
+            return '#ffffff';
+        }
+
         if (! $value) {
             return '#ffffff';
         }
@@ -43,10 +47,6 @@
         $surfaceStatus = \App\Enums\ToothStatus::tryFrom($value);
 
         if (! $surfaceStatus || $surfaceStatus === \App\Enums\ToothStatus::Healthy) {
-            return '#ffffff';
-        }
-
-        if (in_array($surfaceStatus, [\App\Enums\ToothStatus::Extracted, \App\Enums\ToothStatus::Missing], true)) {
             return '#ffffff';
         }
 

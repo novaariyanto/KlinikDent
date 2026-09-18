@@ -61,4 +61,9 @@ class Prescription extends Model
     {
         return $this->status === PrescriptionStatus::Sent;
     }
+
+    public function isFulfilled(): bool
+    {
+        return $this->status === PrescriptionStatus::Fulfilled;
+    }
 }

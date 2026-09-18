@@ -44,16 +44,18 @@ class ClinicalCareService
         $tooth->status = $status;
         $tooth->notes = $notes;
 
-        $currentSurfaces = $tooth->surfaces ?? [];
-        if ($status->isWholeTooth() && in_array($status, [ToothStatus::Extracted, ToothStatus::Missing], true)) {
-            $currentSurfaces = [];
-        } elseif ($surfaces !== []) {
+        if ($status === ToothStatus::Healthy || $status->isWholeTooth()) {
+            $tooth->surfaces = null;
+        } else {
+            $mapped = [];
             foreach ($surfaces as $surface) {
                 $key = $surface instanceof \BackedEnum ? $surface->value : (string) $surface;
-                $currentSurfaces[$key] = $status->value;
+                if ($key !== '') {
+                    $mapped[$key] = $status->value;
+                }
             }
+            $tooth->surfaces = $mapped !== [] ? $mapped : null;
         }
-        $tooth->surfaces = $currentSurfaces ?: null;
         $tooth->save();
 
         if ($previous !== $status) {

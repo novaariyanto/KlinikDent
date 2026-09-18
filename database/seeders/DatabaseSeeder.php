@@ -17,6 +17,8 @@ class DatabaseSeeder extends Seeder
             ClinicMasterSeeder::class,
             RegistrationSeeder::class,
             ClinicalCareSeeder::class,
+            PharmacySeeder::class,
+            BillingSeeder::class,
         ]);
 
         Setting::setValue('app_name', config('app.name'));

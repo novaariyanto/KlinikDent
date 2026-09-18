@@ -146,6 +146,14 @@ class Visit extends Model
     }
 
     /**
+     * @return HasMany<Invoice, $this>
+     */
+    public function invoices(): HasMany
+    {
+        return $this->hasMany(Invoice::class);
+    }
+
+    /**
      * @param  Builder<Visit>  $query
      * @return Builder<Visit>
      */

@@ -4,9 +4,16 @@
     $instructionExtra = $instructions['extra'] ?? (empty($instructions) ? $record?->clinical_notes : '');
 @endphp
 <section class="care-section" id="instruksi">
-    <div class="care-section__head">
-        <h5 class="care-section__title">Instruksi</h5>
-        <p class="care-section__hint">Centang instruksi yang diberikan. Teks bebas opsional.</p>
+    <div class="care-section__head d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <h5 class="care-section__title">Instruksi</h5>
+            <p class="care-section__hint">Centang instruksi yang diberikan. Teks bebas opsional.</p>
+        </div>
+        @can('medical_record.view')
+            <a href="{{ route('care.instructions.pdf', $visit) }}" class="btn btn-sm btn-soft-secondary" target="_blank">
+                <i class="bx bx-printer me-1"></i>Cetak PDF
+            </a>
+        @endcan
     </div>
     <div class="care-section__body">
         <div class="row">

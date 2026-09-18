@@ -17,7 +17,7 @@ class SettingController extends Controller
 {
     public function index(): View
     {
-        abort_unless(auth()->user()?->can('settings.update'), 403);
+        abort_unless(auth()->user()?->isPlatformAdmin() && auth()->user()?->can('settings.update'), 403);
 
         return view('settings.index', [
             'settings' => $this->currentSettings(),

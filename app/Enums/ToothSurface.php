@@ -33,10 +33,14 @@ enum ToothSurface: string
     }
 
     /**
-     * @return list<self>
+     * @param  array<string, mixed>  $surfaces
      */
-    public static function ordered(): array
+    public static function shortList(array $surfaces): string
     {
-        return self::cases();
+        return collect($surfaces)
+            ->keys()
+            ->map(fn ($key) => self::tryFrom((string) $key)?->short() ?? strtoupper(substr((string) $key, 0, 1)))
+            ->filter()
+            ->implode(', ');
     }
 }

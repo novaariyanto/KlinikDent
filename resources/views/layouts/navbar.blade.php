@@ -44,12 +44,20 @@
                     <i class="mdi mdi-chevron-down d-none d-xl-inline-block"></i>
                 </button>
                 <div class="dropdown-menu dropdown-menu-end">
-                    @can('settings.update')
-                        <a class="dropdown-item" href="{{ route('settings.index') }}">
+                    @can('setting.view')
+                        <a class="dropdown-item" href="{{ route('settings.clinic') }}">
                             <i class="bx bx-cog font-size-16 align-middle me-1"></i>
-                            <span>Settings</span>
+                            <span>Pengaturan Klinik</span>
                         </a>
                     @endcan
+                    @if (auth()->user()?->isPlatformAdmin())
+                        @can('settings.update')
+                            <a class="dropdown-item" href="{{ route('settings.index') }}">
+                                <i class="bx bx-slider-alt font-size-16 align-middle me-1"></i>
+                                <span>Pengaturan Platform</span>
+                            </a>
+                        @endcan
+                    @endif
                     @if (is_impersonating())
                         <form method="POST" action="{{ route('impersonate.leave') }}">
                             @csrf

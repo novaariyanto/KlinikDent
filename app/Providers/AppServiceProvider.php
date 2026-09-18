@@ -3,12 +3,17 @@
 namespace App\Providers;
 
 use App\Models\Branch;
+use App\Models\CashierShift;
 use App\Models\Diagnosis;
+use App\Models\Invoice;
 use App\Models\Medicine;
+use App\Models\MedicineStock;
 use App\Models\Menu;
 use App\Models\Patient;
 use App\Models\Payer;
 use App\Models\Prescription;
+use App\Models\PurchaseOrder;
+use App\Models\PrescriptionItem;
 use App\Models\Procedure;
 use App\Models\ProcedureRecord;
 use App\Models\Queue;
@@ -16,11 +21,13 @@ use App\Models\Referral;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\Setting;
+use App\Models\Supplier;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\Visit;
 use App\Policies\RolePolicy;
 use App\Support\AppSettings;
+use App\Support\ClinicSettings;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
@@ -44,7 +51,12 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('service', fn (string $value) => Service::withoutGlobalScopes()->findOrFail($value));
         Route::bind('procedure', fn (string $value) => Procedure::withoutGlobalScopes()->findOrFail($value));
         Route::bind('tariff', fn (string $value) => Tariff::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('invoice', fn (string $value) => Invoice::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('cashierShift', fn (string $value) => CashierShift::withoutGlobalScopes()->findOrFail($value));
         Route::bind('medicine', fn (string $value) => Medicine::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('medicineStock', fn (string $value) => MedicineStock::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('supplier', fn (string $value) => Supplier::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('purchaseOrder', fn (string $value) => PurchaseOrder::withoutGlobalScopes()->findOrFail($value));
         Route::bind('payer', fn (string $value) => Payer::withoutGlobalScopes()->findOrFail($value));
         Route::bind('room', fn (string $value) => Room::withoutGlobalScopes()->findOrFail($value));
         Route::bind('patient', fn (string $value) => Patient::withoutGlobalScopes()->findOrFail($value));
@@ -53,11 +65,17 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('diagnosis', fn (string $value) => Diagnosis::withoutGlobalScopes()->findOrFail($value));
         Route::bind('procedure_record', fn (string $value) => ProcedureRecord::withoutGlobalScopes()->findOrFail($value));
         Route::bind('prescription', fn (string $value) => Prescription::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('prescriptionItem', fn (string $value) => PrescriptionItem::query()->with('prescription')->findOrFail($value));
         Route::bind('referral', fn (string $value) => Referral::withoutGlobalScopes()->findOrFail($value));
 
         View::composer('*', function ($view) {
             try {
-                $appName = Setting::getValue('app_name', config('app.name'));
+                if (current_tenant_id()) {
+                    ClinicSettings::apply();
+                    $appName = ClinicSettings::name();
+                } else {
+                    $appName = Setting::getValue('app_name', config('app.name'));
+                }
             } catch (\Throwable) {
                 $appName = config('app.name');
             }

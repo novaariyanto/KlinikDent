@@ -11,7 +11,7 @@
                     <th>Tujuan</th>
                     <th>Alasan</th>
                     <th>Catatan</th>
-                    @can('referral.manage')<th></th>@endcan
+                    <th></th>
                 </tr>
             </thead>
             <tbody>
@@ -20,18 +20,43 @@
                         <td>{{ $referral->referred_to }}</td>
                         <td>{{ $referral->reason }}</td>
                         <td>{{ $referral->notes ?: '-' }}</td>
-                        @can('referral.manage')
-                            <td class="text-end">
+                        <td class="text-end text-nowrap">
+                            @can('referral.view')
+                                <a href="{{ route('care.referral.pdf', [$visit, $referral]) }}" class="btn btn-sm btn-soft-secondary" target="_blank">
+                                    <i class="bx bx-printer me-1"></i>Cetak PDF
+                                </a>
+                            @endcan
+                            @can('referral.manage')
                                 @if ($writable)
-                                    <form action="{{ route('care.referral.destroy', [$visit, $referral]) }}" method="POST" onsubmit="return confirm('Hapus rujukan ini?')">
+                                    <button type="button" class="btn btn-sm btn-soft-primary" data-toggle-panel="#referral-edit-{{ $referral->id }}">Ubah</button>
+                                    <form action="{{ route('care.referral.destroy', [$visit, $referral]) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus rujukan ini?')">
                                         @csrf
                                         @method('DELETE')
                                         <button class="btn btn-sm btn-soft-danger" type="submit">Hapus</button>
                                     </form>
                                 @endif
-                            </td>
-                        @endcan
+                            @endcan
+                        </td>
                     </tr>
+                    @can('referral.manage')
+                        @if ($writable)
+                            <tr id="referral-edit-{{ $referral->id }}" hidden>
+                                <td colspan="4">
+                                    <form action="{{ route('care.referral.update', [$visit, $referral]) }}" method="POST">
+                                        @csrf
+                                        @method('PUT')
+                                        <x-input name="referred_to" :id="'referred_to_'.$referral->id" label="Dirujuk ke" :value="old('referred_to', $referral->referred_to)" required />
+                                        <x-input name="reason" :id="'reason_'.$referral->id" label="Alasan" :value="old('reason', $referral->reason)" required />
+                                        <div class="mb-3">
+                                            <label class="form-label" for="referral_notes_{{ $referral->id }}">Catatan</label>
+                                            <textarea name="notes" id="referral_notes_{{ $referral->id }}" rows="3" class="form-control">{{ old('notes', $referral->notes) }}</textarea>
+                                        </div>
+                                        <x-button type="submit" icon="bx bx-save">Simpan rujukan</x-button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @endif
+                    @endcan
                 @empty
                     <tr><td colspan="4" class="text-muted">Tidak ada rujukan.</td></tr>
                 @endforelse
