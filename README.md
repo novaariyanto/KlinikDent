@@ -160,6 +160,16 @@ Mode default development: sandbox / fake (`SATUSEHAT_FAKE=true`, `BPJS_FAKE=true
 
 ## Instalasi
 
+Production (Linux VPS): lihat [INSTALLATION.md](INSTALLATION.md).
+
+```bash
+cp .env.example .env
+nano .env
+./installer/install.sh
+```
+
+Development cepat:
+
 ```bash
 composer install
 cp .env.example .env
