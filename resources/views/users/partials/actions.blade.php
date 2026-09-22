@@ -25,7 +25,7 @@
                     <form action="{{ route('users.toggle-status', $user) }}" method="POST">
                         @csrf
                         <button type="submit" class="dropdown-item">
-                            <i class="bx bx-refresh me-1"></i>
+                            <i class="bx bx-sync me-1"></i>
                             {{ $status === \App\Enums\UserStatus::Active ? 'Deactivate' : 'Activate' }}
                         </button>
                     </form>

@@ -233,7 +233,7 @@ final class MenuCatalog
             ]),
             self::item('saas.settings', 'Settings', 'bx bx-cog', null, 'platform.setting.view', 'Pengaturan platform.', [
                 self::item('saas.settings.platform', 'Platform Settings', 'bx bx-slider-alt', 'settings.index', 'settings.update', 'Pengaturan global platform SaaS.'),
-                self::item('saas.settings.payment-gateway', 'Payment Gateway', 'bx bx-credit-card-front', 'saas.payment-gateway.index', 'payment_gateway.view', 'Konfigurasi Midtrans untuk pembayaran paket.'),
+                self::item('saas.settings.payment-gateway', 'Payment Gateway', 'bx bx-money', 'saas.payment-gateway.index', 'payment_gateway.view', 'Konfigurasi Midtrans untuk pembayaran paket.'),
             ]),
         ];
     }

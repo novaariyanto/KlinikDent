@@ -1,0 +1,19 @@
+# Salin ke installer.conf untuk menimpa default.
+# File ini tidak wajib — installer membaca .env.example dan source code.
+
+# PHP_MIN_VERSION=8.3
+# NODE_MIN_VERSION=18
+# MYSQL_MIN_VERSION=8.0
+
+# true = composer --no-dev (otomatis jika APP_ENV=production)
+# COMPOSER_NO_DEV=
+
+# User proses web server. Kosong = deteksi www-data/nginx/apache.
+# WEB_USER=
+
+# Jumlah proses queue worker
+# QUEUE_NUMPROCS=1
+
+# Path Supervisor (Linux)
+# SUPERVISOR_CONF_DIR=/etc/supervisor/conf.d
+# SUPERVISOR_PROGRAM=klinikdent-worker

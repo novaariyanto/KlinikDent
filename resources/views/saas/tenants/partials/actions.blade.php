@@ -22,7 +22,7 @@
                 <form action="{{ route('saas.tenants.status', $tenant) }}" method="POST">
                     @csrf
                     <button type="submit" class="dropdown-item">
-                        <i class="bx bx-refresh me-1"></i>
+                        <i class="bx bx-sync me-1"></i>
                         {{ $tenant->status === \App\Enums\TenantStatus::Active ? 'Suspend' : 'Aktifkan' }}
                     </button>
                 </form>

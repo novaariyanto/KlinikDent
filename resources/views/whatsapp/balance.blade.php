@@ -66,7 +66,7 @@
                     <form method="POST" action="{{ route('whatsapp.balance.check') }}">
                         @csrf
                         <input type="hidden" name="order_id" value="{{ $topup['order_id'] }}">
-                        <x-button type="submit" variant="secondary" icon="bx bx-refresh">Cek status</x-button>
+                        <x-button type="submit" variant="secondary" icon="bx bx-sync">Cek status</x-button>
                     </form>
                     <p class="text-muted small mt-3 mb-0">Saldo bertambah otomatis setelah pembayaran sukses (via callback gateway).</p>
                 </x-card>

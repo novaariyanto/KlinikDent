@@ -13,7 +13,7 @@
                 <form action="{{ route('menus.toggle-status', $menu) }}" method="POST">
                     @csrf
                     <button type="submit" class="dropdown-item">
-                        <i class="bx bx-refresh me-1"></i>
+                        <i class="bx bx-sync me-1"></i>
                         {{ $menu->status === \App\Enums\UserStatus::Active ? 'Deactivate' : 'Activate' }}
                     </button>
                 </form>

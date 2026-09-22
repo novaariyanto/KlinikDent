@@ -50,7 +50,7 @@
                     @can('toggleStatus', $tenant)
                         <form action="{{ route('saas.tenants.status', $tenant) }}" method="POST">
                             @csrf
-                            <x-button type="submit" variant="warning" icon="bx bx-refresh">
+                            <x-button type="submit" variant="warning" icon="bx bx-sync">
                                 {{ $tenant->status === \App\Enums\TenantStatus::Active ? 'Suspend' : 'Aktifkan' }}
                             </x-button>
                         </form>
