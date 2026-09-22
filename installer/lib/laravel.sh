@@ -20,7 +20,7 @@ ensure_app_key() {
         return
     fi
 
-    run_cmd "Generate APP_KEY" "$PHP_BIN" artisan key:generate --no-interaction --force
+    run_cmd "Generate APP_KEY" "$PHP_BIN" artisan key:generate --no-interaction
 }
 
 ensure_storage_link() {
@@ -91,7 +91,9 @@ run_seeders() {
     fi
 
     if $DRY_RUN; then
-        if [[ "$env" == "production" && ( "$users" == "0" || "$users" == "" ) ]]; then
+        if [[ "$users" != "0" && "$users" != "" ]]; then
+            plan "skip seeder (database already has $users users; default is skip)"
+        elif [[ "$env" == "production" ]]; then
             plan "php artisan db:seed --class=RolePermissionSeeder --force"
             plan "php artisan db:seed --class=MenuSeeder --force"
             plan "php artisan db:seed --class=WhatsAppTemplateSeeder --force"
