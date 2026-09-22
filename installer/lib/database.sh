@@ -67,6 +67,16 @@ check_database_connection() {
 
     ensure_database_exists
 
+    if $DRY_RUN; then
+        if php_helper check-db.php ping >/dev/null 2>&1; then
+            echo "Connection: ✓ SUCCESS"
+            ok "Connection successful"
+        else
+            warn "Ping schema dilewati di dry-run (database mungkin belum ada)"
+        fi
+        return
+    fi
+
     if php_helper check-db.php ping >/dev/null; then
         echo "Connection: ✓ SUCCESS"
         ok "Connection successful"
