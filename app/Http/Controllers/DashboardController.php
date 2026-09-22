@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Enums\RoleName;
 use App\Models\User;
+use App\Support\Onboarding\SetupChecklistService;
 use App\Support\Reports\DashboardMetricsService;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function index(DashboardMetricsService $dashboards): View
+    public function index(DashboardMetricsService $dashboards, SetupChecklistService $checklist): View
     {
         $user = auth()->user();
         if (! $user instanceof User || ! $user->can('dashboard.view')) {
@@ -36,6 +37,7 @@ class DashboardController extends Controller
             'note' => $metrics['note'],
             'icon' => $primary?->isPlatform() ? 'bx bx-buildings' : 'bx bx-home-circle',
             'description' => $description,
+            'setupChecklist' => $checklist->forOwner($user),
         ]);
     }
 }

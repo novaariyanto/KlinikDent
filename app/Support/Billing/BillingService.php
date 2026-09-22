@@ -9,6 +9,7 @@ use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\PrescriptionStatus;
 use App\Enums\RoleName;
+use App\Enums\WhatsAppEvent;
 use App\Models\CashierShift;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
@@ -18,6 +19,7 @@ use App\Models\ProcedureRecord;
 use App\Models\User;
 use App\Models\Visit;
 use App\Support\Registration\DocumentSequenceGenerator;
+use App\Support\WhatsApp\WhatsAppAutomationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -40,7 +42,9 @@ class BillingService
                 return $this->openInvoiceForVisit($locked);
             }
 
-            $invoice = $this->openInvoiceForVisit($locked) ?? $this->createInvoice($locked, $user);
+            $existing = $this->openInvoiceForVisit($locked);
+            $created = $existing === null;
+            $invoice = $existing ?? $this->createInvoice($locked, $user);
 
             foreach ($procedures as $record) {
                 $this->addItem(
@@ -71,7 +75,15 @@ class BillingService
                 'number' => $invoice->number,
             ], $user);
 
-            return $invoice->fresh(['items', 'patient', 'visit']);
+            $fresh = $invoice->fresh(['items', 'patient', 'visit', 'branch']);
+
+            if ($created && $fresh) {
+                DB::afterCommit(function () use ($fresh) {
+                    app(WhatsAppAutomationService::class)->queueInvoice(WhatsAppEvent::InvoiceCreated, $fresh);
+                });
+            }
+
+            return $fresh;
         });
     }
 
@@ -121,6 +133,16 @@ class BillingService
                 'amount' => $amount,
                 'method' => $method->value,
             ], $user);
+
+            $paidInvoice = $locked->fresh(['patient', 'branch', 'visit']);
+
+            DB::afterCommit(function () use ($paidInvoice, $payment) {
+                app(WhatsAppAutomationService::class)->queueInvoice(
+                    WhatsAppEvent::PaymentReceived,
+                    $paidInvoice,
+                    $payment,
+                );
+            });
 
             return $payment;
         });

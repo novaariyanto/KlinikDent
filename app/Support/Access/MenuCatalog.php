@@ -51,9 +51,18 @@ final class MenuCatalog
             'settings.index',
             'settings.clinic',
             'logs.index',
+            'subscription.index',
+            'subscription.invoices',
             'integrations.index',
             'integrations.satusehat',
             'integrations.bpjs',
+            'whatsapp.dashboard',
+            'whatsapp.balance',
+            'whatsapp.reminders',
+            'whatsapp.promotions.index',
+            'whatsapp.templates.index',
+            'whatsapp.logs.index',
+            'whatsapp.settings',
             'saas.tenants.index',
             'saas.tenants.create',
             'saas.tenants.show',
@@ -64,6 +73,7 @@ final class MenuCatalog
             'saas.invoices.index',
             'saas.system.integrations',
             'saas.system.audit',
+            'saas.payment-gateway.index',
             'branches.index',
             'branches.create',
             'management.clinic',
@@ -223,6 +233,7 @@ final class MenuCatalog
             ]),
             self::item('saas.settings', 'Settings', 'bx bx-cog', null, 'platform.setting.view', 'Pengaturan platform.', [
                 self::item('saas.settings.platform', 'Platform Settings', 'bx bx-slider-alt', 'settings.index', 'settings.update', 'Pengaturan global platform SaaS.'),
+                self::item('saas.settings.payment-gateway', 'Payment Gateway', 'bx bx-credit-card-front', 'saas.payment-gateway.index', 'payment_gateway.view', 'Konfigurasi Midtrans untuk pembayaran paket.'),
             ]),
         ];
     }
@@ -238,7 +249,7 @@ final class MenuCatalog
                 self::item('owner.registration', 'Pendaftaran', 'bx bx-user-plus', 'registration.index', 'registration.view', 'Manajemen pendaftaran pasien.'),
                 self::item('owner.queue', 'Antrean', 'bx bx-list-ol', 'queue.index', 'queue.view', 'Antrean pelayanan klinik.'),
                 self::item('owner.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
-                self::item('owner.pharmacy', 'Farmasi', 'bx bx-capsule', 'pharmacy.index', 'pharmacy.view', 'Manajemen farmasi klinik.'),
+                self::item('owner.pharmacy', 'Farmasi', 'bx bx-package', 'pharmacy.index', 'pharmacy.view', 'Manajemen farmasi klinik.'),
                 self::item('owner.billing', 'Billing & Kasir', 'bx bx-credit-card', 'billing.index', 'billing.view', 'Tagihan dan kasir klinik.'),
             ]),
             self::heading('owner.group.medical-staff', 'Tenaga Medis', [
@@ -255,7 +266,7 @@ final class MenuCatalog
                 self::item('owner.master.tariffs', 'Tarif', 'bx bx-purchase-tag', 'management.tariffs.index', 'tariff.view', 'Master tarif layanan.'),
                 self::item('owner.master.medicines', 'Obat', 'bx bx-plus-medical', 'management.medicines.index', 'medicine.view', 'Master obat.'),
                 self::item('owner.master.payers', 'Penjamin', 'bx bx-id-card', 'management.payers.index', 'payer.view', 'Master penjamin.'),
-                self::item('owner.master.rooms', 'Ruangan', 'bx bx-door-open', 'management.rooms.index', 'room.view', 'Ruangan pelayanan per cabang.'),
+                self::item('owner.master.rooms', 'Ruangan', 'bx bx-home', 'management.rooms.index', 'room.view', 'Ruangan pelayanan per cabang.'),
             ]),
             self::heading('owner.group.management', 'Manajemen Klinik', [
                 self::item('owner.branches', 'Cabang', 'bx bx-git-branch', 'branches.index', 'branch.view', 'Cabang klinik.'),
@@ -265,9 +276,22 @@ final class MenuCatalog
                 ]),
                 self::item('owner.settings', 'Pengaturan Klinik', 'bx bx-cog', 'settings.clinic', 'setting.view', 'Pengaturan operasional klinik.'),
             ]),
+            self::heading('owner.group.subscription', 'Langganan', [
+                self::item('owner.subscription', 'Paket Langganan', 'bx bx-package', 'subscription.index', 'plan.view', 'Paket langganan klinik yang sedang digunakan.'),
+                self::item('owner.subscription.invoices', 'Tagihan Paket', 'bx bx-receipt', 'subscription.invoices', 'plan.view', 'Tagihan dan pembayaran paket langganan.'),
+            ]),
             self::heading('owner.group.integrations', 'Integrasi', [
                 self::item('owner.satusehat', 'SATUSEHAT', 'bx bx-cloud', 'integrations.satusehat', 'satusehat.view', 'Modul SATUSEHAT klinik ini.'),
                 self::item('owner.bpjs', 'BPJS VClaim', 'bx bx-id-card', 'integrations.bpjs', 'bpjs.view', 'Modul BPJS VClaim klinik ini.'),
+            ]),
+            self::heading('owner.group.whatsapp', 'WhatsApp Otomatis', [
+                self::item('owner.whatsapp.dashboard', 'Dashboard', 'bx bxl-whatsapp', 'whatsapp.dashboard', 'whatsapp.view', 'Ringkasan pengiriman WhatsApp otomatis.'),
+                self::item('owner.whatsapp.balance', 'Saldo', 'bx bx-wallet', 'whatsapp.balance', 'whatsapp.view', 'Saldo WhatsCRM dan isi ulang via payment gateway.'),
+                self::item('owner.whatsapp.reminders', 'Pengingat Jadwal', 'bx bx-time-five', 'whatsapp.reminders', 'whatsapp.automation.view', 'Otomasi pengingat kunjungan pasien.'),
+                self::item('owner.whatsapp.promotions', 'Promosi', 'bx bx-calendar-event', 'whatsapp.promotions.index', 'whatsapp.promotions.view', 'Promo WhatsApp untuk pasien yang menyetujui.'),
+                self::item('owner.whatsapp.templates', 'Template Pesan', 'bx bx-message', 'whatsapp.templates.index', 'whatsapp.templates.view', 'Konfigurasi template WhatsApp klinik.'),
+                self::item('owner.whatsapp.logs', 'Riwayat Pesan', 'bx bx-history', 'whatsapp.logs.index', 'whatsapp.logs.view', 'Log pengiriman WhatsApp.'),
+                self::item('owner.whatsapp.settings', 'Pengaturan WhatsApp', 'bx bx-cog', 'whatsapp.settings', 'whatsapp.settings.manage', 'Kredensial WhatsCRM per klinik.'),
             ]),
             self::heading('owner.group.system', 'Sistem', [
                 self::item('owner.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log klinik.'),
@@ -291,9 +315,9 @@ final class MenuCatalog
             self::item('manager.doctors', 'Dokter & Jadwal', 'bx bx-user', null, 'doctor.view', 'Dokter dan jadwal praktik.', [
                 self::item('manager.doctors.index', 'Dokter', 'bx bx-user-circle', 'doctors.index', 'doctor.view', 'Daftar dokter klinik.'),
                 self::item('manager.doctors.schedule', 'Jadwal Dokter', 'bx bx-calendar', 'doctors.schedule', 'schedule.view', 'Jadwal praktik dokter.'),
-                self::item('manager.doctors.rooms', 'Ruangan', 'bx bx-door-open', 'management.rooms.index', 'room.view', 'Ruangan pelayanan.'),
+                self::item('manager.doctors.rooms', 'Ruangan', 'bx bx-home', 'management.rooms.index', 'room.view', 'Ruangan pelayanan.'),
             ]),
-            self::item('manager.pharmacy', 'Farmasi', 'bx bx-capsule', null, 'pharmacy.view', 'Operasional farmasi.', [
+            self::item('manager.pharmacy', 'Farmasi', 'bx bx-package', null, 'pharmacy.view', 'Operasional farmasi.', [
                 self::item('manager.pharmacy.stock', 'Stok', 'bx bx-package', 'pharmacy.stock.index', 'stock.view', 'Stok obat klinik.'),
                 self::item('manager.pharmacy.medicines', 'Obat', 'bx bx-plus-medical', 'pharmacy.medicines.index', 'medicine.view', 'Master obat klinik.'),
                 self::item('manager.pharmacy.transactions', 'Transaksi', 'bx bx-transfer', 'pharmacy.transactions', 'pharmacy.view', 'Transaksi farmasi.'),
@@ -308,7 +332,7 @@ final class MenuCatalog
                 self::item('manager.reports.revenue', 'Pendapatan', 'bx bx-dollar', 'reports.revenue', 'report.view', 'Laporan pendapatan.'),
                 self::item('manager.reports.procedures', 'Tindakan', 'bx bx-first-aid', 'reports.procedures', 'report.view', 'Laporan tindakan.'),
                 self::item('manager.reports.patients', 'Pasien', 'bx bx-user', 'reports.patients', 'report.view', 'Laporan pasien.'),
-                self::item('manager.reports.pharmacy', 'Farmasi', 'bx bx-capsule', 'reports.pharmacy', 'report.view', 'Laporan farmasi.'),
+                self::item('manager.reports.pharmacy', 'Farmasi', 'bx bx-package', 'reports.pharmacy', 'report.view', 'Laporan farmasi.'),
             ]),
             self::item('manager.branches', 'Cabang', 'bx bx-git-branch', 'branches.index', 'branch.view', 'Cabang klinik.'),
             self::item('manager.master', 'Master Data', 'bx bx-data', null, 'clinic.view', 'Master data klinik.', [

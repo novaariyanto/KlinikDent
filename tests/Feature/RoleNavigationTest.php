@@ -39,6 +39,7 @@ class RoleNavigationTest extends TestCase
         $this->assertContains('Dashboard SaaS', $titles);
         $this->assertContains('Semua Klinik', $titles);
         $this->assertContains('Platform Settings', $titles);
+        $this->assertContains('Payment Gateway', $titles);
         $this->assertNotContains('Dashboard', $titles);
         $this->assertNotContains('Pendaftaran Baru', $titles);
         $this->assertNotContains('Farmasi', $titles);
@@ -47,6 +48,12 @@ class RoleNavigationTest extends TestCase
             ->get(route('saas.tenants.index'))
             ->assertOk()
             ->assertSee('Semua Klinik')
+            ->assertDontSee('Coming Soon');
+
+        $this->actingAs($user)
+            ->get(route('saas.payment-gateway.index'))
+            ->assertOk()
+            ->assertSee('Midtrans')
             ->assertDontSee('Coming Soon');
     }
 
@@ -62,7 +69,9 @@ class RoleNavigationTest extends TestCase
             'Keuangan', 'Laporan',
             'Master Data', 'Klinik', 'Layanan', 'Tindakan', 'Tarif', 'Obat', 'Penjamin', 'Ruangan',
             'Manajemen Klinik', 'Cabang', 'Users & Roles', 'Users', 'Roles', 'Pengaturan Klinik',
+            'Langganan', 'Paket Langganan', 'Tagihan Paket',
             'Integrasi', 'SATUSEHAT', 'BPJS VClaim',
+            'WhatsApp Otomatis', 'Pengingat Jadwal', 'Promosi', 'Template Pesan', 'Riwayat Pesan', 'Pengaturan WhatsApp',
             'Sistem', 'Audit Log',
         ] as $title) {
             $this->assertContains($title, $titles);
@@ -71,6 +80,7 @@ class RoleNavigationTest extends TestCase
         $this->assertNotContains('Odontogram', $titles);
         $this->assertNotContains('Semua Klinik', $titles);
         $this->assertNotContains('Platform Settings', $titles);
+        $this->assertNotContains('Payment Gateway', $titles);
 
         $this->actingAs($user)->get(route('registration.index'))->assertOk();
         $this->actingAs($user)->get(route('doctors.index'))->assertOk()->assertDontSee('Coming Soon');

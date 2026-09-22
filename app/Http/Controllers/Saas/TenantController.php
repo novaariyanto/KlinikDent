@@ -10,7 +10,7 @@ use App\Http\Requests\Tenant\UpdateTenantRequest;
 use App\Models\SaasPackage;
 use App\Models\Tenant;
 use App\Models\TenantIntegration;
-use App\Support\Saas\SubscriptionService;
+use App\Support\Saas\ClinicProvisioningService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -64,21 +64,23 @@ class TenantController extends Controller
         ]);
     }
 
-    public function store(StoreTenantRequest $request, SubscriptionService $subscriptions): RedirectResponse
+    public function store(StoreTenantRequest $request, ClinicProvisioningService $provisioning): RedirectResponse
     {
         $data = $request->validated();
-        $packageId = $data['package_id'] ?? null;
-        unset($data['package_id']);
-        $data['plan_id'] = $packageId;
+        $status = TenantStatus::from($data['status']);
 
-        $tenant = Tenant::query()->create($data);
+        $result = $provisioning->provision(
+            name: $data['name'],
+            subdomain: $data['subdomain'],
+            ownerName: $data['owner_name'],
+            ownerEmail: $data['owner_email'],
+            ownerPassword: $data['owner_password'],
+            status: $status,
+            packageId: $data['package_id'] ?? null,
+            startTrial: $status === TenantStatus::Trial,
+        );
 
-        if ($packageId) {
-            $package = SaasPackage::query()->find($packageId);
-            if ($package) {
-                $subscriptions->start($tenant, $package, $tenant->status === TenantStatus::Trial);
-            }
-        }
+        $tenant = $result['tenant'];
 
         activity_log('created', $tenant, $request->validated(), 'Created tenant '.$tenant->name, 'tenants');
 

@@ -34,6 +34,7 @@ class StorePatientRequest extends FormRequest
             'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
             'phone' => ['nullable', 'string', 'max:30'],
+            'marketing_consent' => ['sometimes', 'boolean'],
             'address' => ['nullable', 'string', 'max:1000'],
             'default_payer_id' => [
                 'nullable',
@@ -56,6 +57,7 @@ class StorePatientRequest extends FormRequest
             'nik' => $this->filled('nik') ? $this->input('nik') : null,
             'default_payer_id' => $this->filled('default_payer_id') ? $this->input('default_payer_id') : null,
             'branch_id' => $this->input('branch_id') ?: $this->user()?->branch_id,
+            'marketing_consent' => $this->boolean('marketing_consent'),
         ]);
     }
 }

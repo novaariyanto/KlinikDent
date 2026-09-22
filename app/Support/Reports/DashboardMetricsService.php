@@ -7,6 +7,7 @@ use App\Enums\PrescriptionStatus;
 use App\Enums\PurchaseOrderStatus;
 use App\Enums\QueueStatus;
 use App\Enums\RoleName;
+use App\Enums\SaasInvoiceStatus;
 use App\Enums\TenantStatus;
 use App\Models\Invoice;
 use App\Models\MedicineStock;
@@ -14,11 +15,13 @@ use App\Models\Payment;
 use App\Models\Prescription;
 use App\Models\PurchaseOrder;
 use App\Models\Queue;
+use App\Models\SaasInvoice;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Billing\BillingService;
 use App\Support\Finance\FinanceReportService;
 use App\Support\Pharmacy\PharmacyStockService;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Route;
 
@@ -28,8 +31,7 @@ class DashboardMetricsService
         protected ClinicReportService $clinic,
         protected FinanceReportService $finance,
         protected BillingService $billing,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, href: string}>, note: string|null}
@@ -62,7 +64,7 @@ class DashboardMetricsService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, RoleName>  $roles
+     * @param  Collection<int, RoleName>  $roles
      * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, href: string}>, note: string|null}
      */
     protected function mergeForRoles(User $user, $roles, ?int $branchId): array
@@ -139,7 +141,7 @@ class DashboardMetricsService
                 $this->card('Aktif', (string) Tenant::query()->where('status', TenantStatus::Active)->count()),
                 $this->card('Trial', (string) Tenant::query()->where('status', TenantStatus::Trial)->count()),
                 $this->card('Suspend', (string) Tenant::query()->where('status', TenantStatus::Suspended)->count()),
-                $this->card('Invoice belum lunas', (string) \App\Models\SaasInvoice::query()->where('status', \App\Enums\SaasInvoiceStatus::Unpaid)->count(), $this->routeIf('saas.invoices.index')),
+                $this->card('Invoice belum lunas', (string) SaasInvoice::query()->where('status', SaasInvoiceStatus::Unpaid)->count(), $this->routeIf('saas.invoices.index')),
             ],
             'links' => $this->links([
                 'Semua Klinik' => 'saas.tenants.index',
@@ -205,19 +207,32 @@ class DashboardMetricsService
         $todayRevenue = $this->finance->forActor($user)->paymentSum($today, $today, $branchId);
         $monthPl = $this->finance->forActor($user)->profitLoss($from, $to, $branchId);
 
+        $cards = [
+            $this->card('Kunjungan hari ini', (string) $ops['today'], $this->routeIf('reports.visits')),
+            $this->card('Kunjungan bulan ini', (string) $ops['total']),
+            $this->card('Pendapatan hari ini', $this->money($todayRevenue), $this->routeIf('reports.revenue')),
+            $this->card('Tagihan terbuka', (string) $ops['open_invoices'], $user->can('billing.view') ? $this->routeIf('billing.invoices') : null),
+            $this->card('Antrean menunggu', (string) $ops['queue_waiting'], $user->can('queue.view') ? $this->routeIf('queue.today') : null),
+            $this->card('Laba bulan ini', $this->money($monthPl['profit']), $this->routeIf('finance.reports.profit-loss')),
+        ];
+
+        $links = [
+            'Laporan klinik' => 'reports.index',
+            'Kunjungan' => 'reports.visits',
+        ];
+
+        if ($user->can('plan.view') && $user->tenant_id) {
+            $unpaidPlan = SaasInvoice::query()
+                ->where('tenant_id', $user->tenant_id)
+                ->where('status', SaasInvoiceStatus::Unpaid)
+                ->count();
+            $cards[] = $this->card('Tagihan paket', (string) $unpaidPlan, $this->routeIf('subscription.invoices'));
+            $links['Paket langganan'] = 'subscription.index';
+        }
+
         return [
-            'cards' => [
-                $this->card('Kunjungan hari ini', (string) $ops['today'], $this->routeIf('reports.visits')),
-                $this->card('Kunjungan bulan ini', (string) $ops['total']),
-                $this->card('Pendapatan hari ini', $this->money($todayRevenue), $this->routeIf('reports.revenue')),
-                $this->card('Tagihan terbuka', (string) $ops['open_invoices'], $user->can('billing.view') ? $this->routeIf('billing.invoices') : null),
-                $this->card('Antrean menunggu', (string) $ops['queue_waiting'], $user->can('queue.view') ? $this->routeIf('queue.today') : null),
-                $this->card('Laba bulan ini', $this->money($monthPl['profit']), $this->routeIf('finance.reports.profit-loss')),
-            ],
-            'links' => $this->links([
-                'Laporan klinik' => 'reports.index',
-                'Kunjungan' => 'reports.visits',
-            ]),
+            'cards' => $cards,
+            'links' => $this->links($links),
             'note' => null,
         ];
     }

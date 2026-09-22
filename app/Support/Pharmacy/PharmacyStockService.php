@@ -2,14 +2,15 @@
 
 namespace App\Support\Pharmacy;
 
-use App\Enums\PurchaseOrderStatus;
 use App\Enums\PrescriptionStatus;
+use App\Enums\PurchaseOrderStatus;
 use App\Enums\StockMovementType;
 use App\Models\MedicineStock;
 use App\Models\Prescription;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\WhatsApp\WhatsAppAutomationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
@@ -127,6 +128,10 @@ class PharmacyStockService
             $locked->update(['status' => PrescriptionStatus::Fulfilled]);
 
             activity_log('fulfilled', $locked, [], 'Resep #'.$locked->id.' dipenuhi farmasi.', 'pharmacy', $user);
+
+            DB::afterCommit(function () use ($locked) {
+                app(WhatsAppAutomationService::class)->queuePrescription($locked->fresh(['visit.patient', 'visit.branch', 'doctor']));
+            });
         });
     }
 

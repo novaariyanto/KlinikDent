@@ -52,6 +52,8 @@ final class PermissionCatalog
             'ticket.manage',
             'platform.setting.view',
             'platform.setting.manage',
+            'payment_gateway.view',
+            'payment_gateway.manage',
         ];
     }
 
@@ -78,6 +80,9 @@ final class PermissionCatalog
             'settings.update',
             'logs.view',
             'logs.delete',
+            'plan.view',
+            'plan.subscribe',
+            'plan.pay',
         ];
     }
 
@@ -169,6 +174,16 @@ final class PermissionCatalog
             'integration.manage',
             'satusehat.view',
             'bpjs.view',
+            'whatsapp.view',
+            'whatsapp.manage',
+            'whatsapp.templates.view',
+            'whatsapp.templates.manage',
+            'whatsapp.automation.view',
+            'whatsapp.automation.manage',
+            'whatsapp.promotions.view',
+            'whatsapp.promotions.manage',
+            'whatsapp.logs.view',
+            'whatsapp.settings.manage',
             'audit_log.view',
             'setting.view',
             'setting.manage',
@@ -214,7 +229,7 @@ final class PermissionCatalog
 
     public static function isWritePermission(string $permission): bool
     {
-        foreach (['.create', '.update', '.delete', '.manage', '.edit', '.cancel', '.impersonate', '.void'] as $suffix) {
+        foreach (['.create', '.update', '.delete', '.manage', '.edit', '.cancel', '.impersonate', '.void', '.subscribe', '.pay'] as $suffix) {
             if (str_ends_with($permission, $suffix)) {
                 return true;
             }
@@ -253,6 +268,9 @@ final class PermissionCatalog
             'settings.update',
             'logs.view',
             'logs.delete',
+            'plan.view',
+            'plan.subscribe',
+            'plan.pay',
         ])));
     }
 

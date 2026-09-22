@@ -25,6 +25,24 @@ class AppSettings
             : theme('images/logo-dark.png');
     }
 
+    public static function logoMime(): string
+    {
+        $path = Setting::getValue('logo');
+        $source = ($path && Storage::disk('public')->exists($path))
+            ? $path
+            : (string) parse_url(static::logoUrl(), PHP_URL_PATH);
+
+        $ext = strtolower((string) pathinfo($source, PATHINFO_EXTENSION));
+
+        return match ($ext) {
+            'svg' => 'image/svg+xml',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'webp' => 'image/webp',
+            'ico' => 'image/x-icon',
+            default => 'image/png',
+        };
+    }
+
     public static function hasCustomLogo(): bool
     {
         $path = Setting::getValue('logo');

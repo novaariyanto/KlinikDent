@@ -74,7 +74,7 @@ final class CareTabs
         }
 
         if ($user->can('prescription.view')) {
-            $sections['resep'] = ['label' => 'Resep', 'icon' => 'bx bx-capsule'];
+            $sections['resep'] = ['label' => 'Resep', 'icon' => 'bx bx-package'];
         }
 
         if ($user->can('referral.view')) {

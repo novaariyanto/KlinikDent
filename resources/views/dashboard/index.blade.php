@@ -6,6 +6,49 @@
     <x-page-header :title="$title" :breadcrumb="['Dashboard' => route('dashboard'), $title => null]" />
     <x-alert />
 
+    @if (session('onboarding_just_completed'))
+        <div class="alert alert-success">Klinik Anda siap digunakan.</div>
+    @endif
+
+    @if (! empty($setupChecklist ?? null))
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="mb-0">Setup Klinik</h5>
+                    <span class="fw-semibold">{{ $setupChecklist['percent'] }}% selesai</span>
+                </div>
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar bg-primary" style="width: {{ $setupChecklist['percent'] }}%"></div>
+                </div>
+                <div class="row">
+                    @foreach ($setupChecklist['items'] as $item)
+                        <div class="col-md-6">
+                            <p class="mb-2">
+                                @if ($item['done'])
+                                    <i class="bx bx-check-circle text-success"></i>
+                                @else
+                                    <i class="bx bx-circle text-muted"></i>
+                                @endif
+                                @if ($item['done'])
+                                    {{ $item['label'] }}
+                                @else
+                                    <a href="{{ $item['href'] }}">{{ $item['label'] }}</a>
+                                @endif
+                                @if (! empty($item['optional']))
+                                    <span class="badge bg-light text-muted">Opsional</span>
+                                @endif
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
+                @php $next = collect($setupChecklist['items'])->first(fn ($item) => ! $item['done'] && empty($item['optional'])); @endphp
+                @if ($next)
+                    <x-button href="{{ $next['href'] }}" variant="primary">Lanjutkan Setup</x-button>
+                @endif
+            </div>
+        </div>
+    @endif
+
     @if (! empty($note))
         <div class="alert alert-info">{{ $note }}</div>
     @endif

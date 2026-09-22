@@ -41,6 +41,7 @@ class UpdatePatientRequest extends FormRequest
             'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
             'phone' => ['nullable', 'string', 'max:30'],
+            'marketing_consent' => ['sometimes', 'boolean'],
             'address' => ['nullable', 'string', 'max:1000'],
             'default_payer_id' => [
                 'nullable',
@@ -56,6 +57,7 @@ class UpdatePatientRequest extends FormRequest
         $this->merge([
             'nik' => $this->filled('nik') ? $this->input('nik') : null,
             'default_payer_id' => $this->filled('default_payer_id') ? $this->input('default_payer_id') : null,
+            'marketing_consent' => $this->boolean('marketing_consent'),
         ]);
     }
 }

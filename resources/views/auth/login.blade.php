@@ -75,6 +75,10 @@
                                     <div class="mt-3 d-grid">
                                         <button class="btn btn-primary waves-effect waves-light" type="submit">Log In</button>
                                     </div>
+
+                                    <div class="mt-4 text-center">
+                                        <p class="mb-0">Belum punya akun? <a href="{{ route('register') }}" class="fw-medium text-primary">Daftarkan klinik Anda</a></p>
+                                    </div>
                                 </form>
                             </div>
                         </div>

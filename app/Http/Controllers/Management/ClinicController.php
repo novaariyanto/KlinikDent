@@ -17,7 +17,7 @@ class ClinicController extends Controller
             ['title' => 'Tarif', 'route' => 'management.tariffs.index', 'permission' => 'tariff.view', 'icon' => 'bx bx-purchase-tag', 'description' => 'Harga per tindakan, cabang, dan penjamin.'],
             ['title' => 'Obat', 'route' => 'management.medicines.index', 'permission' => 'medicine.view', 'icon' => 'bx bx-plus-medical', 'description' => 'Master obat (tanpa stok).'],
             ['title' => 'Penjamin', 'route' => 'management.payers.index', 'permission' => 'payer.view', 'icon' => 'bx bx-id-card', 'description' => 'Umum, BPJS, asuransi, corporate, membership.'],
-            ['title' => 'Ruangan', 'route' => 'management.rooms.index', 'permission' => 'room.view', 'icon' => 'bx bx-door-open', 'description' => 'Poli dan ruangan per cabang.'],
+            ['title' => 'Ruangan', 'route' => 'management.rooms.index', 'permission' => 'room.view', 'icon' => 'bx bx-home', 'description' => 'Poli dan ruangan per cabang.'],
         ])->filter(fn (array $module) => auth()->user()?->can($module['permission']))->values();
 
         return view('management.clinic.index', compact('modules'));

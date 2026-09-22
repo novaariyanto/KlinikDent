@@ -57,10 +57,15 @@ class TenantIsolationTest extends TestCase
                 'name' => 'Klinik Baru',
                 'subdomain' => 'klinik-baru',
                 'status' => TenantStatus::Trial->value,
+                'owner_name' => 'Owner Baru',
+                'owner_email' => 'owner.baru@klinik.test',
+                'owner_password' => 'password',
+                'owner_password_confirmation' => 'password',
             ])
             ->assertRedirect();
 
         $this->assertDatabaseHas('tenants', ['subdomain' => 'klinik-baru']);
+        $this->assertDatabaseHas('users', ['email' => 'owner.baru@klinik.test']);
 
         $this->actingAs($saas)
             ->get(route('branches.index'))

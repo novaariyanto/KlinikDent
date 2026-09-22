@@ -33,6 +33,9 @@ use App\Models\Supplier;
 use App\Models\Tariff;
 use App\Models\User;
 use App\Models\Visit;
+use App\Models\WhatsAppMessageLog;
+use App\Models\WhatsAppPromotion;
+use App\Models\WhatsAppTenantTemplate;
 use App\Policies\RolePolicy;
 use App\Support\AppSettings;
 use App\Support\ClinicSettings;
@@ -69,6 +72,10 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by(strtolower((string) $request->string('email')).'|'.$request->ip());
         });
 
+        RateLimiter::for('register', function (Request $request) {
+            return Limit::perMinute(5)->by($request->ip());
+        });
+
         Gate::policy(Role::class, RolePolicy::class);
 
         Route::bind('doctor', fn (string $value) => Doctor::withoutGlobalScopes()->findOrFail($value));
@@ -100,6 +107,9 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('saasPackage', fn (string $value) => SaasPackage::query()->findOrFail($value));
         Route::bind('saasInvoice', fn (string $value) => SaasInvoice::query()->findOrFail($value));
         Route::bind('insuranceClaim', fn (string $value) => InsuranceClaim::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('whatsappTemplate', fn (string $value) => WhatsAppTenantTemplate::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('whatsappPromotion', fn (string $value) => WhatsAppPromotion::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('whatsappLog', fn (string $value) => WhatsAppMessageLog::withoutGlobalScopes()->findOrFail($value));
 
         View::composer('*', function ($view) {
             try {
@@ -114,6 +124,15 @@ class AppServiceProvider extends ServiceProvider
             }
 
             $view->with('appName', $appName);
+
+            try {
+                $logo = AppSettings::logoUrl('dark');
+                $view->with('appLogo', parse_url($logo, PHP_URL_PATH) ?: $logo);
+                $view->with('appLogoType', AppSettings::logoMime());
+            } catch (\Throwable) {
+                $view->with('appLogo', theme('images/logo-dark.png'));
+                $view->with('appLogoType', 'image/png');
+            }
         });
 
         Mail::extend('smtp', function (array $config) {

@@ -25,6 +25,8 @@ class PayloadRedactor
         'cons_id',
         'authorization',
         'x-signature',
+        'x-api-key',
+        'api_key',
     ];
 
     /**

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnforceRoutePermission;
+use App\Http\Middleware\EnsureOwnerOnboarding;
 use App\Http\Middleware\EnsureTenantScope;
 use App\Http\Middleware\EnsureTenantSubscriptionActive;
 use App\Http\Middleware\ForceHttps;
@@ -21,6 +22,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo(fn () => route('dashboard'));
         $middleware->appendToGroup('web', ForceHttps::class);
+        $middleware->validateCsrfTokens(except: [
+            'midtrans/notification',
+        ]);
 
         $middleware->alias([
             'role' => RoleMiddleware::class,
@@ -29,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.scope' => EnsureTenantScope::class,
             'tenant.active' => EnsureTenantSubscriptionActive::class,
             'route.permission' => EnforceRoutePermission::class,
+            'onboarding.owner' => EnsureOwnerOnboarding::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

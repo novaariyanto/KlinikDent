@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="KlinikDent">
+  <rect width="1200" height="630" fill="#f6f8f9"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#0c6f68"/>
+  <rect x="88" y="168" width="56" height="56" rx="14" fill="#102033"/>
+  <path fill="#0e7c74" d="M116 178c8 0 14.5 5.2 16 12.4 2 10.6-.7 20.5-4.3 30.1-2 5.3-5.6 11.2-11.7 11.2s-9.7-5.9-11.7-11.2c-3.6-9.6-6.3-19.5-4.3-30.1 1.5-7.2 8-12.4 16-12.4z"/>
+  <text x="160" y="208" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="40" font-weight="600" fill="#102033">KlinikDent</text>
+  <text x="88" y="300" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="52" font-weight="600" fill="#0b1c2c">Software manajemen klinik gigi</text>
+  <text x="88" y="368" font-family="Inter, ui-sans-serif, system-ui, sans-serif" font-size="28" fill="#445566">Odontogram digital · WhatsApp otomatis · SATUSEHAT</text>
+</svg>

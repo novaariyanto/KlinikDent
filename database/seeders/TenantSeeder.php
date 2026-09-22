@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\OnboardingStatus;
 use App\Enums\TenantStatus;
 use App\Models\Branch;
 use App\Models\Tenant;
@@ -16,6 +17,9 @@ class TenantSeeder extends Seeder
             [
                 'name' => 'Klinik Gigi A',
                 'status' => TenantStatus::Active,
+                'onboarding_status' => OnboardingStatus::Completed,
+                'onboarding_current_step' => 10,
+                'onboarding_completed_at' => now(),
             ]
         );
 
@@ -24,6 +28,9 @@ class TenantSeeder extends Seeder
             [
                 'name' => 'Klinik Gigi B',
                 'status' => TenantStatus::Active,
+                'onboarding_status' => OnboardingStatus::Completed,
+                'onboarding_current_step' => 10,
+                'onboarding_completed_at' => now(),
             ]
         );
 

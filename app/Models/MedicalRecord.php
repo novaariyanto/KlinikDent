@@ -26,6 +26,8 @@ class MedicalRecord extends Model
         'dental_exam',
         'systemic_history',
         'plan_instructions',
+        'control_date',
+        'followup_date',
     ];
 
     /**
@@ -39,6 +41,8 @@ class MedicalRecord extends Model
             'dental_exam' => 'array',
             'systemic_history' => 'array',
             'plan_instructions' => 'array',
+            'control_date' => 'date',
+            'followup_date' => 'date',
         ];
     }
 }

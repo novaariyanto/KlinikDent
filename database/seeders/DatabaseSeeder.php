@@ -20,6 +20,7 @@ class DatabaseSeeder extends Seeder
             ClinicalCareSeeder::class,
             PharmacySeeder::class,
             BillingSeeder::class,
+            WhatsAppTemplateSeeder::class,
             FinanceSeeder::class,
             SaasSeeder::class,
         ]);

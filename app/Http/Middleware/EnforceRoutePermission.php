@@ -62,6 +62,8 @@ class EnforceRoutePermission
         'menus.' => 'menus.view',
         'logs.' => 'logs.view',
         'saas.' => 'saas.access',
+        'subscription.' => 'plan.view',
+        'whatsapp.' => 'whatsapp.view',
     ];
 
     public function handle(Request $request, Closure $next): Response

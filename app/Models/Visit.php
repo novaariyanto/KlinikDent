@@ -6,7 +6,9 @@ use App\Enums\RoleName;
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
 use App\Models\Concerns\BelongsToTenant;
+use App\Observers\VisitObserver;
 use Database\Factories\VisitFactory;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -14,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
+#[ObservedBy(VisitObserver::class)]
 class Visit extends Model
 {
     /** @use HasFactory<VisitFactory> */

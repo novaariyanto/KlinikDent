@@ -21,7 +21,12 @@ class EnsureTenantSubscriptionActive
             return $next($request);
         }
 
-        if (in_array($request->route()?->getName(), ['logout', 'impersonate.leave'], true)) {
+        if (in_array($request->route()?->getName(), [
+            'logout',
+            'impersonate.leave',
+            'subscription.subscribe',
+            'subscription.invoices.pay',
+        ], true)) {
             return $next($request);
         }
 

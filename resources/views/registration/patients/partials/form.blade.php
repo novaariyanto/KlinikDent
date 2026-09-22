@@ -21,6 +21,12 @@
         <x-input name="phone" label="Telepon" :value="$patient?->phone" />
     </div>
     <div class="col-md-12">
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="marketing_consent" value="1" id="marketing_consent" @checked(old('marketing_consent', $patient?->marketing_consent))>
+            <label class="form-check-label" for="marketing_consent">Setuju menerima informasi/promosi WhatsApp</label>
+        </div>
+    </div>
+    <div class="col-md-12">
         <x-input name="address" label="Alamat" :value="$patient?->address" />
     </div>
     <div class="col-md-6">

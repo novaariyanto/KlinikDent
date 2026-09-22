@@ -22,6 +22,12 @@ class SaasInvoice extends Model
         'issued_at',
         'due_at',
         'paid_at',
+        'payment_channel',
+        'midtrans_order_id',
+        'midtrans_snap_token',
+        'midtrans_transaction_id',
+        'midtrans_status',
+        'payment_payload',
     ];
 
     /**
@@ -37,6 +43,7 @@ class SaasInvoice extends Model
             'issued_at' => 'datetime',
             'due_at' => 'datetime',
             'paid_at' => 'datetime',
+            'payment_payload' => 'array',
         ];
     }
 

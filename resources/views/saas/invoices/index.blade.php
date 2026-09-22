@@ -36,6 +36,8 @@
                                         <x-button type="submit">Tandai lunas</x-button>
                                     </form>
                                 @endcan
+                            @elseif ($invoice->payment_channel)
+                                <span class="text-muted small">{{ $invoice->payment_channel }}</span>
                             @endif
                         </td>
                     </tr>

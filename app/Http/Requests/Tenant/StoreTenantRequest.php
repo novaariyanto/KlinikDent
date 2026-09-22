@@ -6,6 +6,7 @@ use App\Enums\TenantStatus;
 use App\Models\Tenant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class StoreTenantRequest extends FormRequest
 {
@@ -24,6 +25,9 @@ class StoreTenantRequest extends FormRequest
             'subdomain' => ['required', 'string', 'max:63', 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/', 'unique:tenants,subdomain'],
             'status' => ['required', Rule::enum(TenantStatus::class)],
             'package_id' => ['nullable', 'integer', 'exists:saas_packages,id'],
+            'owner_name' => ['required', 'string', 'max:255'],
+            'owner_email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'owner_password' => ['required', 'confirmed', Password::defaults()],
         ];
     }
 

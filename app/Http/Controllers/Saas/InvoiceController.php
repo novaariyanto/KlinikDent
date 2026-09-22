@@ -31,7 +31,7 @@ class InvoiceController extends Controller
             return back()->with('error', 'Invoice ini tidak dapat ditandai lunas.');
         }
 
-        $subscriptions->markPaid($saasInvoice);
+        $subscriptions->markPaid($saasInvoice, ['channel' => 'manual', 'status' => 'manual']);
 
         activity_log('updated', $saasInvoice, ['status' => 'paid'], 'Invoice '.$saasInvoice->number.' dilunasi.', 'saas');
 

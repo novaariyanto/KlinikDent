@@ -28,6 +28,8 @@ class Patient extends Model
         'dob',
         'gender',
         'phone',
+        'marketing_consent',
+        'marketing_consent_at',
         'address',
         'default_payer_id',
         'bpjs_number',
@@ -45,9 +47,20 @@ class Patient extends Model
             'default_payer_id' => 'integer',
             'dob' => 'date',
             'gender' => Gender::class,
+            'marketing_consent' => 'boolean',
+            'marketing_consent_at' => 'datetime',
             'bpjs_status' => BpjsMembershipStatus::class,
             'bpjs_checked_at' => 'datetime',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (Patient $patient) {
+            if ($patient->isDirty('marketing_consent')) {
+                $patient->marketing_consent_at = $patient->marketing_consent ? now() : null;
+            }
+        });
     }
 
     /**
