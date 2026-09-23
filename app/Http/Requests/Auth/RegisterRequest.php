@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Tenant;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -50,15 +51,31 @@ class RegisterRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $subdomain = strtolower((string) $this->input('subdomain', ''));
-
-        if ($subdomain === '' && $this->filled('name')) {
-            $subdomain = Str::slug((string) $this->input('name'));
-        }
-
         $this->merge([
-            'subdomain' => $subdomain,
+            'subdomain' => $this->uniqueSubdomain((string) $this->input('name')),
             'package_id' => $this->filled('package_id') ? $this->input('package_id') : null,
         ]);
+    }
+
+    protected function uniqueSubdomain(string $name): string
+    {
+        $base = Str::slug($name);
+        $base = trim(substr($base !== '' ? $base : 'klinik', 0, 50), '-');
+        $base = $base !== '' ? $base : 'klinik';
+
+        $candidate = $base;
+        $suffix = 2;
+
+        while (Tenant::query()->where('subdomain', $candidate)->exists()) {
+            $tail = '-'.$suffix;
+            $candidate = trim(substr($base, 0, 63 - strlen($tail)).$tail, '-');
+            $suffix++;
+
+            if ($suffix > 999) {
+                return trim(substr($base, 0, 54), '-').'-'.Str::lower(Str::random(6));
+            }
+        }
+
+        return $candidate;
     }
 }

@@ -34,7 +34,8 @@ class PublicRegisterTest extends TestCase
     {
         $this->get(route('register'))
             ->assertOk()
-            ->assertSee('Daftarkan klinik Anda');
+            ->assertSee('Daftarkan klinik Anda')
+            ->assertDontSee('name="subdomain"', false);
     }
 
     public function test_guest_can_register_clinic_and_enters_onboarding(): void
@@ -88,7 +89,7 @@ class PublicRegisterTest extends TestCase
         $this->assertSame($trial->id, $tenant->plan_id);
     }
 
-    public function test_register_rejects_duplicate_email_and_subdomain(): void
+    public function test_register_rejects_duplicate_email_and_generates_unique_subdomain(): void
     {
         $existing = Tenant::factory()->pendingOnboarding()->create(['subdomain' => 'klinik-ada']);
         User::factory()->create([
@@ -97,17 +98,19 @@ class PublicRegisterTest extends TestCase
         ]);
 
         $this->post(route('register.store'), [
-            'name' => 'Klinik Duplikat',
-            'subdomain' => 'klinik-ada',
-            'owner_name' => 'Ada',
+            'name' => 'Klinik Ada',
+            'owner_name' => 'Baru',
             'owner_email' => 'baru@klinik.test',
             'password' => 'password',
             'password_confirmation' => 'password',
-        ])->assertSessionHasErrors('subdomain');
+        ])->assertRedirect(route('onboarding.show'));
+
+        $this->assertNotNull(Tenant::query()->where('subdomain', 'klinik-ada-2')->first());
+
+        $this->post(route('logout'));
 
         $this->post(route('register.store'), [
-            'name' => 'Klinik Duplikat',
-            'subdomain' => 'klinik-baru-unik',
+            'name' => 'Klinik Lain',
             'owner_name' => 'Ada',
             'owner_email' => 'ada@klinik.test',
             'password' => 'password',

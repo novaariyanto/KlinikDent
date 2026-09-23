@@ -1387,6 +1387,28 @@ body.care-mode.vertical-collapsed .main-content {
     margin-top: 0.15rem;
 }
 
+.navbar-brand-box .logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 70px;
+    line-height: 1;
+}
+
+.navbar-brand-box .logo-lg img {
+    height: 64px;
+    width: auto;
+    max-width: 210px;
+    object-fit: contain;
+}
+
+.navbar-brand-box .logo-sm img {
+    height: 40px;
+    width: auto;
+    max-width: 46px;
+    object-fit: contain;
+}
+
 @media (max-width: 991.98px) {
     body.care-mode .main-content,
     body.care-mode.vertical-collpsed .main-content,

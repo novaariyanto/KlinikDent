@@ -39,8 +39,6 @@
 
                                     <h6 class="text-muted text-uppercase mb-3">Data klinik</h6>
                                     <x-input name="name" label="Nama Klinik" :value="old('name')" required />
-                                    <x-input name="subdomain" label="Subdomain" :value="old('subdomain')" required placeholder="klinik-senyum" />
-                                    <small class="text-muted d-block mb-3 mt-n2">Huruf kecil, angka, dan tanda hubung. Harus unik.</small>
 
                                     @if ($packages->isNotEmpty())
                                         <x-select

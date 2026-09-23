@@ -4,18 +4,18 @@
             <div class="navbar-brand-box">
                 <a href="{{ route('dashboard') }}" class="logo logo-dark">
                     <span class="logo-sm">
-                        <img src="{{ app_logo('dark') }}" alt="{{ $appName }}" height="22">
+                        <img src="{{ app_logo('dark') }}" alt="{{ $appName }}" height="40">
                     </span>
                     <span class="logo-lg">
-                        <img src="{{ app_logo('dark') }}" alt="{{ $appName }}" height="22">
+                        <img src="{{ app_logo('dark') }}" alt="{{ $appName }}" height="64">
                     </span>
                 </a>
                 <a href="{{ route('dashboard') }}" class="logo logo-light">
                     <span class="logo-sm">
-                        <img src="{{ app_logo('light') }}" alt="{{ $appName }}" height="22">
+                        <img src="{{ app_logo('light') }}" alt="{{ $appName }}" height="40">
                     </span>
                     <span class="logo-lg">
-                        <img src="{{ app_logo('light') }}" alt="{{ $appName }}" height="22">
+                        <img src="{{ app_logo('light') }}" alt="{{ $appName }}" height="64">
                     </span>
                 </a>
             </div>
