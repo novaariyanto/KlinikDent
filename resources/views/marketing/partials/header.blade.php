@@ -1,6 +1,6 @@
 <header class="site-header" data-header>
     <div class="wrap header-inner">
-        <a class="logos" href="{{ route('home') }}" aria-label="{{ $appName }} beranda">
+        <a style="width: 200px" class="logos" href="{{ route('home') }}" aria-label="{{ $appName }} beranda">
             <img src="{{ $appLogo }}" height="52" alt="">
          
         </a>
