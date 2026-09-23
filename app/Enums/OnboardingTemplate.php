@@ -26,7 +26,7 @@ enum OnboardingTemplate: string
     public function icon(): string
     {
         return match ($this) {
-            self::Small => 'bx bx-home-heart',
+            self::Small => 'bx bx-home',
             self::Medium => 'bx bx-building-house',
         };
     }
