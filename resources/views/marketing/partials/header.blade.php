@@ -1,7 +1,7 @@
 <header class="site-header" data-header>
     <div class="wrap header-inner">
         <a class="logo" href="{{ route('home') }}" aria-label="{{ $appName }} beranda">
-            <img src="{{ $appLogo }}" height="28" alt="">
+            <img src="{{ $appLogo }}" height="56" alt="">
          
         </a>
         <nav class="nav" data-nav aria-label="Menu utama">
