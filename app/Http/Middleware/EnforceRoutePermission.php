@@ -56,6 +56,7 @@ class EnforceRoutePermission
         'finance.' => 'finance.view',
         'reports.' => 'report.view',
         'doctors.' => 'doctor.view',
+        'management.medicines.' => 'medicine.view',
         'management.' => 'clinic.view',
         'settings.clinic' => 'setting.view',
         'roles.' => 'roles.view',

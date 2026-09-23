@@ -58,6 +58,61 @@
                 </x-table>
             </x-card>
 
+            @if ($pharmacyPending->isNotEmpty() || $pharmacyWaiting->isNotEmpty())
+                <x-card title="Farmasi">
+                    @if ($pharmacyPending->isNotEmpty())
+                        <p class="mb-2">Obat yang sudah diserahkan farmasi belum masuk tagihan ini.</p>
+                        <x-table>
+                            <thead>
+                                <tr>
+                                    <th>Obat</th>
+                                    <th>Qty</th>
+                                    <th>Harga</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($pharmacyPending as $item)
+                                    @php
+                                        $price = (string) ($item->medicine?->sell_price ?? $item->medicine?->base_price ?? '0');
+                                        $subtotal = (float) $price * (int) $item->quantity;
+                                    @endphp
+                                    <tr>
+                                        <td>
+                                            {{ $item->medicine?->name ?? 'Obat' }}
+                                            @if ($item->dosage || $item->frequency)
+                                                <span class="text-muted">({{ collect([$item->dosage, $item->frequency])->filter()->implode(' / ') }})</span>
+                                            @endif
+                                        </td>
+                                        <td>{{ $item->quantity }}</td>
+                                        <td>{{ number_format((float) $price, 0, ',', '.') }}</td>
+                                        <td>{{ number_format($subtotal, 0, ',', '.') }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </x-table>
+                        @if ($invoice->isOpen())
+                            @can('create', App\Models\Invoice::class)
+                                <form method="POST" action="{{ route('billing.invoices.generate') }}" class="mt-3">
+                                    @csrf
+                                    <input type="hidden" name="visit_id" value="{{ $invoice->visit_id }}">
+                                    <x-button type="submit" variant="primary" icon="bx bx-plus">Tambahkan ke tagihan</x-button>
+                                </form>
+                            @endcan
+                        @else
+                            <p class="text-muted mb-0 mt-2">Tagihan ini sudah tertutup. Buat tagihan baru dari daftar kunjungan belum ditagih.</p>
+                        @endif
+                    @endif
+
+                    @if ($pharmacyWaiting->isNotEmpty())
+                        <p class="{{ $pharmacyPending->isNotEmpty() ? 'mt-3' : '' }} mb-0 text-muted">
+                            Resep belum bisa ditagih karena farmasi belum menyerahkan:
+                            {{ $pharmacyWaiting->map(fn ($prescription) => '#'.$prescription->id.' ('.$prescription->status->label().')')->implode(', ') }}.
+                        </p>
+                    @endif
+                </x-card>
+            @endif
+
             <x-card title="Pembayaran">
                 @forelse ($invoice->payments as $payment)
                     <p class="mb-1">
@@ -72,6 +127,10 @@
             </x-card>
         </div>
         <div class="col-lg-4">
+            <x-card title="Dokumen">
+                <x-button href="{{ route('billing.invoices.print', $invoice) }}" variant="light" icon="bx bx-printer" target="_blank">Cetak</x-button>
+            </x-card>
+
             @if ($invoice->isOpen() && auth()->user()?->can('create', App\Models\Payment::class))
                 <x-card title="Terima pembayaran">
                     <form method="POST" action="{{ route('billing.invoices.pay', $invoice) }}">

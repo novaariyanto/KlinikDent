@@ -97,23 +97,27 @@
 
     @yield('content')
 
-    <table class="sign">
-        <tr>
-            <td></td>
-            <td>
-                <div class="block">
-                    {{ $printCity ?: $branch?->name }}, {{ $printedDateLabel ?? $printedAt->format('d-m-Y') }}<br>
-                    Dokter pemeriksa
-                    <div class="space"></div>
-                    <div class="name">{{ $visit->doctor?->name ?: '........................' }}</div>
-                    <div class="role">Dokter Gigi</div>
-                    @if (! empty($picSip) && $visit->doctor?->name && $picName && strcasecmp((string) $picName, (string) $visit->doctor->name) === 0)
-                        <div class="role">SIP {{ $picSip }}</div>
-                    @endif
-                </div>
-            </td>
-        </tr>
-    </table>
+    @hasSection('signature')
+        @yield('signature')
+    @else
+        <table class="sign">
+            <tr>
+                <td></td>
+                <td>
+                    <div class="block">
+                        {{ $printCity ?: $branch?->name }}, {{ $printedDateLabel ?? $printedAt->format('d-m-Y') }}<br>
+                        Dokter pemeriksa
+                        <div class="space"></div>
+                        <div class="name">{{ $visit->doctor?->name ?: '........................' }}</div>
+                        <div class="role">Dokter Gigi</div>
+                        @if (! empty($picSip) && $visit->doctor?->name && $picName && strcasecmp((string) $picName, (string) $visit->doctor->name) === 0)
+                            <div class="role">SIP {{ $picSip }}</div>
+                        @endif
+                    </div>
+                </td>
+            </tr>
+        </table>
+    @endif
 
     <div class="footer">
         @if ($printFooter)

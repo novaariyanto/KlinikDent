@@ -90,7 +90,7 @@ class PharmacyPrescriptionController extends Controller
 
         return redirect()
             ->route('pharmacy.prescriptions.show', $prescription)
-            ->with('success', 'Resep diserahkan. Stok dipotong menurut FEFO.');
+            ->with('success', 'Resep diserahkan. Stok dipotong dan obat masuk tagihan.');
     }
 
     protected function list(Request $request, PrescriptionStatus $status, string $title, string $hint): View

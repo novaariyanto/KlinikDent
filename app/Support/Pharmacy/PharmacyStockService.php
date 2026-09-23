@@ -10,6 +10,8 @@ use App\Models\Prescription;
 use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Models\Visit;
+use App\Support\Billing\BillingService;
 use App\Support\WhatsApp\WhatsAppAutomationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -129,8 +131,17 @@ class PharmacyStockService
 
             activity_log('fulfilled', $locked, [], 'Resep #'.$locked->id.' dipenuhi farmasi.', 'pharmacy', $user);
 
-            DB::afterCommit(function () use ($locked) {
+            $visitId = (int) $locked->visit_id;
+            $actorId = $user->id;
+
+            DB::afterCommit(function () use ($locked, $visitId, $actorId) {
                 app(WhatsAppAutomationService::class)->queuePrescription($locked->fresh(['visit.patient', 'visit.branch', 'doctor']));
+
+                $visit = Visit::query()->find($visitId);
+
+                if ($visit) {
+                    app(BillingService::class)->generateForVisit($visit, User::query()->find($actorId));
+                }
             });
         });
     }

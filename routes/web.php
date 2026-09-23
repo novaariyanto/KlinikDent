@@ -350,6 +350,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/billing/invoices/today', [InvoiceController::class, 'today'])->name('billing.invoices.today');
             Route::get('/billing/history', [InvoiceController::class, 'history'])->name('billing.history');
             Route::post('/billing/invoices/generate', [InvoiceController::class, 'generate'])->name('billing.invoices.generate');
+            Route::get('/billing/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('billing.invoices.print');
             Route::get('/billing/invoices/{invoice}', [InvoiceController::class, 'show'])->name('billing.invoices.show');
             Route::post('/billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('billing.invoices.pay');
             Route::post('/billing/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('billing.invoices.void');

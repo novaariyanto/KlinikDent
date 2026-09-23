@@ -33,6 +33,8 @@ class StoreMedicineRequest extends FormRequest
             'unit' => ['required', 'string', Rule::in(array_keys(Medicine::UNITS))],
             'category' => ['required', 'string', Rule::in(array_keys(Medicine::CATEGORIES))],
             'base_price' => ['required', 'numeric', 'min:0'],
+            'margin_type' => ['required', Rule::in(array_keys(Medicine::MARGIN_TYPES))],
+            'margin_value' => ['required', 'numeric', 'min:0'],
             'is_active' => ['required', 'boolean'],
         ];
     }
@@ -41,6 +43,8 @@ class StoreMedicineRequest extends FormRequest
     {
         $this->merge([
             'is_active' => $this->boolean('is_active'),
+            'margin_type' => $this->input('margin_type') ?: 'fixed',
+            'margin_value' => $this->input('margin_value', 0),
         ]);
     }
 }

@@ -14,6 +14,8 @@
                         <tr><th>Satuan</th><td>{{ $medicine->unitLabel() }}</td></tr>
                         <tr><th>Kategori</th><td>{{ $medicine->categoryLabel() }}</td></tr>
                         <tr><th>Harga Dasar</th><td>Rp {{ number_format((float) $medicine->base_price, 0, ',', '.') }}</td></tr>
+                        <tr><th>Margin</th><td>{{ \App\Models\Medicine::MARGIN_TYPES[$medicine->margin_type] ?? $medicine->margin_type }} ({{ $medicine->marginLabel() }})</td></tr>
+                        <tr><th>Harga Jual</th><td>Rp {{ number_format((float) $medicine->sell_price, 0, ',', '.') }}</td></tr>
                         <tr>
                             <th>Status</th>
                             <td>

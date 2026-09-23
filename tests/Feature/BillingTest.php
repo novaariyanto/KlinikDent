@@ -96,11 +96,17 @@ class BillingTest extends TestCase
         $this->assertSame(0, bccomp((string) $invoice->total_amount, (string) $invoice->items()->sum('subtotal'), 2));
         $this->assertSame(InvoiceStatus::Unpaid, $invoice->status);
         $this->assertSame(BillingStatus::Billed, ProcedureRecord::query()->where('visit_id', $visit->id)->first()?->billing_status);
-        $this->actingAs($this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA))
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $this->actingAs($cashier)
             ->get(route('billing.invoices.show', $invoice))
             ->assertOk()
             ->assertDontSee('Coming Soon')
-            ->assertSee('500.000');
+            ->assertSee('500.000')
+            ->assertSee('Cetak');
+        $this->actingAs($cashier)
+            ->get(route('billing.invoices.print', $invoice))
+            ->assertOk()
+            ->assertHeader('content-type', 'application/pdf');
     }
 
     public function test_fulfilled_prescription_is_added_to_open_invoice(): void

@@ -65,7 +65,7 @@ class BillingService
                     (int) $item->id,
                     $this->medicineDescription($item),
                     (int) $item->quantity,
-                    (string) ($item->medicine?->base_price ?? '0.00'),
+                    (string) ($item->medicine?->sell_price ?? $item->medicine?->base_price ?? '0.00'),
                 );
             }
 
@@ -322,7 +322,7 @@ class BillingService
     /**
      * @return Collection<int, PrescriptionItem>
      */
-    protected function unbilledMedicines(Visit $visit)
+    public function unbilledMedicines(Visit $visit)
     {
         $itemIds = $visit->prescriptions
             ->filter(fn ($prescription) => $prescription->status === PrescriptionStatus::Fulfilled)

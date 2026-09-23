@@ -23,6 +23,7 @@ class MedicineController extends Controller
             ['data' => 'unit', 'name' => 'unit', 'title' => 'Satuan'],
             ['data' => 'category', 'name' => 'category', 'title' => 'Kategori'],
             ['data' => 'base_price', 'name' => 'base_price', 'title' => 'Harga Dasar', 'className' => 'text-end'],
+            ['data' => 'sell_price', 'name' => 'sell_price', 'title' => 'Harga Jual', 'className' => 'text-end'],
             ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
             ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
@@ -40,6 +41,7 @@ class MedicineController extends Controller
             ->editColumn('unit', fn (Medicine $medicine) => e($medicine->unitLabel()))
             ->editColumn('category', fn (Medicine $medicine) => e($medicine->categoryLabel()))
             ->editColumn('base_price', fn (Medicine $medicine) => number_format((float) $medicine->base_price, 0, ',', '.'))
+            ->editColumn('sell_price', fn (Medicine $medicine) => number_format((float) $medicine->sell_price, 0, ',', '.'))
             ->editColumn('is_active', function (Medicine $medicine) {
                 return $medicine->is_active
                     ? '<span class="badge bg-success">Aktif</span>'
