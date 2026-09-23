@@ -85,7 +85,7 @@
                     </div>
                     <div class="mt-5 text-center">
                         <p>© {{ now()->year }} {{ $appName ?? config('app.name') }}. Crafted with
-                            <i class="mdi mdi-heart text-danger"></i> using Skote</p>
+                            <i class="mdi mdi-heart text-danger"></i> </p>
                     </div>
                 </div>
             </div>
