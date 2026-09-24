@@ -25,6 +25,38 @@
     <link rel="icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
     <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
     <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="apple-touch-icon" href="{{ $appLogo }}">
+    <link rel="favicon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
+    <link rel="shortcut icon" href="{{ $appLogo }}" type="{{ $appLogoType }}">
     <meta name="google-site-verification" content="PP4J4lbbjulpthQ-xaoENPnr8gXhbiwua-qNLg7NVCs" />
     <link rel="preload" href="{{ asset('fonts/inter-latin-600.woff2') }}" as="font" type="font/woff2" crossorigin>
     <style>{!! file_get_contents(public_path('css/marketing.min.css')) !!}</style>
