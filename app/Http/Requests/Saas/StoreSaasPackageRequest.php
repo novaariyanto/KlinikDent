@@ -36,7 +36,9 @@ class StoreSaasPackageRequest extends FormRequest
     {
         $this->merge([
             'slug' => $this->filled('slug') ? Str::slug((string) $this->input('slug')) : Str::slug((string) $this->input('name')),
-            'is_active' => $this->boolean('is_active'),
+            'is_active' => $this->has('is_active') ? $this->boolean('is_active') : true,
+            'max_branches' => $this->filled('max_branches') ? $this->integer('max_branches') : null,
+            'max_users' => $this->filled('max_users') ? $this->integer('max_users') : null,
         ]);
     }
 }

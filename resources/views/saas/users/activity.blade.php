@@ -7,6 +7,6 @@
     <x-alert />
     <x-card title="Log pengguna">
         @include('saas.partials.activity-rows', ['logs' => $logs])
-        {{ $logs->links() }}
+        {{ $logs->links('saas.partials.pagination') }}
     </x-card>
 @endsection

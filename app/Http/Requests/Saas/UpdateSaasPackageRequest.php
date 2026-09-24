@@ -40,9 +40,18 @@ class UpdateSaasPackageRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        /** @var SaasPackage $package */
+        $package = $this->route('saasPackage');
+
         $this->merge([
-            'slug' => Str::slug((string) $this->input('slug', $this->input('name'))),
-            'is_active' => $this->boolean('is_active'),
+            'slug' => $this->filled('slug') ? Str::slug((string) $this->input('slug')) : $package->slug,
+            'is_active' => $this->has('is_active') ? $this->boolean('is_active') : $package->is_active,
+            'max_branches' => $this->exists('max_branches')
+                ? ($this->filled('max_branches') ? $this->integer('max_branches') : null)
+                : $package->max_branches,
+            'max_users' => $this->exists('max_users')
+                ? ($this->filled('max_users') ? $this->integer('max_users') : null)
+                : $package->max_users,
         ]);
     }
 }

@@ -16,7 +16,11 @@ class PackageController extends Controller
     {
         $this->authorize('viewAny', SaasPackage::class);
 
-        $packages = SaasPackage::query()->orderBy('name')->get();
+        $packages = SaasPackage::query()
+            ->withCount('subscriptions')
+            ->orderBy('price')
+            ->orderBy('name')
+            ->get();
 
         return view('saas.packages.index', compact('packages'));
     }
@@ -37,6 +41,19 @@ class PackageController extends Controller
         activity_log('updated', $saasPackage, $request->validated(), 'Paket '.$saasPackage->name.' diubah.', 'saas');
 
         return redirect()->route('saas.packages.index')->with('success', 'Paket diperbarui.');
+    }
+
+    public function toggleStatus(SaasPackage $saasPackage): RedirectResponse
+    {
+        $this->authorize('update', $saasPackage);
+
+        $saasPackage->update(['is_active' => ! $saasPackage->is_active]);
+
+        $label = $saasPackage->is_active ? 'diaktifkan' : 'dinonaktifkan';
+
+        activity_log('updated', $saasPackage, ['is_active' => $saasPackage->is_active], 'Paket '.$saasPackage->name.' '.$label.'.', 'saas');
+
+        return redirect()->route('saas.packages.index')->with('success', 'Paket '.$label.'.');
     }
 
     public function destroy(SaasPackage $saasPackage): RedirectResponse

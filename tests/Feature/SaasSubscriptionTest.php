@@ -40,6 +40,8 @@ class SaasSubscriptionTest extends TestCase
         $this->actingAs($admin)->get(route('saas.packages.index'))
             ->assertOk()
             ->assertSee('Paket')
+            ->assertSee('Maks. cabang')
+            ->assertSee('Nonaktifkan')
             ->assertDontSee('Coming Soon')
             ->assertSee('Starter');
 
@@ -48,9 +50,35 @@ class SaasSubscriptionTest extends TestCase
             'price' => '199000',
             'interval' => 'monthly',
             'trial_days' => 7,
+            'max_branches' => 2,
+            'max_users' => 8,
         ])->assertRedirect(route('saas.packages.index'));
 
-        $this->assertDatabaseHas('saas_packages', ['slug' => 'klinik-plus']);
+        $created = SaasPackage::query()->where('slug', 'klinik-plus')->first();
+        $this->assertNotNull($created);
+        $this->assertTrue($created->is_active);
+        $this->assertSame(2, $created->max_branches);
+        $this->assertSame(8, $created->max_users);
+
+        $this->actingAs($admin)->put(route('saas.packages.update', $created), [
+            'name' => 'Klinik Plus',
+            'price' => '250000',
+            'interval' => 'yearly',
+            'trial_days' => 7,
+            'max_branches' => 4,
+            'max_users' => '',
+            'is_active' => '0',
+        ])->assertRedirect(route('saas.packages.index'));
+
+        $created->refresh();
+        $this->assertFalse($created->is_active);
+        $this->assertSame(4, $created->max_branches);
+        $this->assertNull($created->max_users);
+        $this->assertSame('klinik-plus', $created->slug);
+
+        $this->actingAs($admin)->post(route('saas.packages.status', $created))
+            ->assertRedirect(route('saas.packages.index'));
+        $this->assertTrue($created->fresh()->is_active);
 
         $this->actingAs($admin)->get(route('saas.subscriptions.index'))->assertOk()->assertDontSee('Coming Soon');
         $this->actingAs($admin)->get(route('saas.invoices.index'))->assertOk()->assertDontSee('Coming Soon');

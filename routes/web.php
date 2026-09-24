@@ -25,9 +25,6 @@ use App\Http\Controllers\Finance\PayableController;
 use App\Http\Controllers\Finance\ReceivableController;
 use App\Http\Controllers\Finance\RevenueController;
 use App\Http\Controllers\Integration\IntegrationController;
-use App\Http\Controllers\Marketing\DemoRequestController;
-use App\Http\Controllers\Marketing\LandingController;
-use App\Http\Controllers\Marketing\StarterKitController;
 use App\Http\Controllers\Management\ClinicController;
 use App\Http\Controllers\Management\MedicineController;
 use App\Http\Controllers\Management\PayerController;
@@ -35,6 +32,9 @@ use App\Http\Controllers\Management\ProcedureController;
 use App\Http\Controllers\Management\RoomController;
 use App\Http\Controllers\Management\ServiceController;
 use App\Http\Controllers\Management\TariffController;
+use App\Http\Controllers\Marketing\DemoRequestController;
+use App\Http\Controllers\Marketing\LandingController;
+use App\Http\Controllers\Marketing\StarterKitController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\Onboarding\OnboardingController;
@@ -580,6 +580,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('packages', [PackageController::class, 'index'])->middleware('permission:package.view')->name('packages.index');
             Route::post('packages', [PackageController::class, 'store'])->middleware('permission:package.manage')->name('packages.store');
             Route::put('packages/{saasPackage}', [PackageController::class, 'update'])->middleware('permission:package.manage')->name('packages.update');
+            Route::post('packages/{saasPackage}/status', [PackageController::class, 'toggleStatus'])->middleware('permission:package.manage')->name('packages.status');
             Route::delete('packages/{saasPackage}', [PackageController::class, 'destroy'])->middleware('permission:package.manage')->name('packages.destroy');
 
             Route::get('subscriptions', [SubscriptionController::class, 'index'])->middleware('permission:subscription.view')->name('subscriptions.index');

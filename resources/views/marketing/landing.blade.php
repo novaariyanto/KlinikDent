@@ -354,8 +354,8 @@
                             @if ($package->trial_days)
                                 <li>Masa uji {{ $package->trial_days }} hari</li>
                             @endif
-                            <li>Hingga {{ $package->max_branches }} cabang</li>
-                            <li>Hingga {{ $package->max_users }} pengguna</li>
+                            <li>{{ $package->max_branches ? 'Hingga '.$package->max_branches.' cabang' : 'Cabang tidak dibatasi' }}</li>
+                            <li>{{ $package->max_users ? 'Hingga '.$package->max_users.' pengguna' : 'Pengguna tidak dibatasi' }}</li>
                         </ul>
                         <a class="btn btn--primary" href="{{ route('register') }}" data-track="register_clicked">Coba {{ $appName }}</a>
                     </article>

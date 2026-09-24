@@ -62,8 +62,8 @@
                         </h3>
                         <p class="text-muted">{{ $package->interval->label() }} · trial {{ $package->trial_days }} hari</p>
                         <ul class="list-unstyled text-muted mb-3">
-                            <li>Maks. {{ $package->max_branches }} cabang</li>
-                            <li>Maks. {{ $package->max_users }} pengguna</li>
+                            <li>{{ $package->max_branches ? 'Maks. '.$package->max_branches.' cabang' : 'Cabang tidak dibatasi' }}</li>
+                            <li>{{ $package->max_users ? 'Maks. '.$package->max_users.' pengguna' : 'Pengguna tidak dibatasi' }}</li>
                         </ul>
                         @if ($canSubscribe)
                             <form method="POST" action="{{ route('subscription.subscribe', $package) }}">
