@@ -68,17 +68,32 @@ class CareController extends Controller
         $record = $writable
             ? $this->care->ensureRecord($visit)
             : $visit->medicalRecord;
+        $recordLock = app(\App\Support\Clinical\MedicalRecordLock::class);
+        $recordLocked = $record ? $recordLock->isLocked($record) : false;
+
+        if ($recordLocked) {
+            $writable = false;
+        }
+
+        if ($record && $user) {
+            app(\App\Support\Clinical\MedicalRecordReadAudit::class)->record(
+                $user,
+                $record,
+                'Membaca rekam medis kunjungan '.$visit->id,
+            );
+        }
 
         $visit->load([
             'patient',
             'queue',
-            'doctor',
+            'doctor.doctorProfile',
             'room',
             'payer',
             'branch',
             'diagnoses',
             'procedureRecords.procedure',
             'prescriptions.items.medicine',
+            'prescriptions.items.ingredients',
             'prescriptions.doctor',
             'referrals',
         ]);
@@ -123,6 +138,12 @@ class CareController extends Controller
             'section' => $section,
             'progress' => CareProgress::for($visit, $record, $teeth),
             'writable' => $writable,
+            'recordLocked' => $recordLocked,
+            'recordFinal' => $record ? $recordLock->isFinal($record) : false,
+            'correctUntil' => $record?->finalized_at?->copy()->addHours(\App\Support\Clinical\MedicalRecordLock::HOURS),
+            'amendments' => $record?->amendments()->with('author')->latest('id')->get() ?? collect(),
+            'labOrders' => \App\Models\DentalLabOrder::query()->where('visit_id', $visit->id)->latest('id')->get(),
+            'clinicalDocuments' => \App\Models\ClinicalDocument::query()->where('visit_id', $visit->id)->latest('id')->get(),
             'teeth' => $teeth,
             'toothStatuses' => ToothStatus::options(),
             'toothStatusMeta' => collect(ToothStatus::cases())->mapWithKeys(fn (ToothStatus $status) => [
@@ -361,11 +382,12 @@ class CareController extends Controller
     public function storeProcedure(StoreProcedureRecordRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $data = $request->validated();
-        $record = $this->care->addProcedure(
+            $record = $this->care->addProcedure(
             $visit,
             (int) $data['procedure_id'],
             $data['tooth_number'] ?? null,
             (int) $data['quantity'],
+            $data['icd9_code'] ?? null,
         );
 
         activity_log('created', $record, [
@@ -396,7 +418,24 @@ class CareController extends Controller
     public function storePrescriptionItem(StorePrescriptionItemRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $prescription = $this->care->draftPrescription($visit, $request->user());
-        $item = $prescription->items()->create($request->validated());
+        $data = $request->validated();
+        $ingredients = $data['ingredients'] ?? [];
+        unset($data['ingredients']);
+        $data['kind'] = $data['kind'] ?? \App\Enums\PrescriptionItemKind::Ready->value;
+        $item = $prescription->items()->create($data);
+
+        foreach ($ingredients as $ingredient) {
+            if (blank($ingredient['name'] ?? null)) {
+                continue;
+            }
+
+            $item->ingredients()->create([
+                'medicine_id' => $ingredient['medicine_id'] ?: null,
+                'name' => $ingredient['name'],
+                'unit' => $ingredient['unit'] ?? null,
+                'quantity' => $ingredient['quantity'],
+            ]);
+        }
 
         activity_log('created', $item, $request->validated(), 'Added prescription item', 'prescriptions');
 
@@ -485,17 +524,28 @@ class CareController extends Controller
         abort_unless(request()->user()?->can('referral.view'), 403);
         abort_unless((int) $referral->visit_id === (int) $visit->id, 404);
 
-        $visit->loadMissing(['patient', 'doctor', 'branch', 'room', 'diagnoses']);
+        $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch', 'room', 'diagnoses']);
 
         $meta = $this->printMeta($visit);
         $letterDate = $referral->created_at ?? $visit->visit_date ?? now();
+        $letterNumber = $this->letterNumber('RJU', (int) $referral->id, $letterDate);
+        $document = app(\App\Support\Clinical\ClinicalDocumentService::class)->issue(
+            $visit,
+            request()->user(),
+            \App\Enums\ClinicalDocumentType::Referral,
+            $letterNumber,
+            ['referred_to' => $referral->referred_to, 'reason' => $referral->reason],
+            $referral,
+        );
 
         return Pdf::loadView('clinical.care.print.referral', [
             ...$meta,
             'title' => 'Surat Rujukan',
             'referral' => $referral,
             'diagnoses' => $visit->diagnoses,
-            'letterNumber' => $this->letterNumber('RJU', (int) $referral->id, $letterDate),
+            'letterNumber' => $letterNumber,
+            'verificationCode' => $document->verification_code,
+            'signatureSrc' => app(\App\Support\Clinical\ClinicalDocumentService::class)->signatureSrc($document->signature_path),
         ])->setPaper('a4')->stream('surat-rujukan-'.$visit->id.'.pdf');
     }
 
@@ -559,6 +609,7 @@ class CareController extends Controller
             'printedAt' => $printedAt,
             'printedDateLabel' => $this->indonesianDate($printedAt),
             'visitDateLabel' => $this->indonesianDate($visit->visit_date ?? $printedAt),
+            'signatureSrc' => app(\App\Support\Clinical\ClinicalDocumentService::class)->signatureSrc($visit->doctor?->doctorProfile?->signature_path),
         ];
     }
 
@@ -576,6 +627,120 @@ class CareController extends Controller
         $months = [1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni', 7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'];
 
         return $carbon->format('j').' '.$months[(int) $carbon->format('n')].' '.$carbon->format('Y');
+    }
+
+    public function finalizeRecord(Request $request, Visit $visit): RedirectResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('medical_record.update'), 403);
+
+        $record = $this->care->ensureRecord($visit);
+        app(\App\Support\Clinical\MedicalRecordLock::class)->finalize($record, $request->user());
+
+        return back()->with('success', 'Rekam medis difinalisasi. Koreksi isi dibuka 2×24 jam.');
+    }
+
+    public function storeAmendment(Request $request, Visit $visit): RedirectResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('medical_record.update'), 403);
+
+        $record = $visit->medicalRecord;
+        abort_unless($record, 404);
+
+        $data = $request->validate(['body' => ['required', 'string', 'max:5000']]);
+        app(\App\Support\Clinical\MedicalRecordLock::class)->amend($record, $request->user(), $data['body']);
+
+        return back()->with('success', 'Adendum tersimpan.');
+    }
+
+    public function storeSickLetter(Request $request, Visit $visit): RedirectResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('medical_record.view'), 403);
+
+        $data = $request->validate([
+            'rest_from' => ['required', 'date'],
+            'rest_days' => ['required', 'integer', 'min:1', 'max:60'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch']);
+        $number = $this->letterNumber('SKT', (int) $visit->id, $data['rest_from']);
+        $document = app(\App\Support\Clinical\ClinicalDocumentService::class)->issue(
+            $visit,
+            $request->user(),
+            \App\Enums\ClinicalDocumentType::SickLetter,
+            $number.'-'.now()->format('His'),
+            $data,
+        );
+
+        return redirect()->route('care.documents.pdf', [$visit, $document]);
+    }
+
+    public function printResume(Request $request, Visit $visit): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('medical_record.view'), 403);
+
+        $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch', 'diagnoses', 'procedureRecords.procedure', 'medicalRecord.amendments']);
+        $number = $this->letterNumber('RSM', (int) $visit->id, $visit->visit_date ?? now());
+        $document = app(\App\Support\Clinical\ClinicalDocumentService::class)->issue(
+            $visit,
+            $request->user(),
+            \App\Enums\ClinicalDocumentType::Resume,
+            $number,
+            ['visit_id' => $visit->id],
+        );
+
+        return $this->streamDocument($visit, $document);
+    }
+
+    public function printDocument(Visit $visit, \App\Models\ClinicalDocument $document): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless((int) $document->visit_id === (int) $visit->id, 404);
+        abort_unless(request()->user()?->can('medical_record.view') || request()->user()?->can('referral.view'), 403);
+
+        return $this->streamDocument($visit, $document);
+    }
+
+    public function cancelDocument(Visit $visit, \App\Models\ClinicalDocument $document): RedirectResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless((int) $document->visit_id === (int) $visit->id, 404);
+        abort_unless(request()->user()?->can('medical_record.update'), 403);
+
+        $document->update(['status' => \App\Enums\ClinicalDocumentStatus::Cancelled]);
+
+        return back()->with('success', 'Dokumen dibatalkan. Kode cek menampilkan status dibatalkan.');
+    }
+
+    protected function streamDocument(Visit $visit, \App\Models\ClinicalDocument $document): Response
+    {
+        $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch', 'room', 'diagnoses', 'procedureRecords.procedure', 'medicalRecord.amendments']);
+        $meta = $this->printMeta($visit);
+        $service = app(\App\Support\Clinical\ClinicalDocumentService::class);
+        $shared = [
+            ...$meta,
+            'letterNumber' => $document->number,
+            'verificationCode' => $document->verification_code,
+            'signatureSrc' => $service->signatureSrc($document->signature_path),
+            'document' => $document,
+        ];
+
+        $view = match ($document->type) {
+            \App\Enums\ClinicalDocumentType::SickLetter => 'clinical.care.print.sick',
+            \App\Enums\ClinicalDocumentType::Resume => 'clinical.care.print.resume',
+            default => 'clinical.care.print.referral',
+        };
+
+        return Pdf::loadView($view, [
+            ...$shared,
+            'title' => $document->type->label(),
+            'referral' => $document->reference_type === \App\Models\Referral::class ? $document->reference : $visit->referrals()->first(),
+            'diagnoses' => $visit->diagnoses,
+        ])->setPaper('a4')->stream($document->verification_code.'.pdf');
     }
 
     public function complete(Visit $visit): RedirectResponse

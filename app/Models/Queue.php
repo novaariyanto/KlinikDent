@@ -19,6 +19,8 @@ class Queue extends Model
      */
     protected $fillable = [
         'visit_id',
+        'doctor_schedule_id',
+        'doctor_user_id',
         'queue_number',
         'called_at',
         'status',
@@ -31,6 +33,8 @@ class Queue extends Model
     {
         return [
             'visit_id' => 'integer',
+            'doctor_schedule_id' => 'integer',
+            'doctor_user_id' => 'integer',
             'queue_number' => 'integer',
             'called_at' => 'datetime',
             'status' => QueueStatus::class,
@@ -58,6 +62,22 @@ class Queue extends Model
     public function visit(): BelongsTo
     {
         return $this->belongsTo(Visit::class);
+    }
+
+    /**
+     * @return BelongsTo<DoctorSchedule, $this>
+     */
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(DoctorSchedule::class, 'doctor_schedule_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function doctorUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'doctor_user_id');
     }
 
     public function displayNumber(): string

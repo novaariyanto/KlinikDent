@@ -27,6 +27,7 @@ class Doctor extends Model
         'specialization',
         'phone',
         'notes',
+        'signature_path',
         'is_active',
     ];
 

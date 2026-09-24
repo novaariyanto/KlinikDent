@@ -4,7 +4,7 @@
     'size' => '',
 ])
 
-<div class="modal fade" id="{{ $id }}" tabindex="-1" aria-labelledby="{{ $id }}Label" aria-hidden="true" {{ $attributes }}>
+<div {{ $attributes->class(['modal', 'fade']) }} id="{{ $id }}" tabindex="-1" aria-labelledby="{{ $id }}Label" aria-hidden="true">
     <div class="modal-dialog {{ $size }}">
         <div class="modal-content">
             <div class="modal-header">

@@ -319,7 +319,8 @@ class DashboardMetricsService
         $todayPaid = Payment::query()
             ->whereDate('paid_at', $today)
             ->whereHas('invoice', fn ($invoice) => $user->applyBranchLimit($invoice, 'branch_id', $branchId))
-            ->sum('amount');
+            ->get()
+            ->reduce(fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2), '0.00');
         $shift = $this->billing->currentShift($user);
 
         return [

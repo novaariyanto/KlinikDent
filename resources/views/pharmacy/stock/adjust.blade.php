@@ -5,6 +5,7 @@
 @section('content')
     <x-page-header title="Penyesuaian Stok" :breadcrumb="['Stok' => route('pharmacy.stock.index'), 'Penyesuaian' => null]" />
     <x-alert />
+    @include('pharmacy.partials.nav')
     <div class="row">
         <div class="col-lg-8">
             <x-card title="Penyesuaian Manual">

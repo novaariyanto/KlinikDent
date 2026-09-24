@@ -43,33 +43,56 @@ class PharmacyPrescriptionController extends Controller
     {
         $this->authorizePrescription($request->user(), $prescription, viewOnly: true);
 
-        $prescription->load(['visit.patient', 'visit.branch', 'doctor', 'items.medicine']);
+        $prescription->load([
+            'visit.patient',
+            'visit.branch',
+            'doctor',
+            'items.medicine',
+            'items.ingredients.medicine',
+        ]);
 
         $availability = [];
+        $stockShort = false;
 
         if ($prescription->isSent() && $prescription->visit) {
-            foreach ($prescription->items as $item) {
-                $available = $this->stocks->availableQuantity(
-                    (int) $prescription->visit->tenant_id,
-                    (int) $prescription->visit->branch_id,
-                    (int) $item->medicine_id,
-                );
-                $allocations = $this->stocks->previewFefo(
-                    (int) $prescription->visit->tenant_id,
-                    (int) $prescription->visit->branch_id,
-                    (int) $item->medicine_id,
-                    (int) $item->quantity,
-                );
+            $tenantId = (int) $prescription->visit->tenant_id;
+            $branchId = (int) $prescription->visit->branch_id;
 
-                $availability[$item->id] = [
-                    'available' => $available,
-                    'enough' => $available >= (int) $item->quantity,
-                    'allocations' => $allocations,
-                ];
+            foreach ($prescription->items as $item) {
+                $lines = [];
+
+                foreach ($this->stockDemands($item) as $demand) {
+                    if (! $demand['medicine_id']) {
+                        $lines[] = [
+                            'label' => $demand['label'],
+                            'needed' => $demand['quantity'],
+                            'unit' => $demand['unit'],
+                            'tracked' => false,
+                        ];
+
+                        continue;
+                    }
+
+                    $available = $this->stocks->availableQuantity($tenantId, $branchId, $demand['medicine_id']);
+                    $enough = $available >= $demand['quantity'];
+                    $stockShort = $stockShort || ! $enough;
+
+                    $lines[] = [
+                        'label' => $demand['label'],
+                        'needed' => $demand['quantity'],
+                        'unit' => $demand['unit'],
+                        'tracked' => true,
+                        'available' => $available,
+                        'enough' => $enough,
+                        'allocations' => $this->stocks->previewFefo($tenantId, $branchId, $demand['medicine_id'], $demand['quantity']),
+                    ];
+                }
+
+                $availability[$item->id] = $lines;
             }
         }
 
-        return view('clinical.pharmacy.show', compact('prescription', 'availability'));
+        return view('clinical.pharmacy.show', compact('prescription', 'availability', 'stockShort'));
     }
 
     public function fulfill(Request $request, Prescription $prescription): RedirectResponse
@@ -123,5 +146,31 @@ class PharmacyPrescriptionController extends Controller
         if ($viewOnly) {
             abort_unless($prescription->isSent() || $prescription->isFulfilled(), 403);
         }
+    }
+
+    /**
+     * @return list<array{label: string, medicine_id: int, quantity: int, unit: ?string}>
+     */
+    protected function stockDemands(\App\Models\PrescriptionItem $item): array
+    {
+        if ($item->isCompound()) {
+            return $item->ingredients->map(fn ($ingredient) => [
+                'label' => $ingredient->medicine?->name ?: $ingredient->name,
+                'medicine_id' => (int) ($ingredient->medicine_id ?: 0),
+                'quantity' => (int) $ingredient->quantity,
+                'unit' => $ingredient->unit,
+            ])->all();
+        }
+
+        if (! $item->medicine_id) {
+            return [];
+        }
+
+        return [[
+            'label' => $item->label(),
+            'medicine_id' => (int) $item->medicine_id,
+            'quantity' => (int) $item->quantity,
+            'unit' => $item->medicine?->unitLabel(),
+        ]];
     }
 }

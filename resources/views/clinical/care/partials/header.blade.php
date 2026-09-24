@@ -1,6 +1,8 @@
 @php
     $patient = $visit->patient;
     $visitTime = $visit->queue?->called_at ?? $visit->created_at;
+    $recordFinal = $recordFinal ?? false;
+    $recordLocked = $recordLocked ?? false;
 @endphp
 
 <section class="patient-banner" id="identitas">
@@ -38,4 +40,9 @@
         @endcan
         <x-button href="{{ route('queue.today') }}" variant="secondary">Antrean</x-button>
     </div>
+    @if ($recordLocked)
+        <p class="mt-2 mb-0 text-warning">Rekam medis terkunci.</p>
+    @elseif ($recordFinal)
+        <p class="mt-2 mb-0">Rekam medis final. Koreksi isi sampai {{ $correctUntil?->format('d M Y H:i') }}.</p>
+    @endif
 </section>

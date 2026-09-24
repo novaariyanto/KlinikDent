@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.scope' => EnsureTenantScope::class,
             'tenant.active' => EnsureTenantSubscriptionActive::class,
             'route.permission' => EnforceRoutePermission::class,
+            'record.mutable' => \App\Http\Middleware\EnsureMedicalRecordMutable::class,
             'onboarding.owner' => EnsureOwnerOnboarding::class,
         ]);
     })

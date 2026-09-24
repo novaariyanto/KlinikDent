@@ -187,7 +187,8 @@ class ClinicReportService
                 $visit->where('doctor_id', $doctor->id);
                 $doctor->applyBranchLimit($visit, 'branch_id', $branchId);
             })
-            ->sum('amount');
+            ->get()
+            ->reduce(fn (string $carry, \App\Models\Payment $payment) => bcadd($carry, $payment->signedAmount(), 2), '0.00');
 
         return number_format((float) $amount, 2, '.', '');
     }

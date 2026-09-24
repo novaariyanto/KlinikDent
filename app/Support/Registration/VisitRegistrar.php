@@ -54,14 +54,126 @@ class VisitRegistrar
                 'visit_date' => $visitDate,
             ]);
 
-            Queue::query()->create([
-                'visit_id' => $visit->id,
-                'queue_number' => $this->sequences->nextQueueNumber($branch, $visit->visit_date?->toDateString()),
-                'status' => QueueStatus::Waiting,
-            ]);
+            $this->attachQueue($visit, $branch, isset($data['doctor_schedule_id']) ? (int) $data['doctor_schedule_id'] : null);
 
             return $visit->load(['patient', 'queue', 'doctor', 'room', 'payer', 'branch']);
         });
+    }
+
+    /**
+     * Janji dari rumah. Tidak membuat akun pengguna.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function registerGuest(\App\Models\Tenant $tenant, array $data): Visit
+    {
+        return DB::transaction(function () use ($tenant, $data) {
+            $branch = Branch::withoutGlobalScopes()->find($data['branch_id'] ?? null);
+
+            if (! $branch || (int) $branch->tenant_id !== (int) $tenant->id || ! $branch->is_active) {
+                throw ValidationException::withMessages([
+                    'branch_id' => 'Cabang tidak valid.',
+                ]);
+            }
+
+            $schedule = \App\Models\DoctorSchedule::withoutGlobalScopes()
+                ->whereKey($data['doctor_schedule_id'] ?? null)
+                ->where('tenant_id', $tenant->id)
+                ->where('branch_id', $branch->id)
+                ->where('is_active', true)
+                ->first();
+
+            $doctor = $schedule
+                ? \App\Models\Doctor::withoutGlobalScopes()->find($schedule->doctor_id)
+                : null;
+
+            if (! $schedule || ! $doctor?->user_id) {
+                throw ValidationException::withMessages([
+                    'doctor_schedule_id' => 'Sesi dokter tidak ditemukan.',
+                ]);
+            }
+
+            $visitDate = (string) ($data['visit_date'] ?? now()->toDateString());
+
+            if (\App\Enums\Weekday::fromDate($visitDate)->value !== ($schedule->weekday instanceof \App\Enums\Weekday ? $schedule->weekday->value : (int) $schedule->weekday)) {
+                throw ValidationException::withMessages([
+                    'visit_date' => 'Sesi dokter tidak praktik pada tanggal itu.',
+                ]);
+            }
+
+            $patient = $this->matchGuestPatient($tenant, $branch, $data);
+
+            $visit = Visit::withoutGlobalScopes()->create([
+                'tenant_id' => $tenant->id,
+                'branch_id' => $branch->id,
+                'patient_id' => $patient->id,
+                'doctor_id' => $doctor->user_id,
+                'room_id' => $schedule->room_id,
+                'payer_id' => $data['payer_id'],
+                'status' => VisitStatus::Waiting,
+                'visit_date' => $visitDate,
+            ]);
+
+            $this->attachQueue($visit, $branch, (int) $schedule->id);
+
+            return $visit->load([
+                'patient' => fn ($query) => $query->withoutGlobalScopes(),
+                'queue' => fn ($query) => $query->withoutGlobalScopes(),
+                'doctor' => fn ($query) => $query->withoutGlobalScopes(),
+                'room' => fn ($query) => $query->withoutGlobalScopes(),
+                'branch' => fn ($query) => $query->withoutGlobalScopes(),
+            ]);
+        });
+    }
+
+    protected function attachQueue(Visit $visit, Branch $branch, ?int $scheduleId = null): void
+    {
+        $doctorUserId = $visit->doctor_id ? (int) $visit->doctor_id : null;
+
+        if (! $scheduleId && $doctorUserId) {
+            $scheduleId = $this->schedules->scheduleIdFor($doctorUserId, (int) $branch->id, (string) $visit->visit_date?->toDateString());
+        }
+
+        Queue::withoutGlobalScopes()->create([
+            'visit_id' => $visit->id,
+            'doctor_schedule_id' => $scheduleId,
+            'doctor_user_id' => $doctorUserId,
+            'queue_number' => $this->sequences->nextQueueNumber($branch, $visit->visit_date?->toDateString(), $doctorUserId),
+            'status' => QueueStatus::Waiting,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function matchGuestPatient(\App\Models\Tenant $tenant, Branch $branch, array $data): Patient
+    {
+        $nik = filled($data['nik'] ?? null) ? (string) $data['nik'] : null;
+        $phone = filled($data['phone'] ?? null) ? (string) $data['phone'] : null;
+
+        $patient = null;
+
+        if ($nik) {
+            $patient = Patient::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('nik', $nik)->first();
+        }
+
+        if (! $patient && $phone) {
+            $patient = Patient::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('phone', $phone)->first();
+        }
+
+        if ($patient) {
+            return $patient;
+        }
+
+        return Patient::withoutGlobalScopes()->create([
+            'tenant_id' => $tenant->id,
+            'medical_record_number' => $this->sequences->nextMedicalRecord($tenant, $branch),
+            'name' => $data['name'],
+            'nik' => $nik,
+            'dob' => $data['dob'] ?? null,
+            'phone' => $phone,
+            'default_payer_id' => $data['payer_id'] ?? null,
+        ]);
     }
 
     /**

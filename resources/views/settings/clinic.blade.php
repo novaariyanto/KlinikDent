@@ -6,6 +6,7 @@
     <x-page-header title="Pengaturan Klinik" :breadcrumb="['Pengaturan' => null, 'Klinik' => route('settings.clinic')]" />
 
     <x-alert />
+    @include('settings.partials.nav')
 
     <form method="POST" action="{{ route('settings.clinic.update') }}" enctype="multipart/form-data" novalidate>
         @csrf
@@ -88,6 +89,11 @@
                         </div>
                         <div class="col-md-6">
                             <x-input name="rm_prefix" label="Prefix Nomor RM" :value="$settings['rm_prefix']" placeholder="KLINIK-A" />
+                            <x-input name="slot_minutes" type="number" label="Menit per pasien (janji)" :value="$settings['slot_minutes'] ?? 15" min="5" max="120" />
+                            @if (auth()->user()?->hasRole('owner'))
+                                <p class="mb-3">Tautan janji pasien: {{ url('/janji/'.$tenant->subdomain) }}</p>
+                                <p class="mb-3">Portal pasien: {{ url('/pasien/'.$tenant->subdomain) }}</p>
+                            @endif
                             <small class="text-muted d-block mb-3 mt-n2">Huruf, angka, dan tanda hubung. Dipakai untuk nomor rekam medis baru.</small>
                         </div>
                         <div class="col-md-6">

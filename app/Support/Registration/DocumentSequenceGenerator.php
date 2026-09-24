@@ -26,9 +26,13 @@ class DocumentSequenceGenerator
         return sprintf('%s-%s-%s-%s', $tenantCode, $branchCode, $year, str_pad((string) $number, 6, '0', STR_PAD_LEFT));
     }
 
-    public function nextQueueNumber(Branch $branch, ?string $date = null): int
+    public function nextQueueNumber(Branch $branch, ?string $date = null, ?int $doctorUserId = null): int
     {
         $period = $date ?: now()->toDateString();
+
+        if ($doctorUserId) {
+            $period .= ':'.$doctorUserId;
+        }
 
         return $this->next((int) $branch->tenant_id, (int) $branch->id, self::TYPE_QUEUE, $period);
     }
@@ -46,7 +50,7 @@ class DocumentSequenceGenerator
     {
         return retry(5, function () use ($tenantId, $branchId, $type, $period) {
             try {
-                $sequence = DocumentSequence::query()
+                $sequence = DocumentSequence::withoutGlobalScopes()
                     ->where('tenant_id', $tenantId)
                     ->where('branch_id', $branchId)
                     ->where('type', $type)
@@ -55,7 +59,7 @@ class DocumentSequenceGenerator
                     ->first();
 
                 if (! $sequence) {
-                    $sequence = DocumentSequence::query()->create([
+                    $sequence = DocumentSequence::withoutGlobalScopes()->create([
                         'tenant_id' => $tenantId,
                         'branch_id' => $branchId,
                         'type' => $type,

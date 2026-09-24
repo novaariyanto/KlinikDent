@@ -33,7 +33,7 @@ class BillingService
         return DB::transaction(function () use ($visit, $user) {
             /** @var Visit $locked */
             $locked = Visit::query()->whereKey($visit->id)->lockForUpdate()->firstOrFail();
-            $locked->load(['procedureRecords.procedure', 'prescriptions.items.medicine', 'patient', 'payer', 'branch']);
+            $locked->load(['procedureRecords.procedure', 'prescriptions.items.medicine', 'prescriptions.items.ingredients.medicine', 'patient', 'payer', 'branch']);
 
             $procedures = $locked->procedureRecords->filter(fn (ProcedureRecord $record) => $record->isUnbilled());
             $medicines = $this->unbilledMedicines($locked);
@@ -59,6 +59,26 @@ class BillingService
             }
 
             foreach ($medicines as $item) {
+                if ($item->isCompound()) {
+                    $price = '0.00';
+
+                    foreach ($item->ingredients as $ingredient) {
+                        $unit = (string) ($ingredient->medicine?->sell_price ?? $ingredient->medicine?->base_price ?? '0.00');
+                        $price = bcadd($price, bcmul($unit, (string) $ingredient->quantity, 2), 2);
+                    }
+
+                    $this->addItem(
+                        $invoice,
+                        InvoiceItemSource::Medicine,
+                        (int) $item->id,
+                        $this->medicineDescription($item),
+                        1,
+                        $price,
+                    );
+
+                    continue;
+                }
+
                 $this->addItem(
                     $invoice,
                     InvoiceItemSource::Medicine,
@@ -143,6 +163,64 @@ class BillingService
                     $payment,
                 );
             });
+
+            return $payment;
+        });
+    }
+
+    public function refund(Invoice $invoice, User $user, string $amount, PaymentMethod $method, string $reason): Payment
+    {
+        $amount = $this->normalizeAmount($amount);
+        $reason = trim($reason);
+
+        if (bccomp($amount, '0', 2) <= 0) {
+            throw new BillingException('Nominal pengembalian harus lebih dari 0.');
+        }
+
+        if ($reason === '') {
+            throw new BillingException('Alasan pengembalian wajib diisi.');
+        }
+
+        return DB::transaction(function () use ($invoice, $user, $amount, $method, $reason) {
+            /** @var Invoice $locked */
+            $locked = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isVoid()) {
+                throw new BillingException('Tagihan yang dibatalkan tidak dapat dikembalikan.');
+            }
+
+            $paid = (string) $locked->payments()->get()->reduce(
+                fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2),
+                '0.00'
+            );
+
+            if (bccomp($amount, $paid, 2) > 0) {
+                throw new BillingException('Pengembalian melebihi dana yang sudah diterima.');
+            }
+
+            $shift = $this->shiftForPayment($user, (int) $locked->branch_id);
+
+            if (! $shift) {
+                throw new BillingException('Buka shift kasir sebelum pengembalian dana.');
+            }
+
+            $payment = Payment::query()->create([
+                'invoice_id' => $locked->id,
+                'cashier_id' => $user->id,
+                'shift_id' => $shift->id,
+                'kind' => \App\Enums\PaymentKind::Refund,
+                'amount' => $amount,
+                'method' => $method,
+                'paid_at' => now(),
+                'notes' => $reason,
+            ]);
+
+            $this->recalculate($locked);
+
+            activity_audit('refunded', $locked->fresh(), [], 'Pengembalian dana tagihan '.$locked->number, 'billing', [
+                'amount' => $amount,
+                'reason' => $reason,
+            ], $user);
 
             return $payment;
         });
@@ -241,7 +319,8 @@ class BillingService
             $cashIn = (string) Payment::query()
                 ->where('shift_id', $locked->id)
                 ->where('method', PaymentMethod::Cash)
-                ->sum('amount');
+                ->get()
+                ->reduce(fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2), '0.00');
 
             $system = bcadd((string) $locked->opening_balance, $cashIn, 2);
             $variance = bcsub($countedBalance, $system, 2);
@@ -296,7 +375,7 @@ class BillingService
         $paid = '0.00';
         if (! $invoice->isVoid()) {
             foreach ($invoice->payments as $payment) {
-                $paid = bcadd($paid, (string) $payment->amount, 2);
+                $paid = bcadd($paid, $payment->signedAmount(), 2);
             }
         }
 
@@ -405,6 +484,10 @@ class BillingService
 
     protected function medicineDescription(PrescriptionItem $item): string
     {
+        if ($item->isCompound()) {
+            return $item->label();
+        }
+
         $name = $item->medicine?->name ?? 'Obat';
         $extra = collect([$item->dosage, $item->frequency])->filter()->implode(' / ');
 

@@ -32,6 +32,12 @@ class PatientHistoryController extends Controller
         $this->authorize('view', $patient);
         abort_unless($request->user()?->can('patient_history.view'), 403);
 
+        app(\App\Support\Clinical\MedicalRecordReadAudit::class)->record(
+            $request->user(),
+            $patient,
+            'Membaca riwayat pasien '.$patient->medical_record_number,
+        );
+
         $visits = Visit::query()
             ->where('patient_id', $patient->id)
             ->with([

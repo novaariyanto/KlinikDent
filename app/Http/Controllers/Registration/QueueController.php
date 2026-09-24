@@ -41,6 +41,22 @@ class QueueController extends Controller
         return view('registration.queues.index', compact('columns', 'title', 'filter'));
     }
 
+    public function loket(Request $request): View
+    {
+        $this->authorize('viewAny', Queue::class);
+
+        $queues = Queue::query()
+            ->with(['visit.patient', 'visit.doctor', 'visit.room', 'schedule'])
+            ->whereHas('visit', fn ($visit) => $visit->visibleTo($request->user())->today())
+            ->orderBy('queue_number')
+            ->get()
+            ->groupBy(fn (Queue $queue) => $queue->visit?->doctor?->name ?: 'Belum ada dokter');
+
+        return view('registration.queues.loket', [
+            'groups' => $queues,
+        ]);
+    }
+
     public function data(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Queue::class);

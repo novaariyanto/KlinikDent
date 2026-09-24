@@ -51,6 +51,7 @@ class Medicine extends Model
     protected $fillable = [
         'tenant_id',
         'name',
+        'kfa_code',
         'unit',
         'category',
         'base_price',
@@ -76,6 +77,10 @@ class Medicine extends Model
     protected static function booted(): void
     {
         static::saving(function (Medicine $medicine): void {
+            if ($medicine->kfa_code === '') {
+                $medicine->kfa_code = null;
+            }
+
             $type = $medicine->margin_type === 'percent' ? 'percent' : 'fixed';
             $base = number_format((float) $medicine->base_price, 2, '.', '');
             $margin = number_format((float) $medicine->margin_value, 2, '.', '');

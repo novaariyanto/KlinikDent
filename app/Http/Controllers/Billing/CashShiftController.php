@@ -69,7 +69,7 @@ class CashShiftController extends Controller
             : null;
 
         $cashIn = $shift
-            ? (string) $shift->payments()->where('method', PaymentMethod::Cash)->sum('amount')
+            ? $shift->cashReceived()
             : '0.00';
 
         return view('billing.shifts.transactions', compact('shift', 'payments', 'cashIn'));
@@ -84,7 +84,7 @@ class CashShiftController extends Controller
 
         $this->authorize('update', $shift);
 
-        $cashIn = (string) $shift->payments()->where('method', PaymentMethod::Cash)->sum('amount');
+        $cashIn = $shift->cashReceived();
         $system = bcadd((string) $shift->opening_balance, $cashIn, 2);
 
         return view('billing.shifts.close', compact('shift', 'cashIn', 'system'));

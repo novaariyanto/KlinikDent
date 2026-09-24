@@ -123,6 +123,12 @@ final class CareTabs
             'referrals' => 'rujukan',
             'instruksi' => 'instruksi',
             'notes' => 'instruksi',
+            'lab' => 'lab',
+            'lab-gigi' => 'lab',
+            'surat' => 'surat',
+            'dokumen' => 'surat',
+            'adendum' => 'adendum',
+            'kunci' => 'adendum',
         ];
 
         $sections = self::flow($user);

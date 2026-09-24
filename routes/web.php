@@ -11,7 +11,12 @@ use App\Http\Controllers\Billing\PaymentController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\Clinical\CareController;
 use App\Http\Controllers\Clinical\ClinicalIndexController;
+use App\Http\Controllers\Clinical\DentalLabController;
 use App\Http\Controllers\Clinical\PatientHistoryController;
+use App\Http\Controllers\Owner\PracticeArchiveController;
+use App\Http\Controllers\Portal\DocumentCheckController;
+use App\Http\Controllers\Portal\PatientPortalController;
+use App\Http\Controllers\Registration\PublicBookingController;
 use App\Http\Controllers\Clinical\PharmacyPrescriptionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DoctorController;
@@ -108,6 +113,17 @@ Route::post('/midtrans/notification', [MidtransNotificationController::class, 's
 
 Route::get('/antrean/{token}', [QueueMonitorController::class, 'public'])->name('queue.monitor.public');
 Route::get('/antrean/{token}/data', [QueueMonitorController::class, 'feed'])->name('queue.monitor.feed');
+
+Route::get('/janji/{slug}', [PublicBookingController::class, 'show'])->name('booking.public');
+Route::get('/janji/{slug}/sesi', [PublicBookingController::class, 'sessions'])->name('booking.public.sessions');
+Route::post('/janji/{slug}', [PublicBookingController::class, 'store'])->middleware('throttle:10,1')->name('booking.public.store');
+
+Route::get('/cek/{code}', [DocumentCheckController::class, 'show'])->name('documents.check');
+
+Route::get('/pasien/{slug}', [PatientPortalController::class, 'show'])->name('portal.patient');
+Route::post('/pasien/{slug}', [PatientPortalController::class, 'login'])->middleware('throttle:10,1')->name('portal.patient.login');
+Route::post('/pasien/{slug}/keluar', [PatientPortalController::class, 'logout'])->name('portal.patient.logout');
+Route::get('/pasien/{slug}/resume', [PatientPortalController::class, 'resume'])->name('portal.patient.resume');
 
 Route::middleware(['auth', 'onboarding.owner'])->group(function () {
     Route::middleware(['tenant.scope', 'tenant.active'])->prefix('onboarding')->name('onboarding.')->group(function () {
@@ -252,6 +268,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/queue/mine', [QueueController::class, 'index'])->name('queue.mine');
             Route::get('/queue/waiting', [QueueController::class, 'index'])->name('queue.waiting');
             Route::get('/queue/called', [QueueController::class, 'index'])->name('queue.called');
+            Route::get('/queue/loket', [QueueController::class, 'loket'])->name('queue.loket');
             Route::get('/queue/monitor', [QueueMonitorController::class, 'show'])->name('queue.monitor');
             Route::post('/queue/{queue}/call', [QueueController::class, 'call'])->name('queue.call');
             Route::post('/queue/{queue}/complete', [QueueController::class, 'complete'])->name('queue.complete');
@@ -271,29 +288,38 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
 
             Route::get('/visits/{visit}/care', [CareController::class, 'show'])->name('care.show');
             Route::get('/visits/{visit}/care/diagnoses/search', [CareController::class, 'searchDiagnoses'])->name('care.diagnosis.search');
-            Route::put('/visits/{visit}/care/record', [CareController::class, 'updateRecord'])->name('care.record.update');
-            Route::put('/visits/{visit}/care/examination', [CareController::class, 'updateExamination'])->name('care.examination.update');
-            Route::put('/visits/{visit}/care/vitals', [CareController::class, 'updateVitals'])->name('care.vitals.update');
-            Route::put('/visits/{visit}/care/anamnesis', [CareController::class, 'updateAnamnesis'])->name('care.anamnesis.update');
-            Route::put('/visits/{visit}/care/notes', [CareController::class, 'updateNotes'])->name('care.notes.update');
-            Route::put('/visits/{visit}/care/tooth', [CareController::class, 'updateTooth'])->name('care.tooth.update');
-            Route::delete('/visits/{visit}/care/tooth/{toothNumber}', [CareController::class, 'destroyTooth'])
-                ->where('toothNumber', '[0-9]{2}')
-                ->name('care.tooth.destroy');
-            Route::put('/visits/{visit}/care/dental-exam', [CareController::class, 'updateDentalExam'])->name('care.dental-exam.update');
-            Route::put('/visits/{visit}/care/systemic', [CareController::class, 'updateSystemicHistory'])->name('care.systemic.update');
-            Route::post('/visits/{visit}/care/diagnoses', [CareController::class, 'storeDiagnosis'])->name('care.diagnosis.store');
-            Route::put('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'updateDiagnosis'])->name('care.diagnosis.update');
-            Route::delete('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'destroyDiagnosis'])->name('care.diagnosis.destroy');
-            Route::post('/visits/{visit}/care/procedures', [CareController::class, 'storeProcedure'])->name('care.procedure.store');
-            Route::delete('/visits/{visit}/care/procedures/{procedure_record}', [CareController::class, 'destroyProcedure'])->name('care.procedure.destroy');
-            Route::post('/visits/{visit}/care/prescription-items', [CareController::class, 'storePrescriptionItem'])->name('care.prescription-item.store');
-            Route::put('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'updatePrescriptionItem'])->name('care.prescription-item.update');
-            Route::delete('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'destroyPrescriptionItem'])->name('care.prescription-item.destroy');
-            Route::post('/visits/{visit}/care/prescriptions/{prescription}/send', [CareController::class, 'sendPrescription'])->name('care.prescription.send');
-            Route::post('/visits/{visit}/care/referrals', [CareController::class, 'storeReferral'])->name('care.referral.store');
-            Route::put('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'updateReferral'])->name('care.referral.update');
-            Route::delete('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'destroyReferral'])->name('care.referral.destroy');
+            Route::middleware('record.mutable')->group(function () {
+                Route::put('/visits/{visit}/care/record', [CareController::class, 'updateRecord'])->name('care.record.update');
+                Route::put('/visits/{visit}/care/examination', [CareController::class, 'updateExamination'])->name('care.examination.update');
+                Route::put('/visits/{visit}/care/vitals', [CareController::class, 'updateVitals'])->name('care.vitals.update');
+                Route::put('/visits/{visit}/care/anamnesis', [CareController::class, 'updateAnamnesis'])->name('care.anamnesis.update');
+                Route::put('/visits/{visit}/care/notes', [CareController::class, 'updateNotes'])->name('care.notes.update');
+                Route::put('/visits/{visit}/care/tooth', [CareController::class, 'updateTooth'])->name('care.tooth.update');
+                Route::delete('/visits/{visit}/care/tooth/{toothNumber}', [CareController::class, 'destroyTooth'])
+                    ->where('toothNumber', '[0-9]{2}')
+                    ->name('care.tooth.destroy');
+                Route::put('/visits/{visit}/care/dental-exam', [CareController::class, 'updateDentalExam'])->name('care.dental-exam.update');
+                Route::put('/visits/{visit}/care/systemic', [CareController::class, 'updateSystemicHistory'])->name('care.systemic.update');
+                Route::post('/visits/{visit}/care/diagnoses', [CareController::class, 'storeDiagnosis'])->name('care.diagnosis.store');
+                Route::put('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'updateDiagnosis'])->name('care.diagnosis.update');
+                Route::delete('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'destroyDiagnosis'])->name('care.diagnosis.destroy');
+                Route::post('/visits/{visit}/care/procedures', [CareController::class, 'storeProcedure'])->name('care.procedure.store');
+                Route::delete('/visits/{visit}/care/procedures/{procedure_record}', [CareController::class, 'destroyProcedure'])->name('care.procedure.destroy');
+                Route::post('/visits/{visit}/care/prescription-items', [CareController::class, 'storePrescriptionItem'])->name('care.prescription-item.store');
+                Route::put('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'updatePrescriptionItem'])->name('care.prescription-item.update');
+                Route::delete('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'destroyPrescriptionItem'])->name('care.prescription-item.destroy');
+                Route::post('/visits/{visit}/care/prescriptions/{prescription}/send', [CareController::class, 'sendPrescription'])->name('care.prescription.send');
+                Route::post('/visits/{visit}/care/referrals', [CareController::class, 'storeReferral'])->name('care.referral.store');
+                Route::put('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'updateReferral'])->name('care.referral.update');
+                Route::delete('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'destroyReferral'])->name('care.referral.destroy');
+                Route::post('/visits/{visit}/care/lab', [DentalLabController::class, 'store'])->name('care.lab.store');
+            });
+            Route::post('/visits/{visit}/care/finalize', [CareController::class, 'finalizeRecord'])->name('care.record.finalize');
+            Route::post('/visits/{visit}/care/amendments', [CareController::class, 'storeAmendment'])->name('care.record.amend');
+            Route::post('/visits/{visit}/care/sick-letter', [CareController::class, 'storeSickLetter'])->name('care.sick-letter.store');
+            Route::get('/visits/{visit}/care/resume/pdf', [CareController::class, 'printResume'])->name('care.resume.pdf');
+            Route::get('/visits/{visit}/care/documents/{document}/pdf', [CareController::class, 'printDocument'])->name('care.documents.pdf');
+            Route::post('/visits/{visit}/care/documents/{document}/cancel', [CareController::class, 'cancelDocument'])->name('care.documents.cancel');
             Route::get('/visits/{visit}/care/referrals/{referral}/pdf', [CareController::class, 'printReferral'])->name('care.referral.pdf');
             Route::get('/visits/{visit}/care/instructions/pdf', [CareController::class, 'printInstructions'])->name('care.instructions.pdf');
             Route::post('/visits/{visit}/care/complete', [CareController::class, 'complete'])->name('care.complete');
@@ -311,6 +337,14 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/pharmacy/stock/expired', [StockController::class, 'expired'])->name('pharmacy.stock.expired');
             Route::get('/pharmacy/stock/adjustments', [StockController::class, 'adjustments'])->name('pharmacy.stock.adjustments');
             Route::post('/pharmacy/stock/adjustments', [StockController::class, 'storeAdjustment'])->name('pharmacy.stock.adjustments.store');
+            Route::get('/pharmacy/stock/card', [StockController::class, 'card'])->name('pharmacy.stock.card');
+            Route::get('/pharmacy/stock/card/{medicine}', [StockController::class, 'cardShow'])->name('pharmacy.stock.card.show');
+            Route::get('/pharmacy/stock/opname', [StockController::class, 'opname'])->name('pharmacy.stock.opname');
+            Route::post('/pharmacy/stock/opname', [StockController::class, 'storeOpname'])->name('pharmacy.stock.opname.store');
+            Route::get('/pharmacy/stock/returns', [StockController::class, 'returns'])->name('pharmacy.stock.returns');
+            Route::post('/pharmacy/stock/returns', [StockController::class, 'storeReturn'])->name('pharmacy.stock.returns.store');
+            Route::get('/pharmacy/lab', [DentalLabController::class, 'index'])->name('pharmacy.lab.index');
+            Route::put('/pharmacy/lab/{order}', [DentalLabController::class, 'update'])->name('pharmacy.lab.update');
 
             Route::get('/pharmacy/purchases/suppliers', [SupplierController::class, 'index'])->name('pharmacy.purchases.suppliers');
             Route::get('/pharmacy/purchases/suppliers/create', [SupplierController::class, 'create'])->name('pharmacy.suppliers.create');
@@ -353,6 +387,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/billing/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('billing.invoices.print');
             Route::get('/billing/invoices/{invoice}', [InvoiceController::class, 'show'])->name('billing.invoices.show');
             Route::post('/billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('billing.invoices.pay');
+            Route::post('/billing/invoices/{invoice}/refund', [InvoiceController::class, 'refund'])->name('billing.invoices.refund');
             Route::post('/billing/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('billing.invoices.void');
             Route::get('/billing/payments', [PaymentController::class, 'index'])->name('billing.payments');
             Route::post('/billing/payments', [PaymentController::class, 'store'])->name('billing.payments.store');
@@ -392,6 +427,9 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::put('/settings/clinic', [ClinicSettingController::class, 'update'])
                 ->middleware('permission:setting.manage')
                 ->name('settings.clinic.update');
+            Route::get('/archive', [PracticeArchiveController::class, 'index'])->name('archive.index');
+            Route::post('/archive', [PracticeArchiveController::class, 'store'])->name('archive.store');
+            Route::get('/archive/{archive}', [PracticeArchiveController::class, 'download'])->name('archive.download');
 
             Route::get('/subscription', [PlanController::class, 'index'])
                 ->middleware('permission:plan.view')

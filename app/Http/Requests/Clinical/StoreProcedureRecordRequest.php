@@ -37,12 +37,17 @@ class StoreProcedureRecordRequest extends FormRequest
                 Rule::exists('procedures', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)->where('is_active', true)),
             ],
             'tooth_number' => ['nullable', 'string', Rule::in([...FdiTeeth::adult(), ...FdiTeeth::primary()])],
+            'icd9_code' => ['nullable', 'string', Rule::in(array_keys(\App\Support\Clinical\Icd9Catalog::options()))],
             'quantity' => ['required', 'integer', 'min:1', 'max:20'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
+        if (! filled($this->input('icd9_code'))) {
+            $this->merge(['icd9_code' => null]);
+        }
+
         if (! filled($this->input('tooth_number'))) {
             $this->merge(['tooth_number' => null]);
         }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PaymentKind;
 use App\Enums\PaymentMethod;
 use App\Observers\PaymentObserver;
 use Database\Factories\PaymentFactory;
@@ -23,6 +24,7 @@ class Payment extends Model
         'invoice_id',
         'cashier_id',
         'shift_id',
+        'kind',
         'amount',
         'method',
         'paid_at',
@@ -38,10 +40,23 @@ class Payment extends Model
             'invoice_id' => 'integer',
             'cashier_id' => 'integer',
             'shift_id' => 'integer',
+            'kind' => PaymentKind::class,
             'amount' => 'decimal:2',
             'method' => PaymentMethod::class,
             'paid_at' => 'datetime',
         ];
+    }
+
+    public function isRefund(): bool
+    {
+        return $this->kind === PaymentKind::Refund;
+    }
+
+    public function signedAmount(): string
+    {
+        $amount = number_format((float) $this->amount, 2, '.', '');
+
+        return $this->isRefund() ? bcmul($amount, '-1', 2) : $amount;
     }
 
     /**

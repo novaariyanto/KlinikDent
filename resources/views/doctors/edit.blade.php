@@ -8,7 +8,7 @@
     <div class="row">
         <div class="col-lg-8">
             <x-card title="Profil">
-                <form method="POST" action="{{ route('doctors.update', $doctor) }}" novalidate>
+                <form method="POST" action="{{ route('doctors.update', $doctor) }}" enctype="multipart/form-data" novalidate>
                     @csrf
                     @method('PUT')
                     @include('doctors.partials.profile-fields')

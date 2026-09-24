@@ -5,6 +5,7 @@
 @section('content')
     <x-page-header :title="$title" :breadcrumb="['Farmasi' => route('pharmacy.prescriptions.incoming'), $title => null]" />
     <x-alert />
+    @include('clinical.pharmacy.partials.nav')
     <x-card :title="$title">
         <p class="text-muted">{{ $hint }}</p>
         <x-table>

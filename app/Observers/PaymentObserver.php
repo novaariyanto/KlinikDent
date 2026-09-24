@@ -35,10 +35,10 @@ class PaymentObserver
 
         $this->ledger->record(
             $account,
-            CashMutationType::In,
+            $payment->isRefund() ? CashMutationType::Out : CashMutationType::In,
             (string) $payment->amount,
             $payment,
-            'Pembayaran '.$invoice->number.' ('.$payment->method->label().')',
+            ($payment->isRefund() ? 'Pengembalian ' : 'Pembayaran ').$invoice->number.' ('.$payment->method->label().')',
             $payment->paid_at,
         );
     }

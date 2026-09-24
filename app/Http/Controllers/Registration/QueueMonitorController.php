@@ -73,17 +73,54 @@ class QueueMonitorController extends Controller
             ->orderBy('queue_number')
             ->get();
 
-        $current = $queues->firstWhere('status', QueueStatus::Called);
-        $waiting = $queues->where('status', QueueStatus::Waiting)->values();
+        $lanes = $queues
+            ->groupBy(fn (Queue $queue) => (string) ($queue->doctor_user_id ?: '0'))
+            ->map(function ($group) {
+                $current = $group
+                    ->where('status', QueueStatus::Called)
+                    ->sortByDesc(fn (Queue $queue) => $queue->called_at?->timestamp ?? 0)
+                    ->first();
+                $waiting = $group->where('status', QueueStatus::Waiting)->sortBy('queue_number')->values();
+                $doctor = $current?->visit?->doctor?->name
+                    ?? $waiting->first()?->visit?->doctor?->name
+                    ?? 'Loket umum';
+                $room = $current?->visit?->room?->name ?? $waiting->first()?->visit?->room?->name;
+
+                return [
+                    'doctor' => $doctor,
+                    'room' => $room,
+                    'current' => $current ? [
+                        'number' => $current->displayNumber(),
+                        'patient' => $current->visit?->patient?->name,
+                        'room' => $current->visit?->room?->name,
+                        'doctor' => $doctor,
+                        'call_key' => $current->id.'-'.($current->called_at?->timestamp ?? 0),
+                    ] : null,
+                    'waiting' => $waiting->take(6)->map(fn (Queue $queue) => [
+                        'number' => $queue->displayNumber(),
+                        'patient' => $queue->visit?->patient?->name,
+                    ])->values(),
+                ];
+            })
+            ->sortBy('doctor')
+            ->values();
+
+        $latest = $queues
+            ->where('status', QueueStatus::Called)
+            ->sortByDesc(fn (Queue $queue) => $queue->called_at?->timestamp ?? 0)
+            ->first();
 
         return [
             'branch' => $branch->name,
-            'current' => $current ? [
-                'number' => $current->displayNumber(),
-                'patient' => $current->visit?->patient?->name,
-                'room' => $current->visit?->room?->name,
+            'lanes' => $lanes,
+            'current' => $latest ? [
+                'number' => $latest->displayNumber(),
+                'patient' => $latest->visit?->patient?->name,
+                'room' => $latest->visit?->room?->name,
+                'doctor' => $latest->visit?->doctor?->name,
+                'call_key' => $latest->id.'-'.($latest->called_at?->timestamp ?? 0),
             ] : null,
-            'waiting' => $waiting->take(8)->map(fn (Queue $queue) => [
+            'waiting' => $queues->where('status', QueueStatus::Waiting)->take(8)->map(fn (Queue $queue) => [
                 'number' => $queue->displayNumber(),
                 'patient' => $queue->visit?->patient?->name,
             ])->values(),

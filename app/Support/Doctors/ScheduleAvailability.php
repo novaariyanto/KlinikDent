@@ -42,6 +42,24 @@ class ScheduleAvailability
             ->values();
     }
 
+    public function scheduleIdFor(int $userId, int $branchId, string $date): ?int
+    {
+        $doctor = Doctor::query()->where('user_id', $userId)->first();
+
+        if (! $doctor) {
+            return null;
+        }
+
+        $id = $doctor->schedules()
+            ->active()
+            ->forBranch($branchId)
+            ->onDate($date)
+            ->orderBy('start_time')
+            ->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
     public function defaultRoomId(int $userId, int $branchId, string $date): ?int
     {
         $doctor = Doctor::query()->active()->where('user_id', $userId)->first();

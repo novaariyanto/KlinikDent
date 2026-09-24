@@ -1,8 +1,14 @@
-@php($hasReferral = $visit->referrals->isNotEmpty() || old('referred_to'))
 <section class="care-section" id="rujukan">
-    <div class="care-section__head">
-        <h5 class="care-section__title">Rujukan</h5>
-        <p class="care-section__hint">Default tidak ada. Buka form hanya jika pasien dirujuk.</p>
+    <div class="care-section__head d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <h5 class="care-section__title">Rujukan</h5>
+            <p class="care-section__hint">Catat hanya jika pasien dirujuk.</p>
+        </div>
+        @can('referral.manage')
+            @if ($writable)
+                <x-button type="button" data-bs-toggle="modal" data-bs-target="#referral-create-modal" icon="bx bx-plus">Tambah</x-button>
+            @endif
+        @endcan
     </div>
     <div class="care-section__body">
         <x-table>
@@ -65,29 +71,22 @@
 
         @can('referral.manage')
             @if ($writable)
-                <div class="exam-field mt-3" data-reveal-group="referral_need" data-reveal-when="ada">
-                    <div class="exam-field__label">Perlu rujukan?</div>
-                    <div class="exam-choices">
-                        <label class="exam-choice">
-                            <input type="radio" name="referral_need" value="tidak" @checked(! $hasReferral)>
-                            <span>Tidak ada</span>
-                        </label>
-                        <label class="exam-choice">
-                            <input type="radio" name="referral_need" value="ada" @checked($hasReferral)>
-                            <span>Ada</span>
-                        </label>
-                    </div>
-                </div>
-                <form action="{{ route('care.referral.store', $visit) }}" method="POST" class="mt-3" data-reveal="referral_need" @if (! $hasReferral) hidden @endif>
-                    @csrf
-                    <x-input name="referred_to" label="Dirujuk ke" :value="old('referred_to')" required />
-                    <x-input name="reason" label="Alasan" :value="old('reason')" required />
-                    <div class="mb-3">
-                        <label class="form-label" for="referral_notes">Catatan</label>
-                        <textarea name="notes" id="referral_notes" rows="3" class="form-control">{{ old('notes') }}</textarea>
-                    </div>
-                    <x-button type="submit" icon="bx bx-plus">Tambah Rujukan</x-button>
-                </form>
+                @php($reopenReferral = old('_form') === 'referral-create')
+                <x-modal id="referral-create-modal" title="Tambah rujukan" size="modal-lg" class="care-modal" :data-show-on-load="$reopenReferral ? '' : null">
+                    <form action="{{ route('care.referral.store', $visit) }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="_form" value="referral-create">
+                        <x-input name="referred_to" id="referral-create-to" label="Dirujuk ke" :value="$reopenReferral ? old('referred_to') : ''" required />
+                        <x-input name="reason" id="referral-create-reason" label="Alasan" :value="$reopenReferral ? old('reason') : ''" required />
+                        <div class="mb-3">
+                            <label class="form-label" for="referral-create-notes">Catatan</label>
+                            <textarea name="notes" id="referral-create-notes" rows="3" class="form-control">{{ $reopenReferral ? old('notes') : '' }}</textarea>
+                        </div>
+                        <div class="text-end">
+                            <x-button type="submit" icon="bx bx-save">Simpan</x-button>
+                        </div>
+                    </form>
+                </x-modal>
             @endif
         @endcan
     </div>

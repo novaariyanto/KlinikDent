@@ -114,7 +114,12 @@ class DoctorController extends Controller
 
     public function update(UpdateDoctorRequest $request, Doctor $doctor): RedirectResponse
     {
-        $this->doctors->update($doctor, $request->validated());
+        if ($request->hasFile('signature')) {
+            $path = $request->file('signature')->store('signatures/'.$doctor->tenant_id, 'public');
+            $doctor->update(['signature_path' => $path]);
+        }
+
+        $this->doctors->update($doctor, $request->safe()->except('signature'));
 
         return redirect()
             ->route('doctors.show', $doctor)

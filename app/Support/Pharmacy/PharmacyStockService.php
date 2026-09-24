@@ -71,7 +71,7 @@ class PharmacyStockService
                 throw new InvalidArgumentException('Resep sudah diproses.');
             }
 
-            $locked->load(['items.medicine', 'visit']);
+            $locked->load(['items.medicine', 'items.ingredients.medicine', 'visit']);
 
             $tenantId = (int) $locked->visit?->tenant_id;
             $branchId = (int) $locked->visit?->branch_id;
@@ -80,31 +80,56 @@ class PharmacyStockService
                 throw new InvalidArgumentException('Resep tidak memiliki cabang kunjungan.');
             }
 
-            $shortages = [];
-            $plans = [];
+            $demands = [];
 
             foreach ($locked->items as $item) {
-                $needed = (int) $item->quantity;
-                $stocks = $this->usableStocks($tenantId, $branchId, (int) $item->medicine_id, true);
-                $allocations = $this->planFefo($stocks, $needed);
-                $taken = array_sum(array_map(fn (array $row) => $row['quantity'], $allocations));
+                if ($item->isCompound()) {
+                    foreach ($item->ingredients as $ingredient) {
+                        if (! $ingredient->medicine_id) {
+                            continue;
+                        }
 
-                if ($taken < $needed) {
-                    $name = $item->medicine?->name ?? 'Obat #'.$item->medicine_id;
-                    $shortages[] = $name.' (butuh '.$needed.', tersedia '.$taken.')';
+                        $demands[] = [
+                            'label' => $ingredient->medicine?->name ?: $ingredient->name,
+                            'medicine_id' => (int) $ingredient->medicine_id,
+                            'quantity' => (int) $ingredient->quantity,
+                        ];
+                    }
 
                     continue;
                 }
 
-                $plans[] = ['item' => $item, 'allocations' => $allocations];
+                $demands[] = [
+                    'label' => $item->medicine?->name ?? 'Obat #'.$item->medicine_id,
+                    'medicine_id' => (int) $item->medicine_id,
+                    'quantity' => (int) $item->quantity,
+                ];
+            }
+
+            $shortages = [];
+            $plans = [];
+
+            foreach ($demands as $demand) {
+                $needed = (int) $demand['quantity'];
+                $stocks = $this->usableStocks($tenantId, $branchId, (int) $demand['medicine_id'], true);
+                $allocations = $this->planFefo($stocks, $needed);
+                $taken = array_sum(array_map(fn (array $row) => $row['quantity'], $allocations));
+
+                if ($taken < $needed) {
+                    $shortages[] = $demand['label'].' (butuh '.$needed.', tersedia '.$taken.')';
+
+                    continue;
+                }
+
+                $plans[] = $allocations;
             }
 
             if ($shortages !== []) {
                 throw new InsufficientStockException('Stok tidak cukup: '.implode('; ', $shortages));
             }
 
-            foreach ($plans as $plan) {
-                foreach ($plan['allocations'] as $allocation) {
+            foreach ($plans as $allocations) {
+                foreach ($allocations as $allocation) {
                     /** @var MedicineStock $stock */
                     $stock = $allocation['stock'];
                     $quantity = (int) $allocation['quantity'];
@@ -230,6 +255,89 @@ class PharmacyStockService
             );
 
             activity_log('adjusted', $locked, ['delta' => $delta], 'Penyesuaian stok '.$notes, 'pharmacy', $user);
+        });
+    }
+
+    public function returnStock(MedicineStock $stock, string $direction, int $quantity, User $user, string $notes): void
+    {
+        if ($quantity < 1) {
+            throw new InvalidArgumentException('Jumlah retur minimal 1.');
+        }
+
+        $type = $direction === 'supplier'
+            ? StockMovementType::ReturnOut
+            : StockMovementType::ReturnIn;
+        $delta = $direction === 'supplier' ? -$quantity : $quantity;
+
+        DB::transaction(function () use ($stock, $type, $delta, $quantity, $user, $notes) {
+            /** @var MedicineStock $locked */
+            $locked = MedicineStock::query()->whereKey($stock->id)->lockForUpdate()->firstOrFail();
+            $next = $locked->quantity + $delta;
+
+            if ($next < 0) {
+                throw new InsufficientStockException('Retur melebihi stok batch. Stok saat ini '.$locked->quantity.'.');
+            }
+
+            $locked->quantity = $next;
+            $locked->save();
+
+            $this->recordMovement($locked, $type, $quantity, $user, null, $notes);
+            activity_log('returned', $locked, ['delta' => $delta], $notes, 'pharmacy', $user);
+        });
+    }
+
+    /**
+     * @param  list<array{stock_id: int, physical_qty: int}>  $lines
+     */
+    public function postOpname(int $tenantId, int $branchId, User $user, array $lines, ?string $notes = null): void
+    {
+        DB::transaction(function () use ($tenantId, $branchId, $user, $lines, $notes) {
+            $opname = \App\Models\StockOpname::query()->create([
+                'tenant_id' => $tenantId,
+                'branch_id' => $branchId,
+                'user_id' => $user->id,
+                'status' => 'posted',
+                'notes' => $notes,
+                'posted_at' => now(),
+            ]);
+
+            foreach ($lines as $line) {
+                /** @var MedicineStock $stock */
+                $stock = MedicineStock::query()
+                    ->where('tenant_id', $tenantId)
+                    ->where('branch_id', $branchId)
+                    ->whereKey($line['stock_id'])
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                $physical = (int) $line['physical_qty'];
+                $system = (int) $stock->quantity;
+
+                \App\Models\StockOpnameItem::query()->create([
+                    'stock_opname_id' => $opname->id,
+                    'medicine_stock_id' => $stock->id,
+                    'system_qty' => $system,
+                    'physical_qty' => $physical,
+                ]);
+
+                $delta = $physical - $system;
+
+                if ($delta === 0) {
+                    continue;
+                }
+
+                $stock->quantity = $physical;
+                $stock->save();
+
+                $this->recordMovement(
+                    $stock,
+                    StockMovementType::Adjustment,
+                    $delta,
+                    $user,
+                    $opname,
+                    'Opname #'.$opname->id
+                );
+            }
         });
     }
 

@@ -107,7 +107,11 @@
                     <div class="block">
                         {{ $printCity ?: $branch?->name }}, {{ $printedDateLabel ?? $printedAt->format('d-m-Y') }}<br>
                         Dokter pemeriksa
-                        <div class="space"></div>
+                        @if (! empty($signatureSrc))
+                            <div><img src="{{ $signatureSrc }}" alt="Tanda tangan" style="height:54px"></div>
+                        @else
+                            <div class="space"></div>
+                        @endif
                         <div class="name">{{ $visit->doctor?->name ?: '........................' }}</div>
                         <div class="role">Dokter Gigi</div>
                         @if (! empty($picSip) && $visit->doctor?->name && $picName && strcasecmp((string) $picName, (string) $visit->doctor->name) === 0)
@@ -124,6 +128,9 @@
             {{ $printFooter }}<br>
         @endif
         Dokumen ini dicetak dari sistem {{ $clinicName }} pada {{ $printedAt->format('d-m-Y H:i') }}.
+        @if (! empty($verificationCode))
+            <br>Cek keaslian: {{ url('/cek/'.$verificationCode) }} · kode {{ $verificationCode }}
+        @endif
     </div>
 </body>
 </html>

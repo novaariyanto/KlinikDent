@@ -5,6 +5,7 @@
 @section('content')
     <x-page-header :title="$title" :breadcrumb="['Farmasi' => route('pharmacy.stock.index'), $title => null]" />
     <x-alert />
+    @include('pharmacy.partials.nav')
     <x-card :title="$title">
         <p class="text-muted">{{ $hint }}</p>
         <form method="GET" action="{{ url()->current() }}" class="row g-2 align-items-end mb-3">

@@ -28,6 +28,7 @@ class UpdateDoctorRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:30'],
             'notes' => ['nullable', 'string', 'max:1000'],
             'is_active' => ['required', 'boolean'],
+            'signature' => ['nullable', 'image', 'mimes:png,jpg,jpeg', 'max:1024'],
         ];
     }
 

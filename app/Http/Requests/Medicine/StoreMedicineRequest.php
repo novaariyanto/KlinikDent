@@ -30,6 +30,7 @@ class StoreMedicineRequest extends FormRequest
                 'max:255',
                 Rule::unique('medicines', 'name')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
             ],
+            'kfa_code' => ['nullable', 'string', 'max:40'],
             'unit' => ['required', 'string', Rule::in(array_keys(Medicine::UNITS))],
             'category' => ['required', 'string', Rule::in(array_keys(Medicine::CATEGORIES))],
             'base_price' => ['required', 'numeric', 'min:0'],

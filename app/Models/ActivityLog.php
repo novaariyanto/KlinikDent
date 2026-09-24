@@ -65,6 +65,7 @@ class ActivityLog extends Model
             'password_reset' => 'badge bg-warning',
             'impersonated', 'impersonation_stopped' => 'badge bg-dark',
             'email_tested' => 'badge badge-soft-info',
+            'viewed' => 'badge bg-primary',
             default => 'badge bg-light text-dark',
         };
     }

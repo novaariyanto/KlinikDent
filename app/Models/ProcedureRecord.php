@@ -21,6 +21,7 @@ class ProcedureRecord extends Model
         'visit_id',
         'procedure_id',
         'tooth_number',
+        'icd9_code',
         'quantity',
         'price_at_time',
         'billing_status',

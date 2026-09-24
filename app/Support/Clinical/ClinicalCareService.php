@@ -72,12 +72,13 @@ class ClinicalCareService
         return $tooth;
     }
 
-    public function addProcedure(Visit $visit, int $procedureId, ?string $toothNumber, int $quantity): ProcedureRecord
+    public function addProcedure(Visit $visit, int $procedureId, ?string $toothNumber, int $quantity, ?string $icd9Code = null): ProcedureRecord
     {
         return ProcedureRecord::query()->create([
             'visit_id' => $visit->id,
             'procedure_id' => $procedureId,
             'tooth_number' => $toothNumber,
+            'icd9_code' => $icd9Code,
             'quantity' => $quantity,
             'price_at_time' => $this->tariffs->priceFor($visit, $procedureId),
             'billing_status' => BillingStatus::Unbilled,

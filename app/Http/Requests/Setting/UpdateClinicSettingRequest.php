@@ -37,6 +37,7 @@ class UpdateClinicSettingRequest extends FormRequest
             'print_footer' => ['nullable', 'string', 'max:1000'],
             'timezone' => ['required', Rule::in(array_keys(ClinicSettings::timezones()))],
             'rm_prefix' => ['nullable', 'string', 'max:20', 'regex:/^[A-Z0-9-]+$/'],
+            'slot_minutes' => ['nullable', 'integer', 'min:5', 'max:120'],
             'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,svg,webp', 'max:2048'],
             'remove_logo' => ['sometimes', 'boolean'],
         ];
@@ -66,6 +67,7 @@ class UpdateClinicSettingRequest extends FormRequest
             'print_footer' => 'catatan kaki dokumen',
             'timezone' => 'zona waktu',
             'rm_prefix' => 'prefix nomor RM',
+            'slot_minutes' => 'menit per pasien',
             'logo' => 'logo',
         ];
     }

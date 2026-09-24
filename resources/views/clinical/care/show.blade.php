@@ -13,6 +13,9 @@
         'resep' => 'clinical.care.partials.plan-prescriptions',
         'rujukan' => 'clinical.care.partials.plan-referrals',
         'instruksi' => 'clinical.care.partials.plan-notes',
+        'lab' => 'clinical.care.partials.plan-lab',
+        'surat' => 'clinical.care.partials.plan-letters',
+        'adendum' => 'clinical.care.partials.plan-amendments',
     ];
 @endphp
 
@@ -286,47 +289,36 @@
         });
     }
 
-    function toothOptionText(tooth) {
-        var text = String(tooth.number) + ' — ' + (tooth.status_label || tooth.status || '');
-        if (tooth.surface_labels) text += ' (' + tooth.surface_labels + ')';
-        return text;
+    document.querySelectorAll('.care-modal').forEach(function (modal) {
+        document.body.appendChild(modal);
+    });
+
+    function selectDropdownParent($el) {
+        var modal = $el.closest('.modal');
+        return modal.length ? modal : $(document.body);
     }
 
-    window.careSyncOdoToothOption = function (tooth) {
-        if (!$ || !$.fn || !$.fn.select2 || !tooth) return;
-        var val = String(tooth.number);
-        $('[data-odo-tooth-select]').each(function () {
+    function initToothSelects(container) {
+        $(container).find('[data-odo-tooth-select]').each(function () {
             var $el = $(this);
-            var $opt = $el.find('option[value="' + val + '"]');
-            if (tooth.status === 'healthy') {
-                if (String($el.val()) === val) $el.val(null).trigger('change');
-                $opt.remove();
-                return;
-            }
-            if ($opt.length) {
-                $opt.text(toothOptionText(tooth));
-            } else {
-                $el.append(new Option(toothOptionText(tooth), val, false, false));
-            }
-        });
-    };
-
-    if ($ && $.fn && $.fn.select2) {
-        $('[data-odo-tooth-select]').each(function () {
-            $(this).select2({
+            if ($el.data('select2')) return;
+            $el.select2({
                 width: '100%',
                 placeholder: 'Pilih dari temuan odontogram',
                 allowClear: true,
-                dropdownParent: $(document.body),
+                dropdownParent: selectDropdownParent($el),
                 language: {
                     noResults: function () { return 'Belum ada temuan odontogram'; }
                 }
             });
         });
+    }
 
-        $('[data-icd-select]').each(function () {
+    function initIcdSelects(container) {
+        $(container).find('[data-icd-select]').each(function () {
             var icd = this;
             var $icd = $(icd);
+            if ($icd.data('select2')) return;
             var icdForm = icd.closest('form');
             var codeInput = icdForm ? icdForm.querySelector('[name="code"]') : null;
             var descInput = icdForm ? icdForm.querySelector('[name="description"]') : null;
@@ -336,7 +328,7 @@
                 placeholder: 'Ketik kode atau nama, mis. karies / K02.1',
                 allowClear: true,
                 minimumInputLength: 1,
-                dropdownParent: $(document.body),
+                dropdownParent: selectDropdownParent($icd),
                 ajax: {
                     url: icd.getAttribute('data-icd-url'),
                     dataType: 'json',
@@ -376,6 +368,49 @@
                     e.preventDefault();
                     $icd.select2('open');
                 });
+            }
+        });
+    }
+    function toothOptionText(tooth) {
+        var text = String(tooth.number) + ' — ' + (tooth.status_label || tooth.status || '');
+        if (tooth.surface_labels) text += ' (' + tooth.surface_labels + ')';
+        return text;
+    }
+
+    window.careSyncOdoToothOption = function (tooth) {
+        if (!$ || !$.fn || !$.fn.select2 || !tooth) return;
+        var val = String(tooth.number);
+        $('[data-odo-tooth-select]').each(function () {
+            var $el = $(this);
+            var $opt = $el.find('option[value="' + val + '"]');
+            if (tooth.status === 'healthy') {
+                if (String($el.val()) === val) $el.val(null).trigger('change');
+                $opt.remove();
+                return;
+            }
+            if ($opt.length) {
+                $opt.text(toothOptionText(tooth));
+            } else {
+                $el.append(new Option(toothOptionText(tooth), val, false, false));
+            }
+        });
+    };
+
+    if ($ && $.fn && $.fn.select2) {
+        var workspace = document.querySelector('.care-workspace');
+        if (workspace) {
+            initToothSelects(workspace);
+            initIcdSelects(workspace);
+        }
+
+        document.querySelectorAll('.care-modal').forEach(function (modal) {
+            modal.addEventListener('shown.bs.modal', function () {
+                initToothSelects(modal);
+                initIcdSelects(modal);
+                $(modal).find('.select2-container').css('width', '100%');
+            });
+            if (modal.hasAttribute('data-show-on-load') && window.bootstrap) {
+                window.bootstrap.Modal.getOrCreateInstance(modal).show();
             }
         });
     }

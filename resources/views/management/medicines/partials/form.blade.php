@@ -4,6 +4,9 @@
     <div class="col-md-6">
         <x-input name="name" label="Nama Obat" :value="$medicine?->name" required />
     </div>
+    <div class="col-md-6">
+        <x-input name="kfa_code" label="Kode KFA" :value="$medicine?->kfa_code" />
+    </div>
     <div class="col-md-3">
         <x-select name="unit" label="Satuan" :options="\App\Models\Medicine::UNITS" :selected="old('unit', $medicine?->unit)" required />
     </div>

@@ -1,7 +1,17 @@
 <section class="care-section" id="resep">
-    <div class="care-section__head">
-        <h5 class="care-section__title">Resep</h5>
-        <p class="care-section__hint">Isi hanya jika ada obat. Draft dapat diubah atau dihapus; stok belum dipotong saat dikirim ke farmasi.</p>
+    <div class="care-section__head d-flex justify-content-between align-items-start gap-2">
+        <div>
+            <h5 class="care-section__title">Resep</h5>
+            <p class="care-section__hint">Isi hanya jika ada obat. Draft dapat diubah atau dihapus; stok belum dipotong saat dikirim ke farmasi.</p>
+        </div>
+        @can('prescription.create')
+            @if ($writable)
+                <div class="d-flex gap-2">
+                    <x-button type="button" data-bs-toggle="modal" data-bs-target="#rx-create-modal" icon="bx bx-plus">Tambah obat</x-button>
+                    <x-button type="button" variant="secondary" data-bs-toggle="modal" data-bs-target="#rx-compound-modal" icon="bx bx-plus">Tambah racikan</x-button>
+                </div>
+            @endif
+        @endcan
     </div>
     <div class="care-section__body">
         @forelse ($visit->prescriptions as $prescription)
@@ -26,7 +36,7 @@
                     <tbody>
                         @foreach ($prescription->items as $item)
                             <tr>
-                                <td>{{ $item->medicine?->name }}</td>
+                                <td>{{ $item->label() }}</td>
                                 <td>{{ $item->dosage ?: '-' }}</td>
                                 <td>{{ $item->frequency ?: '-' }}</td>
                                 <td>{{ $item->duration ?: '-' }}</td>
@@ -83,33 +93,68 @@
 
         @can('prescription.create')
             @if ($writable)
-                <button type="button" class="btn btn-soft-primary mb-3" data-toggle-panel="#rx-form">
-                    Tambah obat
-                </button>
-                <form action="{{ route('care.prescription-item.store', $visit) }}" method="POST" id="rx-form" @if (! old('medicine_id')) hidden @endif>
-                    @csrf
-                    <div class="care-typeahead mb-3" data-typeahead data-typeahead-items="{{ json_encode($medicines->map(fn ($medicine) => ['id' => $medicine->id, 'label' => $medicine->name.' ('.$medicine->unitLabel().')'])->values()) }}">
-                        <label class="form-label">Cari obat</label>
-                        <input type="search" class="form-control" data-typeahead-q placeholder="Nama obat" autocomplete="off">
-                        <input type="hidden" name="medicine_id" data-typeahead-id value="{{ old('medicine_id') }}" required>
-                        <div class="care-typeahead__list" data-typeahead-results hidden></div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-3">
-                            <x-input name="dosage" label="Dosis" :value="old('dosage')" />
+                @php($reopenRx = old('_form') === 'prescription-create')
+                @php($reopenCompound = old('_form') === 'compound-create')
+                <x-modal id="rx-create-modal" title="Tambah obat" size="modal-lg" class="care-modal" :data-show-on-load="$reopenRx ? '' : null">
+                    <form action="{{ route('care.prescription-item.store', $visit) }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="_form" value="prescription-create">
+                        <div class="care-typeahead mb-3" data-typeahead data-typeahead-items="{{ json_encode($medicines->map(fn ($medicine) => ['id' => $medicine->id, 'label' => $medicine->name.' ('.$medicine->unitLabel().')'])->values()) }}">
+                            <label class="form-label">Cari obat</label>
+                            <input type="search" class="form-control" data-typeahead-q placeholder="Nama obat" autocomplete="off">
+                            <input type="hidden" name="medicine_id" data-typeahead-id value="{{ $reopenRx ? old('medicine_id') : '' }}" required>
+                            <div class="care-typeahead__list" data-typeahead-results hidden></div>
                         </div>
-                        <div class="col-md-3">
-                            <x-input name="frequency" label="Frekuensi" :value="old('frequency')" />
+                        <div class="row">
+                            <div class="col-md-3">
+                                <x-input name="dosage" id="rx-create-dosage" label="Dosis" :value="old('dosage')" />
+                            </div>
+                            <div class="col-md-3">
+                                <x-input name="frequency" id="rx-create-frequency" label="Frekuensi" :value="old('frequency')" />
+                            </div>
+                            <div class="col-md-3">
+                                <x-input name="duration" id="rx-create-duration" label="Aturan pakai" :value="old('duration')" placeholder="3x1 sesudah makan" />
+                            </div>
+                            <div class="col-md-3">
+                                <x-input name="quantity" id="rx-create-quantity" type="number" label="Qty" :value="old('quantity', 1)" required />
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <x-input name="duration" label="Aturan pakai" :value="old('duration')" placeholder="3x1 sesudah makan" />
+                        <div class="text-end">
+                            <x-button type="submit" icon="bx bx-save">Simpan</x-button>
                         </div>
-                        <div class="col-md-3">
-                            <x-input name="quantity" type="number" label="Qty" :value="old('quantity', 1)" required />
+                    </form>
+                </x-modal>
+                <x-modal id="rx-compound-modal" title="Tambah racikan" size="modal-lg" class="care-modal" :data-show-on-load="$reopenCompound ? '' : null">
+                    <form action="{{ route('care.prescription-item.store', $visit) }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="_form" value="compound-create">
+                        <input type="hidden" name="kind" value="racikan">
+                        <div class="row">
+                            <div class="col-md-4"><x-input name="dosage" id="compound-dosage" label="Bentuk" :value="old('dosage')" placeholder="Puyer" /></div>
+                            <div class="col-md-4"><x-input name="frequency" id="compound-frequency" label="Frekuensi" :value="old('frequency')" /></div>
+                            <div class="col-md-4"><x-input name="quantity" id="compound-quantity" type="number" label="Jumlah bungkus" :value="old('quantity', 1)" required /></div>
                         </div>
-                    </div>
-                    <x-button type="submit" icon="bx bx-plus">Tambah ke Draft</x-button>
-                </form>
+                        @foreach ([0, 1] as $index)
+                            <div class="row">
+                                <div class="col-md-4"><x-input name="ingredients[{{ $index }}][name]" id="compound-name-{{ $index }}" label="Bahan {{ $index + 1 }}" /></div>
+                                <div class="col-md-4">
+                                    <label class="form-label" for="compound-medicine-{{ $index }}">Obat stok</label>
+                                    <select class="form-select mb-3" name="ingredients[{{ $index }}][medicine_id]" id="compound-medicine-{{ $index }}">
+                                        <option value="">Tidak dipotong stok</option>
+                                        @foreach ($medicines as $medicine)
+                                            <option value="{{ $medicine->id }}">{{ $medicine->name }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                                <div class="col-md-2"><x-input name="ingredients[{{ $index }}][quantity]" id="compound-qty-{{ $index }}" type="number" label="Qty" value="1" /></div>
+                                <div class="col-md-2"><x-input name="ingredients[{{ $index }}][unit]" id="compound-unit-{{ $index }}" label="Satuan" /></div>
+                            </div>
+                        @endforeach
+                        <div class="text-end">
+                            <x-button type="submit" icon="bx bx-save">Simpan</x-button>
+                        </div>
+                    </form>
+                </x-modal>
             @endif
         @endcan
     </div>

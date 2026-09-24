@@ -116,6 +116,114 @@ class StockController extends Controller
         return redirect()->route('pharmacy.stock.index')->with('success', 'Stok berhasil disesuaikan.');
     }
 
+    public function card(Request $request): View
+    {
+        $this->authorize('viewAny', MedicineStock::class);
+
+        $medicines = \App\Models\Medicine::query()->orderBy('name')->get();
+
+        return view('pharmacy.stock.card', [
+            'medicines' => $medicines,
+            'movements' => collect(),
+            'medicine' => null,
+        ]);
+    }
+
+    public function cardShow(Request $request, \App\Models\Medicine $medicine): View
+    {
+        $this->authorize('viewAny', MedicineStock::class);
+
+        $movements = \App\Models\StockMovement::query()
+            ->whereHas('stock', fn ($query) => $query->where('medicine_id', $medicine->id))
+            ->with(['stock.branch', 'user'])
+            ->latest('id')
+            ->paginate(30);
+
+        return view('pharmacy.stock.card', [
+            'medicines' => \App\Models\Medicine::query()->orderBy('name')->get(),
+            'movements' => $movements,
+            'medicine' => $medicine,
+        ]);
+    }
+
+    public function opname(Request $request): View
+    {
+        $this->authorize('viewAny', MedicineStock::class);
+
+        $stocks = $this->stockQuery($request)->usable()->with(['medicine', 'branch'])->orderBy('expired_date')->get();
+
+        return view('pharmacy.stock.opname', compact('stocks'));
+    }
+
+    public function storeOpname(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()?->can('stock.manage'), 403);
+
+        $data = $request->validate([
+            'notes' => ['nullable', 'string', 'max:500'],
+            'physical' => ['required', 'array'],
+            'physical.*' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $grouped = [];
+
+        foreach ($data['physical'] as $stockId => $qty) {
+            if ($qty === null || $qty === '') {
+                continue;
+            }
+
+            $stock = MedicineStock::query()->find($stockId);
+
+            if (! $stock) {
+                continue;
+            }
+
+            $grouped[$stock->branch_id][] = ['stock_id' => (int) $stock->id, 'physical_qty' => (int) $qty];
+        }
+
+        if ($grouped === []) {
+            return back()->with('error', 'Isi qty fisik minimal satu batch.');
+        }
+
+        foreach ($grouped as $branchId => $lines) {
+            $this->stocks->postOpname((int) $request->user()->tenant_id, (int) $branchId, $request->user(), $lines, $data['notes'] ?? null);
+        }
+
+        return redirect()->route('pharmacy.stock.opname')->with('success', 'Opname stok diposting.');
+    }
+
+    public function returns(Request $request): View
+    {
+        $this->authorize('viewAny', MedicineStock::class);
+
+        $stocks = $this->stockQuery($request)->with(['medicine', 'branch'])->orderBy('expired_date')->limit(200)->get();
+
+        return view('pharmacy.stock.returns', compact('stocks'));
+    }
+
+    public function storeReturn(Request $request): RedirectResponse
+    {
+        abort_unless($request->user()?->can('stock.manage'), 403);
+
+        $data = $request->validate([
+            'medicine_stock_id' => ['required', 'integer'],
+            'direction' => ['required', 'in:supplier,patient'],
+            'quantity' => ['required', 'integer', 'min:1'],
+            'notes' => ['required', 'string', 'max:255'],
+        ]);
+
+        $stock = MedicineStock::query()->findOrFail($data['medicine_stock_id']);
+        $this->authorize('update', $stock);
+
+        try {
+            $this->stocks->returnStock($stock, $data['direction'], (int) $data['quantity'], $request->user(), $data['notes']);
+        } catch (InsufficientStockException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('pharmacy.stock.returns')->with('success', 'Retur stok tercatat.');
+    }
+
     /**
      * @return Builder<MedicineStock>
      */

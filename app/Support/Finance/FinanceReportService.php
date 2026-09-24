@@ -67,7 +67,10 @@ class FinanceReportService
                 $this->constrain($invoice, $branchId);
             });
 
-        return $this->money((string) $query->sum('amount'));
+        return $this->money((string) $query->get()->reduce(
+            fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2),
+            '0.00'
+        ));
     }
 
     public function expenseSum(string $from, string $to, ?int $branchId): string
@@ -181,7 +184,7 @@ class FinanceReportService
             ->map(function (Collection $rows) {
                 $doctor = $rows->first()?->invoice?->visit?->doctor?->name ?: 'Tanpa dokter';
                 $amount = $rows->reduce(
-                    fn (string $carry, Payment $payment) => bcadd($carry, (string) $payment->amount, 2),
+                    fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2),
                     '0.00'
                 );
 
@@ -212,7 +215,7 @@ class FinanceReportService
                 return [
                     'method' => $method?->label() ?? '-',
                     'amount' => $rows->reduce(
-                        fn (string $carry, Payment $payment) => bcadd($carry, (string) $payment->amount, 2),
+                        fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2),
                         '0.00'
                     ),
                 ];
@@ -292,7 +295,7 @@ class FinanceReportService
                     : ($at?->toDateString() ?? '-');
             })
             ->map(fn (Collection $rows) => $rows->reduce(
-                fn (string $carry, Payment $payment) => bcadd($carry, (string) $payment->amount, 2),
+                fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2),
                 '0.00'
             ))
             ->sortKeys();

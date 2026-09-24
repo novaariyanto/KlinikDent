@@ -92,6 +92,11 @@ final class MenuCatalog
             'pharmacy.stock.batches',
             'pharmacy.stock.expired',
             'pharmacy.stock.adjustments',
+            'pharmacy.stock.card',
+            'pharmacy.stock.opname',
+            'pharmacy.stock.returns',
+            'pharmacy.lab.index',
+            'archive.index',
             'pharmacy.purchases.suppliers',
             'pharmacy.purchases.orders',
             'pharmacy.purchases.receipts',
@@ -157,6 +162,7 @@ final class MenuCatalog
             'queue.waiting',
             'queue.called',
             'queue.monitor',
+            'queue.loket',
             'medical-record.index',
             'odontogram.index',
             'diagnosis.index',
@@ -295,6 +301,7 @@ final class MenuCatalog
             ]),
             self::heading('owner.group.system', 'Sistem', [
                 self::item('owner.audit', 'Audit Log', 'bx bx-shield', 'logs.index', 'logs.view', 'Audit log klinik.'),
+                self::item('owner.archive', 'Arsip Praktik', 'bx bx-download', 'archive.index', 'logs.view', 'Unduh arsip data praktik.'),
             ]),
         ];
     }
@@ -369,6 +376,7 @@ final class MenuCatalog
             ]),
             self::item('registration.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pendaftaran.', [
                 self::item('registration.queue.today', 'Antrean Hari Ini', 'bx bx-time-five', 'queue.today', 'queue.view', 'Antrean pelayanan hari ini.'),
+                self::item('registration.queue.loket', 'Loket', 'bx bx-store', 'queue.loket', 'queue.view', 'Loket antrean per sesi dokter.'),
                 self::item('registration.queue.monitor', 'Monitor Antrean', 'bx bx-tv', 'queue.monitor', 'queue.view', 'Monitor tampilan antrean.'),
             ]),
             self::item('registration.schedule', 'Jadwal Dokter', 'bx bx-calendar', null, 'schedule.view', 'Jadwal dokter hari ini.', [
@@ -470,6 +478,10 @@ final class MenuCatalog
                 self::item('pharmacy.medicines.batches', 'Batch', 'bx bx-layer', 'pharmacy.stock.batches', 'stock.view', 'Batch obat.'),
                 self::item('pharmacy.medicines.expired', 'Expired', 'bx bx-error', 'pharmacy.stock.expired', 'stock.view', 'Obat kedaluwarsa.'),
                 self::item('pharmacy.medicines.adjustments', 'Penyesuaian Stok', 'bx bx-slider-alt', 'pharmacy.stock.adjustments', 'stock.manage', 'Penyesuaian stok obat.'),
+                self::item('pharmacy.medicines.card', 'Kartu Stok', 'bx bx-spreadsheet', 'pharmacy.stock.card', 'stock.view', 'Kartu stok per obat.'),
+                self::item('pharmacy.medicines.opname', 'Opname', 'bx bx-clipboard', 'pharmacy.stock.opname', 'stock.manage', 'Stock opname.'),
+                self::item('pharmacy.medicines.returns', 'Retur', 'bx bx-undo', 'pharmacy.stock.returns', 'stock.manage', 'Retur obat.'),
+                self::item('pharmacy.lab', 'Lab Gigi', 'bx bx-cube', 'pharmacy.lab.index', 'pharmacy.view', 'Pesanan laboratorium gigi.'),
             ]),
             self::item('pharmacy.purchases', 'Pembelian', 'bx bx-cart', null, 'purchase.view', 'Pembelian obat.', [
                 self::item('pharmacy.purchases.suppliers', 'Supplier', 'bx bx-store', 'pharmacy.purchases.suppliers', 'supplier.view', 'Supplier farmasi.'),

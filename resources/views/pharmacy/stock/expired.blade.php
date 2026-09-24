@@ -5,6 +5,7 @@
 @section('content')
     <x-page-header :title="$title" :breadcrumb="['Farmasi' => route('pharmacy.stock.expired'), $title => null]" />
     <x-alert />
+    @include('pharmacy.partials.nav')
     <x-card :title="$title">
         <p class="text-muted">Batch yang sudah kedaluwarsa atau akan kedaluwarsa dalam {{ $days }} hari, masih punya stok.</p>
         <x-table>

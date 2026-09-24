@@ -31,6 +31,7 @@ class ClinicSettings
         'print_footer',
         'timezone',
         'rm_prefix',
+        'slot_minutes',
     ];
 
     /**
@@ -91,7 +92,15 @@ class ClinicSettings
             'print_footer' => '',
             'timezone' => 'Asia/Jakarta',
             'rm_prefix' => $tenant ? strtoupper((string) $tenant->subdomain) : '',
+            'slot_minutes' => '15',
         ];
+    }
+
+    public static function slotMinutes(?int $tenantId = null): int
+    {
+        $value = (int) static::get('slot_minutes', 15, $tenantId);
+
+        return max(5, min(120, $value > 0 ? $value : 15));
     }
 
     public static function get(string $key, mixed $default = null, ?int $tenantId = null): mixed

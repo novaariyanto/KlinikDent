@@ -28,6 +28,15 @@
     </div>
     <div class="col-12">
         <div class="mb-3">
+            <label class="form-label" for="signature">Gambar tanda tangan</label>
+            <input class="form-control" type="file" name="signature" id="signature" accept="image/png,image/jpeg">
+            @if ($doctor?->signature_path)
+                <img src="{{ asset('storage/'.$doctor->signature_path) }}" alt="Tanda tangan" class="mt-2" style="height:64px">
+            @endif
+        </div>
+    </div>
+    <div class="col-12">
+        <div class="mb-3">
             <label for="notes" class="form-label">Catatan</label>
             <textarea name="notes" id="notes" rows="3" class="form-control @error('notes') is-invalid @enderror">{{ old('notes', $doctor?->notes) }}</textarea>
             @error('notes')

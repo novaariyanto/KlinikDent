@@ -85,6 +85,7 @@ class CashierShift extends Model
     {
         return (string) $this->payments()
             ->where('method', PaymentMethod::Cash)
-            ->sum('amount');
+            ->get()
+            ->reduce(fn (string $carry, Payment $payment) => bcadd($carry, $payment->signedAmount(), 2), '0.00');
     }
 }

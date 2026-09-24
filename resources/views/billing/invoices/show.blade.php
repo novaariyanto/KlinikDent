@@ -117,9 +117,10 @@
                 @forelse ($invoice->payments as $payment)
                     <p class="mb-1">
                         {{ $payment->paid_at?->format('d M Y H:i') }} —
-                        {{ number_format((float) $payment->amount, 0, ',', '.') }}
-                        ({{ $payment->method->label() }})
+                        {{ $payment->isRefund() ? '−' : '' }}{{ number_format((float) $payment->amount, 0, ',', '.') }}
+                        ({{ $payment->kind?->label() ?? 'Pembayaran' }} · {{ $payment->method->label() }})
                         — {{ $payment->cashier?->name }}
+                        @if ($payment->notes) <span class="text-muted">{{ $payment->notes }}</span> @endif
                     </p>
                 @empty
                     <p class="text-muted">Belum ada pembayaran.</p>
@@ -131,7 +132,26 @@
                 <x-button href="{{ route('billing.invoices.print', $invoice) }}" variant="light" icon="bx bx-printer" target="_blank">Cetak</x-button>
             </x-card>
 
-            @if ($invoice->isOpen() && auth()->user()?->can('create', App\Models\Payment::class))
+            @php
+                $showPay = $invoice->isOpen() && auth()->user()?->can('create', App\Models\Payment::class);
+                $showRefund = ! $invoice->isVoid() && (float) $invoice->paid_amount > 0 && auth()->user()?->can('create', App\Models\Payment::class);
+                $openRefund = $showRefund && ($errors->has('reason') || filled(old('reason')));
+            @endphp
+
+            @if ($showPay && $showRefund)
+                <ul class="nav nav-tabs nav-tabs-custom mb-3">
+                    <li class="nav-item">
+                        <button class="nav-link {{ $openRefund ? '' : 'active' }}" type="button" data-bs-toggle="tab" data-bs-target="#invoice-pay">Pembayaran</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link {{ $openRefund ? 'active' : '' }}" type="button" data-bs-toggle="tab" data-bs-target="#invoice-refund">Pengembalian</button>
+                    </li>
+                </ul>
+            @endif
+
+            <div @class(['tab-content' => $showPay && $showRefund])>
+            @if ($showPay)
+                <div @class(['tab-pane fade' => $showPay && $showRefund, 'show active' => $showPay && $showRefund && ! $openRefund]) id="invoice-pay">
                 <x-card title="Terima pembayaran">
                     <form method="POST" action="{{ route('billing.invoices.pay', $invoice) }}">
                         @csrf
@@ -141,7 +161,23 @@
                         <x-button type="submit" variant="success" icon="bx bx-money">Bayar</x-button>
                     </form>
                 </x-card>
+                </div>
             @endif
+
+            @if ($showRefund)
+                <div @class(['tab-pane fade' => $showPay && $showRefund, 'show active' => $openRefund]) id="invoice-refund">
+                <x-card title="Pengembalian dana">
+                    <form method="POST" action="{{ route('billing.invoices.refund', $invoice) }}">
+                        @csrf
+                        <x-input name="amount" id="refund_amount" type="number" label="Nominal" :value="old('amount')" required />
+                        <x-select name="method" id="refund_method" label="Metode" :options="$methods" :selected="old('method', 'cash')" required />
+                        <x-input name="reason" label="Alasan" :value="old('reason')" required />
+                        <x-button type="submit" variant="warning">Kembalikan</x-button>
+                    </form>
+                </x-card>
+                </div>
+            @endif
+            </div>
 
             @can('void', $invoice)
                 <x-card title="Batalkan tagihan">

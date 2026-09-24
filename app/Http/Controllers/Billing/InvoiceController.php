@@ -11,6 +11,7 @@ use App\Http\Controllers\Billing\Concerns\ScopesBillingBranch;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Billing\GenerateInvoiceRequest;
 use App\Http\Requests\Billing\StorePaymentRequest;
+use App\Http\Requests\Billing\StoreRefundRequest;
 use App\Http\Requests\Billing\VoidInvoiceRequest;
 use App\Models\Invoice;
 use App\Models\Visit;
@@ -164,6 +165,23 @@ class InvoiceController extends Controller
         }
 
         return redirect()->route('billing.invoices.show', $invoice)->with('success', 'Pembayaran tercatat.');
+    }
+
+    public function refund(StoreRefundRequest $request, Invoice $invoice): RedirectResponse
+    {
+        try {
+            $this->billing->refund(
+                $invoice,
+                $request->user(),
+                (string) $request->validated('amount'),
+                PaymentMethod::from($request->validated('method')),
+                $request->validated('reason'),
+            );
+        } catch (BillingException $exception) {
+            return back()->withInput()->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('billing.invoices.show', $invoice)->with('success', 'Pengembalian dana tercatat.');
     }
 
     public function void(VoidInvoiceRequest $request, Invoice $invoice): RedirectResponse
