@@ -84,7 +84,13 @@ class SaasSubscriptionTest extends TestCase
         $this->actingAs($admin)->get(route('saas.invoices.index'))->assertOk()->assertDontSee('Coming Soon');
         $this->actingAs($admin)->get(route('saas.system.integrations'))->assertOk()->assertDontSee('Coming Soon');
         $this->actingAs($admin)->get(route('saas.system.audit'))->assertOk()->assertDontSee('Coming Soon');
-        $this->actingAs($admin)->get(route('saas.users.activity'))->assertOk()->assertDontSee('Coming Soon');
+        $this->actingAs($admin)->get(route('saas.users.activity'))
+            ->assertOk()
+            ->assertDontSee('Coming Soon')
+            ->assertSee('users-activity-table', false);
+        $this->actingAs($admin)->getJson(route('saas.users.activity.data'))
+            ->assertOk()
+            ->assertJsonStructure(['data', 'recordsTotal']);
 
         $owner = $this->tenantUser(RoleName::Owner, Tenant::factory()->create());
         $this->actingAs($owner)->get(route('saas.packages.index'))->assertForbidden();

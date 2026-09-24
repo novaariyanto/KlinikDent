@@ -6,7 +6,11 @@
     <x-page-header title="Aktivitas User" :breadcrumb="['Users' => null, 'Aktivitas User' => route('saas.users.activity')]" />
     <x-alert />
     <x-card title="Log pengguna">
-        @include('saas.partials.activity-rows', ['logs' => $logs])
-        {{ $logs->links('saas.partials.pagination') }}
+        <x-data-table
+            id="users-activity-table"
+            :ajax="route('saas.users.activity.data')"
+            :columns="$columns"
+            :order="[[1, 'desc']]"
+        />
     </x-card>
 @endsection

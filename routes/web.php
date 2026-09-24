@@ -591,6 +591,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
 
             Route::get('system/integrations', [PlatformOpsController::class, 'integrations'])->middleware('permission:saas.integration.view')->name('system.integrations');
             Route::get('system/audit', [PlatformOpsController::class, 'audit'])->middleware('permission:saas.audit.view')->name('system.audit');
+            Route::get('users/activity/data', [PlatformOpsController::class, 'userActivityData'])->middleware('permission:saas.activity.view')->name('users.activity.data');
             Route::get('users/activity', [PlatformOpsController::class, 'userActivity'])->middleware('permission:saas.activity.view')->name('users.activity');
 
             Route::get('payment-gateway', [PaymentGatewayController::class, 'index'])->middleware('permission:payment_gateway.view')->name('payment-gateway.index');
