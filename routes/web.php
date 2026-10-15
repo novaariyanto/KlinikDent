@@ -228,7 +228,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::delete('/doctors/schedules/{doctorSchedule}', [DoctorScheduleController::class, 'destroy'])
                 ->middleware('permission:schedule.manage')
                 ->name('doctors.schedules.destroy');
-            Route::resource('doctors', DoctorController::class)->except(['edit', 'update']);
+            Route::resource('doctors', DoctorController::class)->except(['show', 'edit', 'update']);
 
             Route::get('/pharmacy/medicines', [MedicineController::class, 'index'])
                 ->middleware('permission:medicine.view')

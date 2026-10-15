@@ -17,6 +17,37 @@
         <x-data-table id="doctors-table" :ajax="route('doctors.data')" :columns="$columns" :order="[[1, 'asc']]" />
     </x-card>
 
+    <x-modal id="doctor-view-modal" title="Detail tenaga medis" size="modal-lg">
+        <table class="table table-bordered align-middle mb-0">
+            <tbody>
+                <tr><th width="160">Nama</th><td id="doctor-view-name">-</td></tr>
+                <tr><th>Email</th><td id="doctor-view-email">-</td></tr>
+                <tr><th>Peran</th><td id="doctor-view-role">-</td></tr>
+                <tr><th>Spesialisasi</th><td id="doctor-view-specialization">-</td></tr>
+                <tr><th>SIP</th><td id="doctor-view-sip">-</td></tr>
+                <tr><th>STR</th><td id="doctor-view-str">-</td></tr>
+                <tr><th>NIK</th><td id="doctor-view-nik">-</td></tr>
+                <tr><th>Telepon</th><td id="doctor-view-phone">-</td></tr>
+                <tr><th>Cabang</th><td id="doctor-view-branch">-</td></tr>
+                <tr>
+                    <th>Status</th>
+                    <td><span id="doctor-view-status" class="badge bg-secondary">-</span></td>
+                </tr>
+                <tr id="doctor-view-notes-row" class="d-none"><th>Catatan</th><td id="doctor-view-notes">-</td></tr>
+            </tbody>
+        </table>
+        <div id="doctor-view-signature-wrap" class="mt-3 d-none">
+            <div class="text-muted small mb-1">Tanda tangan</div>
+            <img id="doctor-view-signature" alt="Tanda tangan" style="height:64px">
+        </div>
+        <x-slot:footer>
+            <a id="doctor-view-account" href="#" class="btn btn-secondary waves-effect waves-light d-none">
+                <i class="bx bx-user me-1"></i> Akun
+            </a>
+            <x-button type="button" variant="secondary" data-bs-dismiss="modal">Tutup</x-button>
+        </x-slot:footer>
+    </x-modal>
+
     @php
         $editDoctor = $editDoctor ?? null;
     @endphp
@@ -97,6 +128,78 @@
 @push('scripts')
     <script>
         (function () {
+            const viewModal = document.getElementById('doctor-view-modal');
+            if (viewModal) {
+                const textFields = ['name', 'email', 'specialization', 'sip', 'str', 'nik', 'phone', 'branch'];
+
+                viewModal.addEventListener('show.bs.modal', function (event) {
+                    const trigger = event.relatedTarget;
+                    if (!trigger || !trigger.dataset.doctor) {
+                        return;
+                    }
+
+                    const data = JSON.parse(trigger.dataset.doctor);
+
+                    textFields.forEach(function (key) {
+                        const cell = document.getElementById('doctor-view-' + key);
+                        if (cell) {
+                            cell.textContent = data[key] || '-';
+                        }
+                    });
+
+                    const role = document.getElementById('doctor-view-role');
+                    if (role) {
+                        role.textContent = data.role || '-';
+                    }
+
+                    const status = document.getElementById('doctor-view-status');
+                    if (status) {
+                        status.textContent = data.is_active ? 'Aktif' : 'Nonaktif';
+                        status.className = data.is_active ? 'badge bg-success' : 'badge bg-danger';
+                    }
+
+                    const notesRow = document.getElementById('doctor-view-notes-row');
+                    const notes = document.getElementById('doctor-view-notes');
+                    if (notesRow && notes) {
+                        if (data.notes) {
+                            notes.textContent = data.notes;
+                            notesRow.classList.remove('d-none');
+                        } else {
+                            notes.textContent = '';
+                            notesRow.classList.add('d-none');
+                        }
+                    }
+
+                    const signatureWrap = document.getElementById('doctor-view-signature-wrap');
+                    const signature = document.getElementById('doctor-view-signature');
+                    if (signatureWrap && signature) {
+                        if (data.signature) {
+                            signature.src = data.signature;
+                            signatureWrap.classList.remove('d-none');
+                        } else {
+                            signature.removeAttribute('src');
+                            signatureWrap.classList.add('d-none');
+                        }
+                    }
+
+                    const account = document.getElementById('doctor-view-account');
+                    if (account) {
+                        if (data.account_url) {
+                            account.href = data.account_url;
+                            account.classList.remove('d-none');
+                        } else {
+                            account.href = '#';
+                            account.classList.add('d-none');
+                        }
+                    }
+
+                    const title = document.getElementById('doctor-view-modalLabel');
+                    if (title) {
+                        title.textContent = data.name || 'Detail tenaga medis';
+                    }
+                });
+            }
+
             const modal = document.getElementById('doctor-edit-modal');
             const form = document.getElementById('doctor-edit-form');
             if (!modal || !form) {

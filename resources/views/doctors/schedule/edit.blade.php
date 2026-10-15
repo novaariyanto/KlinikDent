@@ -4,11 +4,9 @@
 
 @section('content')
     @php
-        $from = $from ?? request('from', 'doctor');
-        $back = $from === 'schedule'
-            ? route('doctors.schedule')
-            : route('doctors.show', $schedule->doctor_id);
-        $backLabel = $from === 'schedule' ? 'Jadwal Dokter' : ($schedule->doctor?->displayName() ?: 'Tenaga Medis');
+        $from = $from ?? request('from', 'schedule');
+        $back = route('doctors.schedule');
+        $backLabel = 'Jadwal Dokter';
     @endphp
     <x-page-header title="Edit Jadwal {{ $schedule->doctor?->displayName() }}" :breadcrumb="[$backLabel => $back, 'Edit Jadwal' => null]" />
     <x-alert />

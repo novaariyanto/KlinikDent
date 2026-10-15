@@ -41,13 +41,7 @@
                     <tbody>
                         @foreach ($items as $schedule)
                             <tr>
-                                <td>
-                                    @can('doctor.view')
-                                        <a href="{{ route('doctors.show', $schedule->doctor) }}">{{ $schedule->doctor?->displayName() }}</a>
-                                    @else
-                                        {{ $schedule->doctor?->displayName() }}
-                                    @endcan
-                                </td>
+                                <td>{{ $schedule->doctor?->displayName() }}</td>
                                 <td>{{ $schedule->timeRange() }}</td>
                                 <td>{{ $schedule->branch?->name ?: '-' }}</td>
                                 <td>{{ $schedule->room?->name ?: '-' }}</td>

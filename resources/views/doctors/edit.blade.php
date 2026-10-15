@@ -11,7 +11,7 @@
         $active = (bool) old('is_active', $doctor->is_active);
     @endphp
 
-    <x-page-header title="Edit {{ $doctor->displayName() }}" :breadcrumb="['Tenaga Medis' => route('doctors.index'), $doctor->displayName() => route('doctors.show', $doctor), 'Edit' => null]" />
+    <x-page-header title="Edit {{ $doctor->displayName() }}" :breadcrumb="['Tenaga Medis' => route('doctors.index'), 'Edit' => null]" />
     <x-alert />
 
     <div class="row">
@@ -72,7 +72,7 @@
 
                     <div class="d-flex gap-2">
                         <x-button type="submit" icon="bx bx-save">Update</x-button>
-                        <x-button href="{{ route('doctors.show', $doctor) }}" variant="secondary">Cancel</x-button>
+                        <x-button href="{{ route('doctors.index') }}" variant="secondary">Cancel</x-button>
                     </div>
                 </form>
             </x-card>

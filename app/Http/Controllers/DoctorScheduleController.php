@@ -139,27 +139,18 @@ class DoctorScheduleController extends Controller
     {
         $this->doctors->updateSchedule($doctorSchedule, $request->validated());
 
-        if ($this->returnsToBoard($request)) {
-            return redirect()->route('doctors.schedule')->with('success', 'Jadwal praktik diperbarui.');
-        }
-
         return redirect()
-            ->route('doctors.show', $doctorSchedule->doctor_id)
+            ->route('doctors.schedule')
             ->with('success', 'Jadwal praktik diperbarui.');
     }
 
-    public function destroy(Request $request, DoctorSchedule $doctorSchedule): RedirectResponse
+    public function destroy(DoctorSchedule $doctorSchedule): RedirectResponse
     {
         $this->authorize('delete', $doctorSchedule);
-        $doctorId = $doctorSchedule->doctor_id;
         $this->doctors->deleteSchedule($doctorSchedule);
 
-        if ($this->returnsToBoard($request)) {
-            return redirect()->route('doctors.schedule')->with('success', 'Jadwal praktik dihapus.');
-        }
-
         return redirect()
-            ->route('doctors.show', $doctorId)
+            ->route('doctors.schedule')
             ->with('success', 'Jadwal praktik dihapus.');
     }
 

@@ -94,21 +94,11 @@ class DoctorController extends Controller
 
     public function store(StoreDoctorRequest $request): RedirectResponse
     {
-        $doctor = $this->doctors->create($request->user(), $request->validated());
+        $this->doctors->create($request->user(), $request->validated());
 
         return redirect()
-            ->route('doctors.show', $doctor)
+            ->route('doctors.index')
             ->with('success', 'Tenaga medis berhasil ditambahkan.');
-    }
-
-    public function show(Doctor $doctor): View
-    {
-        $this->authorize('view', $doctor);
-        $doctor->load(['user.roles', 'user.branch', 'user.branches', 'schedules.branch', 'schedules.room']);
-
-        return view('doctors.show', array_merge($this->formData($doctor), [
-            'doctor' => $doctor,
-        ]));
     }
 
     public function edit(Doctor $doctor): View

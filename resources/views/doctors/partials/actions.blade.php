@@ -2,7 +2,38 @@
     <button class="btn btn-soft-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
     <ul class="dropdown-menu dropdown-menu-end">
         @can('view', $doctor)
-            <li><a class="dropdown-item" href="{{ route('doctors.show', $doctor) }}"><i class="bx bx-show-alt me-1"></i> View</a></li>
+            @php
+                $branchNames = $doctor->user?->branches->pluck('name') ?? collect();
+                if ($branchNames->isEmpty() && $doctor->user?->branch) {
+                    $branchNames = collect([$doctor->user->branch->name]);
+                }
+                $accountUrl = ($doctor->user && auth()->user()?->can('users.view'))
+                    ? route('users.show', $doctor->user)
+                    : '';
+            @endphp
+            <li>
+                <button
+                    type="button"
+                    class="dropdown-item"
+                    data-bs-toggle="modal"
+                    data-bs-target="#doctor-view-modal"
+                    data-doctor="{{ json_encode([
+                        'name' => $doctor->displayName(),
+                        'email' => $doctor->user?->email ?: '-',
+                        'role' => $doctor->roleLabel(),
+                        'specialization' => $doctor->specialization ?: '-',
+                        'sip' => $doctor->sip ?: '-',
+                        'str' => $doctor->str ?: '-',
+                        'nik' => $doctor->nik ?: '-',
+                        'phone' => $doctor->phone ?: '-',
+                        'branch' => $branchNames->implode(', ') ?: '-',
+                        'is_active' => (bool) $doctor->is_active,
+                        'notes' => $doctor->notes ?: '',
+                        'signature' => $doctor->signature_path ? asset('storage/'.$doctor->signature_path) : '',
+                        'account_url' => $accountUrl,
+                    ], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) }}"
+                ><i class="bx bx-show-alt me-1"></i> View</button>
+            </li>
         @endcan
         @can('update', $doctor)
             <li>
