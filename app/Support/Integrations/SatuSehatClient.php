@@ -324,24 +324,38 @@ class SatuSehatClient
             throw new IntegrationException('Permintaan token terlalu sering. SATUSEHAT hanya mengizinkan satu percobaan gagal per menit. Tunggu sebentar, lalu uji lagi.');
         }
 
-        // POST /oauth2/v1/accesstoken?grant_type=client_credentials
-        // Body application/x-www-form-urlencoded: client_id, client_secret.
         $endpoint = $this->branch->tokenUrl();
-        $pending = $this->http()->asForm();
 
         if (! str_contains($endpoint, 'grant_type=')) {
-            $pending = $pending->withQueryParameters(['grant_type' => 'client_credentials']);
+            $endpoint .= (str_contains($endpoint, '?') ? '&' : '?').'grant_type=client_credentials';
         }
 
-        $response = $pending->post($endpoint, [
+        $payload = http_build_query([
             'client_id' => trim((string) $this->branch->client_id),
             'client_secret' => trim((string) $this->branch->client_secret),
-        ]);
+        ], '', '&', PHP_QUERY_RFC3986);
+
+        $response = Http::timeout(20)
+            ->withOptions([
+                'version' => 1.1,
+                'curl' => [
+                    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                ],
+            ])
+            ->withHeaders([
+                'Accept' => 'application/json',
+                'Expect' => '',
+            ])
+            ->withBody($payload, 'application/x-www-form-urlencoded')
+            ->post($endpoint);
 
         if (! $response->successful() || ! filled($response->json('access_token'))) {
-            Cache::put($this->tokenBlockKey(), true, 60);
+            if ($response->json('issue') !== null || $response->json('fault') !== null || $response->status() === 429) {
+                Cache::put($this->tokenBlockKey(), true, 60);
+            }
 
-            throw new IntegrationException($this->failureMessage($response, 'Token SATUSEHAT ditolak. Periksa Client ID, Client Secret, dan environment.'));
+            throw new IntegrationException($this->failureMessage($response, 'Token SATUSEHAT ditolak. Periksa Client ID, Client Secret, dan Token URL.'));
         }
 
         $token = (string) $response->json('access_token');
@@ -412,7 +426,7 @@ class SatuSehatClient
         }
 
         if ($response->status() === 403 && ! is_array($response->json('issue')) && ! is_array($response->json('fault'))) {
-            return 'Server hosting menolak koneksi keluar ke SATUSEHAT (HTTP 403) sebelum Client ID diperiksa. Izinkan HTTPS keluar ke '.$this->branch->baseUrl().', tunggu satu menit, lalu uji lagi.';
+            return 'Gateway menolak permintaan token (HTTP 403) ke '.$this->branch->tokenUrl().'. '.$diagnostic;
         }
 
         if ($response->status() === 403) {
