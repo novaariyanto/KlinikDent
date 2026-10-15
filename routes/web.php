@@ -196,6 +196,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::resource('rooms', RoomController::class);
             });
 
+            Route::get('/doctors/{doctor}/edit', [DoctorController::class, 'edit'])->name('doctors.edit');
+            Route::match(['put', 'patch'], '/doctors/{doctor}', [DoctorController::class, 'update'])->name('doctors.update');
             Route::get('/doctors/data', [DoctorController::class, 'data'])
                 ->middleware('permission:doctor.view')
                 ->name('doctors.data');
@@ -226,7 +228,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::delete('/doctors/schedules/{doctorSchedule}', [DoctorScheduleController::class, 'destroy'])
                 ->middleware('permission:schedule.manage')
                 ->name('doctors.schedules.destroy');
-            Route::resource('doctors', DoctorController::class);
+            Route::resource('doctors', DoctorController::class)->except(['edit', 'update']);
 
             Route::get('/pharmacy/medicines', [MedicineController::class, 'index'])
                 ->middleware('permission:medicine.view')
