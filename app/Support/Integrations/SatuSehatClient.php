@@ -326,12 +326,7 @@ class SatuSehatClient
 
         // POST /oauth2/v1/accesstoken?grant_type=client_credentials
         // Body application/x-www-form-urlencoded: client_id, client_secret.
-        $response = Http::timeout(20)
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'Content-Type' => 'application/x-www-form-urlencoded',
-            ])
-            ->withUserAgent('KlinikDent')
+        $response = $this->http()
             ->asForm()
             ->withQueryParameters(['grant_type' => 'client_credentials'])
             ->post($this->branch->baseUrl().'/oauth2/v1/accesstoken', [
@@ -374,7 +369,14 @@ class SatuSehatClient
 
     protected function http(): PendingRequest
     {
-        return Http::timeout(20)->acceptJson();
+        return Http::timeout(20)
+            ->acceptJson()
+            ->withOptions([
+                'curl' => [
+                    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+                ],
+            ]);
     }
 
     /**
@@ -403,6 +405,10 @@ class SatuSehatClient
 
         if (str_contains($normalized, 'unacceptable') || str_contains($normalized, 'not able to be authenticated')) {
             return 'Client ID atau Client Secret ditolak. Isi ulang keduanya dari menu Kode Akses API, dan pilih environment yang sama (Sandbox atau Production).';
+        }
+
+        if ($response->status() === 403 && ! is_array($response->json('issue')) && ! is_array($response->json('fault'))) {
+            return 'Server hosting menolak koneksi keluar ke SATUSEHAT (HTTP 403) sebelum Client ID diperiksa. Izinkan HTTPS keluar ke '.$this->branch->baseUrl().', tunggu satu menit, lalu uji lagi.';
         }
 
         if ($response->status() === 403) {
