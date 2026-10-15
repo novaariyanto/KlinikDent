@@ -56,7 +56,7 @@
         <x-card title="Kelengkapan data">
             <p class="mb-1">Dokter tanpa NIK: <strong>{{ $readiness['doctors_missing_nik'] }}</strong></p>
             <p class="mb-1">Pasien cabang ini tanpa NIK: <strong>{{ $readiness['patients_missing_nik'] }}</strong></p>
-            <p class="mb-0 text-muted small">Sinkron terakhir: {{ $stats['last_synced_at'] ? \Illuminate\Support\Carbon::parse($stats['last_synced_at'])->timezone(config('app.timezone'))->format('d M Y H:i') : 'belum ada' }}. OHIS, golongan darah, torus mandibularis, dan farmasi tidak dikirim pada tahap ini.</p>
+            <p class="mb-0 text-muted small">Sinkron terakhir: {{ $stats['last_synced_at'] ? \Illuminate\Support\Carbon::parse($stats['last_synced_at'])->timezone(config('app.timezone'))->format('d M Y H:i') : 'belum ada' }}. OHIS, golongan darah, dan farmasi tidak dikirim. Torus mandibularis terkirim bila nilainya Tidak Ada, Sisi Kiri, Sisi Kanan, atau Kedua Sisi.</p>
         </x-card>
 
         <div class="row">

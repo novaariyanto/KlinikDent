@@ -31,9 +31,12 @@
                         <td>Rp {{ number_format((float) $item->price_at_time, 0, ',', '.') }}</td>
                         <td>{{ $item->billing_status->label() }}</td>
                         @can('procedure.manage')
-                            <td class="text-end">
+                            <td class="text-end text-nowrap">
+                                @if ($writable)
+                                    <button type="button" class="btn btn-sm btn-soft-primary" data-toggle-panel="#proc-edit-{{ $item->id }}">ICD-9</button>
+                                @endif
                                 @if ($writable && $item->isUnbilled())
-                                    <form action="{{ route('care.procedure.destroy', [$visit, $item]) }}" method="POST" onsubmit="return confirm('Hapus tindakan ini?')">
+                                    <form action="{{ route('care.procedure.destroy', [$visit, $item]) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus tindakan ini?')">
                                         @csrf
                                         @method('DELETE')
                                         <button class="btn btn-sm btn-soft-danger" type="submit">Hapus</button>
@@ -42,6 +45,26 @@
                             </td>
                         @endcan
                     </tr>
+                    @can('procedure.manage')
+                        @if ($writable)
+                            @php($reopenProcedureEdit = old('_form') === 'procedure-update-'.$item->id)
+                            <tr id="proc-edit-{{ $item->id }}" @if (! $reopenProcedureEdit) hidden @endif>
+                                <td colspan="6">
+                                    <form action="{{ route('care.procedure.update', [$visit, $item]) }}" method="POST">
+                                        @csrf
+                                        @method('PUT')
+                                        <input type="hidden" name="_form" value="procedure-update-{{ $item->id }}">
+                                        @include('clinical.care.partials.icd9-select', [
+                                            'id' => 'procedure-icd9-'.$item->id,
+                                            'selected' => $reopenProcedureEdit ? old('icd9_code', $item->icd9_code) : $item->icd9_code,
+                                            'showError' => $reopenProcedureEdit,
+                                        ])
+                                        <x-button type="submit" icon="bx bx-save">Simpan ICD-9-CM</x-button>
+                                    </form>
+                                </td>
+                            </tr>
+                        @endif
+                    @endcan
                 @empty
                     <tr><td colspan="6" class="text-muted">Belum ada tindakan.</td></tr>
                 @endforelse
@@ -72,7 +95,11 @@
                                 <x-input name="quantity" id="procedure-quantity-create" type="number" label="Qty" :value="$reopenProcedure ? old('quantity', 1) : 1" required />
                             </div>
                             <div class="col-md-12">
-                                <x-select name="icd9_code" id="procedure-icd9-create" label="ICD-9-CM" :options="\App\Support\Clinical\Icd9Catalog::options()" :selected="$reopenProcedure ? old('icd9_code') : null" placeholder="Opsional" />
+                                @include('clinical.care.partials.icd9-select', [
+                                    'id' => 'procedure-icd9-create',
+                                    'selected' => $reopenProcedure ? old('icd9_code') : null,
+                                    'showError' => $reopenProcedure,
+                                ])
                             </div>
                         </div>
                         <div class="text-end">

@@ -153,9 +153,11 @@ class VisitController extends Controller
         activity_log('created', $visit, $request->validated(), 'Registered visit for '.$visit->patient?->name, 'visits');
 
         $queueNumber = $visit->queue?->displayNumber();
+        $ihs = $visit->patient?->satusehat_id;
+        $ihsNote = $ihs ? ' IHS '.$ihs.'.' : '';
         $message = $this->registrar->reusedExistingPatient
-            ? 'NIK sudah terdaftar pada '.$visit->patient?->name.' (RM '.$visit->patient?->medical_record_number.'). Kunjungan dicatat pada rekam medis itu. Nomor antrean '.$queueNumber.'.'
-            : 'Pendaftaran berhasil. Nomor antrean '.$queueNumber.'.';
+            ? 'NIK sudah terdaftar pada '.$visit->patient?->name.' (RM '.$visit->patient?->medical_record_number.'). Kunjungan dicatat pada rekam medis itu. Nomor antrean '.$queueNumber.'.'.$ihsNote
+            : 'Pendaftaran berhasil. Nomor antrean '.$queueNumber.'.'.$ihsNote;
 
         return redirect()
             ->route('registration.visits.show', $visit)

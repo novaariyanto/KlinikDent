@@ -303,6 +303,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::put('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'updateDiagnosis'])->name('care.diagnosis.update');
                 Route::delete('/visits/{visit}/care/diagnoses/{diagnosis}', [CareController::class, 'destroyDiagnosis'])->name('care.diagnosis.destroy');
                 Route::post('/visits/{visit}/care/procedures', [CareController::class, 'storeProcedure'])->name('care.procedure.store');
+                Route::put('/visits/{visit}/care/procedures/{procedure_record}', [CareController::class, 'updateProcedure'])->name('care.procedure.update');
                 Route::delete('/visits/{visit}/care/procedures/{procedure_record}', [CareController::class, 'destroyProcedure'])->name('care.procedure.destroy');
                 Route::post('/visits/{visit}/care/prescription-items', [CareController::class, 'storePrescriptionItem'])->name('care.prescription-item.store');
                 Route::put('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'updatePrescriptionItem'])->name('care.prescription-item.update');

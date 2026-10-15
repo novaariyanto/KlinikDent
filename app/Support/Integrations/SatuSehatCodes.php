@@ -115,6 +115,7 @@ final class SatuSehatCodes
         'normal' => ['278683009', 'No malocclusion'],
         'cross' => ['109495004', 'Crossbite'],
         'steep' => ['60476005', 'Deep overbite'],
+        'deep' => ['60476005', 'Deep overbite'],
     ];
 
     /**
@@ -126,6 +127,16 @@ final class SatuSehatCodes
         'medium' => ['OV000076', 'Torus Palatinus Sedang'],
         'large' => ['OV000077', 'Torus Palatinus Besar'],
         'multiple' => ['OV000078', 'Multiple Torus Palatinus'],
+    ];
+
+    /**
+     * @var array<string, array{0: string, 1: string}>
+     */
+    public const TORUS_MANDIBULARIS = [
+        'none' => ['OV000079', 'Tidak ada Torus Mandibularis'],
+        'left' => ['OV000080', 'Torus Mandibularis Sisi Kiri'],
+        'right' => ['OV000081', 'Torus Mandibularis Sisi Kanan'],
+        'both' => ['OV000082', 'Torus Mandibularis pada Kedua Sisi'],
     ];
 
     /**

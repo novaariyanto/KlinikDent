@@ -32,6 +32,21 @@ final class CareExamOptions
     }
 
     /**
+     * Playbook SATUSEHAT: torus mandibularis memakai sisi, bukan ukuran.
+     *
+     * @return array<string, string>
+     */
+    public static function torusMandibularis(): array
+    {
+        return [
+            'none' => 'Tidak Ada',
+            'left' => 'Sisi Kiri',
+            'right' => 'Sisi Kanan',
+            'both' => 'Kedua Sisi',
+        ];
+    }
+
+    /**
      * @return array<string, string>
      */
     public static function palate(): array

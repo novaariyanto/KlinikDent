@@ -11,6 +11,6 @@
                 <x-button href="{{ route('registration.patients.create') }}" icon="bx bx-plus">Tambah Pasien</x-button>
             @endcan
         </x-slot:header-actions>
-        <x-data-table id="patients-table" :ajax="route('registration.patients.data')" :columns="$columns" :order="[[6, 'desc']]" />
+        <x-data-table id="patients-table" :ajax="route('registration.patients.data')" :columns="$columns" :order="[[7, 'desc']]" />
     </x-card>
 @endsection

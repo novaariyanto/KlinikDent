@@ -18,6 +18,7 @@ use App\Http\Requests\Clinical\UpdateDentalExamRequest;
 use App\Http\Requests\Clinical\UpdateExaminationRequest;
 use App\Http\Requests\Clinical\UpdateMedicalRecordRequest;
 use App\Http\Requests\Clinical\UpdatePrescriptionItemRequest;
+use App\Http\Requests\Clinical\UpdateProcedureRecordRequest;
 use App\Http\Requests\Clinical\UpdateSystemicHistoryRequest;
 use App\Http\Requests\Clinical\UpdateToothRequest;
 use App\Http\Requests\Clinical\UpdateVitalsRequest;
@@ -159,6 +160,7 @@ class CareController extends Controller
             'examOptions' => [
                 'occlusion' => CareExamOptions::occlusion(),
                 'torus' => CareExamOptions::torus(),
+                'torus_mandibularis' => CareExamOptions::torusMandibularis(),
                 'palate' => CareExamOptions::palate(),
                 'presence' => CareExamOptions::presence(),
                 'finding' => CareExamOptions::finding(),
@@ -400,6 +402,18 @@ class CareController extends Controller
             'tindakan',
             'Tindakan ditambahkan. Tarif tersimpan Rp '.number_format((float) $record->price_at_time, 0, ',', '.').'.',
         );
+    }
+
+    public function updateProcedure(UpdateProcedureRecordRequest $request, Visit $visit, ProcedureRecord $procedureRecord): RedirectResponse|JsonResponse
+    {
+        $before = activity_snapshot($procedureRecord);
+        $procedureRecord->update([
+            'icd9_code' => $request->validated('icd9_code'),
+        ]);
+
+        activity_audit('updated', $procedureRecord, $before, 'Updated procedure ICD-9-CM', 'procedure_records');
+
+        return $this->respondCare($visit, 'tindakan', 'Kode ICD-9-CM tindakan disimpan.');
     }
 
     public function destroyProcedure(Visit $visit, ProcedureRecord $procedureRecord): RedirectResponse|JsonResponse

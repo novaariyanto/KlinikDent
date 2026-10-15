@@ -9,6 +9,7 @@ use App\Http\Requests\Patient\UpdatePatientRequest;
 use App\Models\Branch;
 use App\Models\Patient;
 use App\Models\Payer;
+use App\Support\Integrations\IntegrationService;
 use App\Support\Registration\DocumentSequenceGenerator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -19,7 +20,10 @@ use Yajra\DataTables\Facades\DataTables;
 
 class PatientController extends Controller
 {
-    public function __construct(protected DocumentSequenceGenerator $sequences) {}
+    public function __construct(
+        protected DocumentSequenceGenerator $sequences,
+        protected IntegrationService $integrations,
+    ) {}
 
     public function index(): View
     {
@@ -30,6 +34,7 @@ class PatientController extends Controller
             ['data' => 'medical_record_number', 'name' => 'medical_record_number', 'title' => 'No. RM'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Nama'],
             ['data' => 'nik', 'name' => 'nik', 'title' => 'NIK'],
+            ['data' => 'satusehat_id', 'name' => 'satusehat_id', 'title' => 'IHS'],
             ['data' => 'phone', 'name' => 'phone', 'title' => 'Telepon'],
             ['data' => 'payer', 'name' => 'defaultPayer.name', 'title' => 'Penjamin'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
@@ -46,6 +51,7 @@ class PatientController extends Controller
         return DataTables::eloquent(Patient::query()->with('defaultPayer'))
             ->addIndexColumn()
             ->editColumn('nik', fn (Patient $patient) => e($patient->nik ?: '-'))
+            ->editColumn('satusehat_id', fn (Patient $patient) => e($patient->satusehat_id ?: '-'))
             ->editColumn('phone', fn (Patient $patient) => e($patient->phone ?: '-'))
             ->addColumn('payer', fn (Patient $patient) => e($patient->defaultPayer?->name ?: '-'))
             ->editColumn('created_at', fn (Patient $patient) => $patient->created_at?->format('d M Y H:i'))
@@ -96,10 +102,17 @@ class PatientController extends Controller
             return Patient::query()->create($data);
         });
 
+        $ihs = $branch ? $this->integrations->lookupPatientIhs($patient, $branch) : null;
+
         activity_audit('created', $patient, [], 'Created patient '.$patient->name, 'patients');
 
+        $message = 'Pasien created successfully.';
+        if ($ihs) {
+            $message .= ' Nomor IHS '.$ihs.'.';
+        }
+
         return redirect()->route('registration.patients.show', $patient)
-            ->with('success', 'Pasien created successfully.');
+            ->with('success', $message);
     }
 
     public function show(Patient $patient): View

@@ -1,0 +1,55 @@
+---
+alwaysApply: true
+---
+## Kapan
+
+User minta cek **metadata/skema** (ada tabel, kolom, indeks). Eksekusi dari **root proyek**; Laravel baca `.env` — **jangan** tempel password/host ke chat atau ke rule.
+
+## Prinsip
+
+- Pilih `connection` dari [`config/database.php`](c:\laragon\www\simrs\config\database.php) (`simrs`, `mysql`, `eprofile`, `remunerasi`, dll.); jangan tebak kredensial.
+- Utamakan **dev/staging**. **Prod**: metadata ringan saja jika user izinkan eksplisit; hindari query berat / scan penuh tabel besar.
+- **Larang** tanpa izin eksplisit: `DROP`, `TRUNCATE`, `ALTER`, `DELETE`/`UPDATE` massal, `INSERT` prod, `SELECT *` besar yang mengeluarkan PHI ke chat.
+
+## Alur AI
+
+1. Pastikan nama `connection` + nama tabel dari konteks user.
+2. Satu perintah `--execute` per langkah; jika error, laporkan tanpa membocorkan `.env`.
+3. Ringkas hasil (ada/tidak tabel, kolom relevan); jangan dump baris sensitif kecuali user minta di lingkungan aman.
+
+## Contoh perintah (ganti `simrs` dan `nama_tabel`)
+
+```bash
+php artisan tinker --execute="var_export(DB::connection('simrs')->getSchemaBuilder()->hasTable('nama_tabel'));"
+```
+
+```bash
+php artisan tinker --execute="var_export(DB::connection('simrs')->select('SHOW TABLES'));"
+```
+
+```bash
+php artisan tinker --execute="var_export(DB::connection('simrs')->select('DESCRIBE nama_tabel'));"
+```
+
+```bash
+php artisan tinker --execute="var_export(DB::connection('simrs')->getSchemaBuilder()->getColumnListing('nama_tabel'));"
+```
+
+```bash
+php artisan tinker --execute="var_export(DB::connection('simrs')->select('SHOW INDEX FROM nama_tabel'));"
+```
+
+DDL (output bisa panjang):
+
+```bash
+php artisan tinker --execute="var_export(DB::connection('simrs')->select('SHOW CREATE TABLE nama_tabel'));"
+```
+
+## Shell Windows
+
+- **Git Bash**: biasanya cukup seperti di atas; jika `$` di-expand salah, bungkus `--execute='...'` dengan string PHP memakai kutip tunggal di luar.
+- **PowerShell**: string dengan kutip ganda perlu escape `"` di dalam atau pakai `--%` / kutip tunggal untuk argumen `php` sesuai kebiasaan Anda.
+
+## Skema vs DBA
+
+Perubahan skema tetap **SQL untuk review DBA** (bukan migration) sesuai aturan proyek SIMRS; rule ini hanya untuk **baca / introspeksi**.

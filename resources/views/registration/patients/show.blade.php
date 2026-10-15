@@ -13,6 +13,7 @@
                         <tr><th width="160">No. RM</th><td>{{ $patient->medical_record_number }}</td></tr>
                         <tr><th>Nama</th><td>{{ $patient->name }}</td></tr>
                         <tr><th>NIK</th><td>{{ $patient->nik ?: '-' }}</td></tr>
+                        <tr><th>IHS</th><td>{{ $patient->satusehat_id ?: '-' }}</td></tr>
                         <tr><th>Tanggal Lahir</th><td>{{ $patient->dob?->format('d M Y') ?: '-' }}</td></tr>
                         <tr><th>Jenis Kelamin</th><td>{{ $patient->gender?->label() ?: '-' }}</td></tr>
                         <tr><th>Telepon</th><td>{{ $patient->phone ?: '-' }}</td></tr>

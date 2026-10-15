@@ -314,6 +314,23 @@
         });
     }
 
+    function initIcd9Selects(container) {
+        $(container).find('[data-icd9-select]').each(function () {
+            var $el = $(this);
+            if ($el.data('select2')) return;
+            $el.select2({
+                width: '100%',
+                placeholder: 'Ketik kode atau nama, mis. tumpatan / 23.2',
+                allowClear: true,
+                dropdownParent: selectDropdownParent($el),
+                language: {
+                    noResults: function () { return 'ICD-9-CM tidak ditemukan'; },
+                    searching: function () { return 'Mencari…'; }
+                }
+            });
+        });
+    }
+
     function initIcdSelects(container) {
         $(container).find('[data-icd-select]').each(function () {
             var icd = this;
@@ -401,12 +418,14 @@
         if (workspace) {
             initToothSelects(workspace);
             initIcdSelects(workspace);
+            initIcd9Selects(workspace);
         }
 
         document.querySelectorAll('.care-modal').forEach(function (modal) {
             modal.addEventListener('shown.bs.modal', function () {
                 initToothSelects(modal);
                 initIcdSelects(modal);
+                initIcd9Selects(modal);
                 $(modal).find('.select2-container').css('width', '100%');
             });
             if (modal.hasAttribute('data-show-on-load') && window.bootstrap) {

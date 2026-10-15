@@ -23,6 +23,13 @@ class SatuSehatSync
     /** @var list<string> */
     protected array $notes = [];
 
+    /**
+     * Panggilan FHIR pada pencarian IHS terakhir.
+     *
+     * @var list<array{method: string, url: string, request: mixed, status: int|null, response: mixed}>
+     */
+    public array $exchanges = [];
+
     public function __construct(
         protected TenantIntegration $tenant,
         protected BranchSatuSehatSetting $branch,
@@ -157,6 +164,17 @@ class SatuSehatSync
         return null;
     }
 
+    public function ensurePatientIhs(Patient $patient): string
+    {
+        $client = new SatuSehatClient($this->tenant, $this->branch);
+
+        try {
+            return $this->patientIhs($client, $patient);
+        } finally {
+            $this->exchanges = $client->exchanges;
+        }
+    }
+
     protected function patientIhs(SatuSehatClient $client, Patient $patient): string
     {
         if (filled($patient->satusehat_id)) {
@@ -166,12 +184,74 @@ class SatuSehatSync
         $id = $client->findByNik('Patient', (string) $patient->nik);
 
         if ($id === null) {
-            throw new IntegrationException('NIK pasien tidak ditemukan di Master Patient Index SATUSEHAT.');
+            $id = $this->registerMissingPatient($client, $patient);
         }
 
         $patient->forceFill(['satusehat_id' => $id])->save();
 
         return $id;
+    }
+
+    protected function registerMissingPatient(SatuSehatClient $client, Patient $patient): string
+    {
+        $missing = [];
+
+        if (! filled($patient->name)) {
+            $missing[] = 'nama';
+        }
+
+        if ($patient->dob === null) {
+            $missing[] = 'tanggal lahir';
+        }
+
+        if ($patient->gender === null) {
+            $missing[] = 'jenis kelamin';
+        }
+
+        if ($missing !== []) {
+            throw new IntegrationException(
+                'NIK pasien tidak ditemukan di MPI SATUSEHAT. Pendaftaran IHS membutuhkan '.implode(', ', $missing).' sesuai KTP.'
+            );
+        }
+
+        $payload = [
+            'resourceType' => 'Patient',
+            'meta' => [
+                'profile' => ['https://fhir.kemkes.go.id/r4/StructureDefinition/Patient'],
+            ],
+            'identifier' => [[
+                'use' => 'official',
+                'system' => SatuSehatCodes::NIK_SYSTEM,
+                'value' => (string) $patient->nik,
+            ]],
+            'active' => true,
+            'name' => [[
+                'use' => 'official',
+                'text' => $patient->name,
+            ]],
+            'gender' => $patient->gender->value,
+            'birthDate' => $patient->dob->format('Y-m-d'),
+            'deceasedBoolean' => false,
+            'multipleBirthInteger' => 0,
+        ];
+
+        if (filled($patient->phone)) {
+            $payload['telecom'] = [[
+                'system' => 'phone',
+                'value' => (string) $patient->phone,
+                'use' => 'mobile',
+            ]];
+        }
+
+        if (filled($patient->address)) {
+            $payload['address'] = [[
+                'use' => 'home',
+                'line' => [(string) $patient->address],
+                'country' => 'ID',
+            ]];
+        }
+
+        return $this->send($client, 'Patient', 'patient:'.$patient->id, $payload, $patient);
     }
 
     protected function practitionerIhs(SatuSehatClient $client, Doctor $doctor): string
@@ -285,9 +365,20 @@ class SatuSehatSync
             'Oklusi',
         );
 
-        if (filled($exam['torus_mandibularis'] ?? null)) {
-            $this->notes[] = 'Torus mandibularis tidak dikirim. Pilihan di aplikasi (ukuran) tidak sama dengan kode sisi kiri/kanan pada playbook.';
-        }
+        $this->codedExam(
+            $client,
+            $visit,
+            $patientIhs,
+            $practitionerIhs,
+            $encounterId,
+            $at,
+            'torus-mandibularis',
+            SatuSehatCodes::coding(SatuSehatCodes::SNOMED, '11625007', 'Torus mandibularis'),
+            $exam['torus_mandibularis'] ?? null,
+            SatuSehatCodes::TORUS_MANDIBULARIS,
+            SatuSehatCodes::CLINICAL,
+            'Torus mandibularis',
+        );
 
         $this->codedExam(
             $client,
@@ -349,6 +440,7 @@ class SatuSehatSync
         );
 
         $this->sendOdontogram($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $at);
+        $this->sendToothCounts($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $at);
     }
 
     protected function quantityObservation(
@@ -516,6 +608,49 @@ class SatuSehatSync
                     'component' => $components,
                 ],
                 $log,
+            );
+        }
+    }
+
+    protected function sendToothCounts(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $practitionerIhs,
+        string $encounterId,
+        CarbonInterface $at,
+    ): void {
+        $teeth = OdontogramTooth::query()->where('patient_id', $visit->patient_id)->get();
+
+        if ($teeth->isEmpty()) {
+            return;
+        }
+
+        $value = fn (string ...$statuses) => $teeth->filter(
+            fn (OdontogramTooth $tooth) => in_array($tooth->status?->value, $statuses, true)
+        )->count();
+
+        $counts = [
+            'decayed' => [$value('caries'), '251319000', 'Decayed tooth count'],
+            'missing' => [$value('missing', 'extracted'), '251317003', 'Missing tooth count'],
+            'filled' => [$value('filling'), '251318008', 'Filled tooth count'],
+        ];
+
+        foreach ($counts as $key => [$count, $code, $display]) {
+            $this->send(
+                $client,
+                'Observation',
+                'observation:'.$key.':'.$visit->id,
+                $this->observationBase(
+                    $patientIhs,
+                    $practitionerIhs,
+                    $encounterId,
+                    $at,
+                    'exam',
+                    'Exam',
+                    SatuSehatCodes::coding(SatuSehatCodes::SNOMED, $code, $display),
+                ) + ['valueInteger' => $count],
+                $visit->medicalRecord,
             );
         }
     }

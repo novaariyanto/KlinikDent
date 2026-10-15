@@ -11,6 +11,7 @@ use App\Models\Room;
 use App\Models\User;
 use App\Models\Visit;
 use App\Support\Doctors\ScheduleAvailability;
+use App\Support\Integrations\IntegrationService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -21,6 +22,7 @@ class VisitRegistrar
     public function __construct(
         protected DocumentSequenceGenerator $sequences,
         protected ScheduleAvailability $schedules,
+        protected IntegrationService $integrations,
     ) {}
 
     /**
@@ -30,7 +32,7 @@ class VisitRegistrar
     {
         $this->reusedExistingPatient = false;
 
-        return DB::transaction(function () use ($actor, $data) {
+        $visit = DB::transaction(function () use ($actor, $data) {
             $tenantId = (int) $actor->tenant_id;
             $branch = $this->resolveBranch($actor, $data['branch_id'] ?? null);
             $patient = $this->resolvePatient($actor, $tenantId, $branch, $data);
@@ -62,6 +64,12 @@ class VisitRegistrar
 
             return $visit->load(['patient', 'queue', 'doctor', 'room', 'payer', 'branch']);
         });
+
+        if ($visit->patient && $visit->branch) {
+            $this->integrations->lookupPatientIhs($visit->patient, $visit->branch);
+        }
+
+        return $visit;
     }
 
     /**
@@ -71,7 +79,7 @@ class VisitRegistrar
      */
     public function registerGuest(\App\Models\Tenant $tenant, array $data): Visit
     {
-        return DB::transaction(function () use ($tenant, $data) {
+        $visit = DB::transaction(function () use ($tenant, $data) {
             $branch = Branch::withoutGlobalScopes()->find($data['branch_id'] ?? null);
 
             if (! $branch || (int) $branch->tenant_id !== (int) $tenant->id || ! $branch->is_active) {
@@ -128,6 +136,12 @@ class VisitRegistrar
                 'branch' => fn ($query) => $query->withoutGlobalScopes(),
             ]);
         });
+
+        if ($visit->patient && $visit->branch) {
+            $this->integrations->lookupPatientIhs($visit->patient, $visit->branch);
+        }
+
+        return $visit;
     }
 
     protected function attachQueue(Visit $visit, Branch $branch, ?int $scheduleId = null): void

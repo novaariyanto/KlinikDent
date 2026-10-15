@@ -28,7 +28,15 @@
                         @include('clinical.care.partials.choice-group', ['name' => 'mucosa', 'label' => 'Mukosa', 'options' => $examOptions['mucosa'], 'selected' => $exam['mucosa'] ?? 'normal'])
                         @include('clinical.care.partials.choice-group', ['name' => 'palate', 'label' => 'Palatum', 'options' => $examOptions['palate'], 'selected' => $exam['palate'] ?? null])
                         @include('clinical.care.partials.choice-group', ['name' => 'torus_palatinus', 'label' => 'Torus Palatinus', 'options' => $examOptions['torus'], 'selected' => $exam['torus_palatinus'] ?? 'none'])
-                        @include('clinical.care.partials.choice-group', ['name' => 'torus_mandibularis', 'label' => 'Torus Mandibularis', 'options' => $examOptions['torus'], 'selected' => $exam['torus_mandibularis'] ?? 'none'])
+                        @php($mandibularisKnown = array_key_exists($exam['torus_mandibularis'] ?? 'none', $examOptions['torus_mandibularis']))
+                        @include('clinical.care.partials.choice-group', [
+                            'name' => 'torus_mandibularis',
+                            'label' => 'Torus Mandibularis',
+                            'options' => $examOptions['torus_mandibularis'],
+                            'selected' => $mandibularisKnown ? ($exam['torus_mandibularis'] ?? 'none') : null,
+                            'fallback' => $mandibularisKnown ? null : ($exam['torus_mandibularis'] ?? null),
+                            'hint' => $mandibularisKnown ? null : 'Nilai lama (ukuran) tidak dikirim. Pilih sisi kiri, kanan, atau kedua sisi.',
+                        ])
 
                         @include('clinical.care.partials.choice-group', ['name' => 'diastema', 'label' => 'Diastema', 'options' => $examOptions['presence'], 'selected' => $exam['diastema'] ?? 'none', 'reveal' => 'diastema'])
                         <div class="exam-reveal" data-reveal="diastema" hidden>
