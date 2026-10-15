@@ -461,6 +461,9 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/integrations/satusehat/logs/{log}', [IntegrationController::class, 'satusehatLogShow'])
                 ->middleware('permission:satusehat.view')
                 ->name('integrations.satusehat.logs.show');
+            Route::get('/integrations/satusehat/visits/{visit}/logs', [IntegrationController::class, 'satusehatVisitLogs'])
+                ->middleware('permission:satusehat.view')
+                ->name('integrations.satusehat.visits.logs');
             Route::put('/integrations/satusehat', [IntegrationController::class, 'updateSatuSehat'])
                 ->middleware('permission:integration.manage')
                 ->name('integrations.satusehat.update');

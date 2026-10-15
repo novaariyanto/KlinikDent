@@ -196,13 +196,21 @@
                             <td>{{ $visit->satusehat_id ?: '-' }}</td>
                             <td class="text-muted">{{ \Illuminate\Support\Str::limit($visitErrors->get($visit->id)?->error_message, 80) ?: '-' }}</td>
                             <td>
-                                @if ($settings->enabled && $branchSetting->readyToSync() && $visit->satusehat_status === \App\Enums\SatuSehatStatus::Failed)
-                                    <form method="POST" action="{{ route('integrations.satusehat.send') }}">
-                                        @csrf
-                                        <input type="hidden" name="visit_id" value="{{ $visit->id }}">
-                                        <x-button type="submit" variant="warning">Ulangi</x-button>
-                                    </form>
-                                @endif
+                                <div class="d-flex flex-wrap gap-2">
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-soft-secondary js-ss-log"
+                                        data-url="{{ route('integrations.satusehat.visits.logs', $visit) }}"
+                                        data-title="Log Encounter {{ $visit->satusehat_id ?: '#'.$visit->id }}"
+                                    >Log</button>
+                                    @if ($settings->enabled && $branchSetting->readyToSync() && $visit->satusehat_status === \App\Enums\SatuSehatStatus::Failed)
+                                        <form method="POST" action="{{ route('integrations.satusehat.send') }}">
+                                            @csrf
+                                            <input type="hidden" name="visit_id" value="{{ $visit->id }}">
+                                            <x-button type="submit" variant="warning">Ulangi</x-button>
+                                        </form>
+                                    @endif
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -237,7 +245,7 @@
         />
     </x-card>
 
-    <x-modal id="ss-log-modal" title="Hasil pengiriman" size="modal-lg">
+    <x-modal id="ss-log-modal" title="Hasil pengiriman" size="modal-xl">
         <div id="ss-log-body" class="text-muted">Memuat...</div>
     </x-modal>
 @endsection
@@ -276,8 +284,10 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!button || !window.axios || !window.bootstrap) return;
 
         var body = document.getElementById('ss-log-body');
+        var title = document.getElementById('ss-log-modalLabel');
         body.className = 'text-muted';
         body.textContent = 'Memuat...';
+        if (title) title.textContent = button.dataset.title || 'Hasil pengiriman';
         window.bootstrap.Modal.getOrCreateInstance(document.getElementById('ss-log-modal')).show();
 
         window.axios.get(button.dataset.url).then(function (response) {

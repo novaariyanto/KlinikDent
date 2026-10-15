@@ -176,6 +176,25 @@ class IntegrationController extends Controller
         ]);
     }
 
+    public function satusehatVisitLogs(Request $request, Visit $visit): Response
+    {
+        abort_unless($request->user()?->can('satusehat.view'), 403);
+        abort_unless($request->user()?->canAccessBranch((int) $visit->branch_id), 403);
+
+        $logs = IntegrationLog::query()
+            ->where('provider', IntegrationProvider::SatuSehat)
+            ->where('subject_type', Visit::class)
+            ->where('subject_id', $visit->id)
+            ->latest('id')
+            ->get()
+            ->map(fn (IntegrationLog $log) => SatuSehatLogView::from($log));
+
+        return response()->view('integrations.partials.visit-logs', [
+            'visit' => $visit,
+            'logs' => $logs,
+        ]);
+    }
+
     public function updateSatuSehat(UpdateSatuSehatSettingsRequest $request): RedirectResponse
     {
         $branch = $this->branchForIntegration((int) $request->validated('branch_id'));
