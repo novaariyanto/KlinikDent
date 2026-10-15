@@ -17,7 +17,8 @@ final class SatuSehatLogView
      *     encounter_id: string|null,
      *     visit_id: int|string|null,
      *     skipped: list<string>,
-     *     steps: list<array{title: string, ok: bool, result: string, note: string|null}>,
+     *     steps: list<array{title: string, method: string, ok: bool, result: string, note: string|null}>,
+     *     resources: list<array{type: string, state: string, label: string, badge: string, items: list<array{title: string, ok: bool, result: string, note: string|null}>}>,
      *     request_json: string,
      *     response_json: string
      * }
@@ -41,6 +42,7 @@ final class SatuSehatLogView
             'visit_id' => is_scalar($request['visit_id'] ?? null) ? $request['visit_id'] : null,
             'skipped' => $skipped,
             'steps' => self::steps($request, $response),
+            'resources' => self::resources($request, $response),
             'request_json' => (string) json_encode($request, $flags),
             'response_json' => (string) json_encode($response, $flags),
         ];
@@ -107,6 +109,7 @@ final class SatuSehatLogView
 
             $steps[] = [
                 'title' => self::title($call, $body),
+                'method' => strtoupper((string) ($call['method'] ?? '')),
                 'ok' => $ok,
                 'result' => self::resultLabel($status),
                 'note' => $ok ? null : self::issue($replyBody),
@@ -271,6 +274,123 @@ final class SatuSehatLogView
         }
 
         return \Illuminate\Support\Str::limit(implode(' ', $notes), 240);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function resourceOrder(): array
+    {
+        return [
+            'Encounter',
+            'Condition',
+            'Observation',
+            'Procedure',
+            'Composition',
+            'Medication',
+            'MedicationRequest',
+            'MedicationDispense',
+            'AllergyIntolerance',
+            'ImagingStudy',
+            'ServiceRequest',
+            'ClinicalImpression',
+            'Immunization',
+            'QuestionnaireResponse',
+            'MedicationStatement',
+            'CarePlan',
+            'Specimen',
+            'DiagnosticReport',
+            'EpisodeOfCare',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $request
+     * @param  array<string, mixed>  $response
+     * @return list<array{type: string, state: string, label: string, badge: string, items: list<array{title: string, ok: bool, result: string, note: string|null}>}>
+     */
+    private static function resources(array $request, array $response): array
+    {
+        $grouped = [];
+
+        foreach (self::steps($request, $response) as $index => $step) {
+            $sent = array_values(is_array($request['calls'] ?? null) ? $request['calls'] : []);
+            $call = is_array($sent[$index] ?? null) ? $sent[$index] : [];
+            $body = is_array($call['body'] ?? null) ? $call['body'] : [];
+            $type = self::resourceType($call, $body);
+            $grouped[$type][] = $step;
+        }
+
+        $hasCalls = $grouped !== [];
+        $rows = [];
+
+        foreach (self::resourceOrder() as $type) {
+            $rows[] = self::resourceRow($type, $grouped[$type] ?? [], $hasCalls);
+            unset($grouped[$type]);
+        }
+
+        foreach ($grouped as $type => $items) {
+            $rows[] = self::resourceRow((string) $type, $items, false);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{title: string, method: string, ok: bool, result: string, note: string|null}>  $items
+     * @return array{type: string, state: string, label: string, badge: string, items: list<array{title: string, method: string, ok: bool, result: string, note: string|null}>}
+     */
+    private static function resourceRow(string $type, array $items, bool $hasCalls): array
+    {
+        $writes = 0;
+        $failed = false;
+        $read = false;
+
+        foreach ($items as $item) {
+            if (! $item['ok']) {
+                $failed = true;
+            }
+
+            if (($item['method'] ?? '') === 'GET') {
+                $read = true;
+            } else {
+                $writes++;
+            }
+        }
+
+        [$state, $label, $badge] = match (true) {
+            $items === [] && ! $hasCalls => ['pending', 'Belum ada', 'badge bg-secondary'],
+            $items === [] => ['absent', 'Tidak dikirim', 'badge bg-secondary'],
+            $failed => ['failed', 'Gagal', 'badge bg-danger'],
+            $writes > 0 => ['sent', 'Terkirim', 'badge bg-success'],
+            $read => ['read', 'Dibaca', 'badge bg-info'],
+            default => ['sent', 'Terkirim', 'badge bg-success'],
+        };
+
+        return [
+            'type' => $type,
+            'state' => $state,
+            'label' => $label,
+            'badge' => $badge,
+            'items' => $items,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $call
+     * @param  array<string, mixed>  $body
+     */
+    private static function resourceType(array $call, array $body): string
+    {
+        $path = (string) parse_url((string) ($call['url'] ?? ''), PHP_URL_PATH);
+
+        if (preg_match('#/(?:fhir-r4/v1|fhir)/([A-Z][A-Za-z]+)#', $path, $match) === 1) {
+            return $match[1];
+        }
+
+        $type = (string) ($body['resourceType'] ?? '');
+
+        return $type !== '' && ! in_array($type, ['Bundle', 'OperationOutcome'], true) ? $type : 'Lainnya';
     }
 
     private static function text(mixed $value): ?string

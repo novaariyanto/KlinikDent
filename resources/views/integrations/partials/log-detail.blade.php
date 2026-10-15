@@ -36,23 +36,33 @@
     </div>
 @endif
 
-@if ($detail['steps'] !== [])
-    <div class="fw-semibold mb-2">Yang dikirim</div>
-    <div class="border rounded">
-        @foreach ($detail['steps'] as $step)
-            <div class="d-flex gap-2 px-3 py-2 @if (! $loop->last) border-bottom @endif">
-                <i class="bx {{ $step['ok'] ? 'bx-check-circle text-success' : 'bx-x-circle text-danger' }} fs-5"></i>
-                <div>
-                    <div>{{ $step['title'] }}</div>
-                    <div class="text-muted small">{{ $step['result'] }}</div>
-                    @if ($step['note'])
-                        <div class="small text-danger mt-1">{{ $step['note'] }}</div>
-                    @endif
-                </div>
+<div class="fw-semibold mb-2">Resource</div>
+<div class="border rounded">
+    @foreach ($detail['resources'] as $resource)
+        <div class="@if (! $loop->last) border-bottom @endif">
+            <div class="d-flex justify-content-between align-items-center gap-2 px-3 py-2">
+                <span class="fw-semibold">{{ $resource['type'] }}</span>
+                <span class="{{ $resource['badge'] }}">{{ $resource['label'] }}</span>
             </div>
-        @endforeach
-    </div>
-@endif
+            @if ($resource['items'] !== [])
+                <div class="px-3 pb-2">
+                    @foreach ($resource['items'] as $step)
+                        <div class="d-flex gap-2 py-1">
+                            <i class="bx {{ $step['ok'] ? 'bx-check-circle text-success' : 'bx-x-circle text-danger' }}"></i>
+                            <div>
+                                <div class="small">{{ $step['title'] }}</div>
+                                <div class="text-muted small">{{ $step['result'] }}</div>
+                                @if ($step['note'])
+                                    <div class="small text-danger">{{ $step['note'] }}</div>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endif
+        </div>
+    @endforeach
+</div>
 
 <details class="mt-3">
     <summary class="small text-muted">Data teknis</summary>
