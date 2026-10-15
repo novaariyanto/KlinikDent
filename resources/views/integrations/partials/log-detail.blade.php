@@ -1,0 +1,69 @@
+<div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+        <div class="fw-semibold">{{ $detail['headline'] }}</div>
+        <div class="text-muted small">{{ $detail['when'] }}</div>
+    </div>
+    <span class="{{ $detail['status']->badgeClass() }}">{{ $detail['status']->label() }}</span>
+</div>
+
+<p class="mb-3">{{ $detail['summary'] }}</p>
+
+@if ($detail['error'])
+    <div class="alert alert-danger">{{ $detail['error'] }}</div>
+@endif
+
+@if ($detail['encounter_id'] || $detail['visit_id'])
+    <dl class="row mb-3 small">
+        @if ($detail['visit_id'])
+            <dt class="col-sm-5 text-muted fw-normal">Nomor kunjungan di klinik</dt>
+            <dd class="col-sm-7">{{ $detail['visit_id'] }}</dd>
+        @endif
+        @if ($detail['encounter_id'])
+            <dt class="col-sm-5 text-muted fw-normal">Nomor kunjungan di SATUSEHAT</dt>
+            <dd class="col-sm-7"><code>{{ $detail['encounter_id'] }}</code></dd>
+        @endif
+    </dl>
+@endif
+
+@if ($detail['skipped'] !== [])
+    <div class="mb-3">
+        <div class="fw-semibold mb-2">Tidak ikut terkirim</div>
+        <ul class="mb-0 ps-3">
+            @foreach ($detail['skipped'] as $note)
+                <li class="mb-1">{{ $note }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
+@if ($detail['steps'] !== [])
+    <div class="fw-semibold mb-2">Yang dikirim</div>
+    <div class="border rounded">
+        @foreach ($detail['steps'] as $step)
+            <div class="d-flex gap-2 px-3 py-2 @if (! $loop->last) border-bottom @endif">
+                <i class="bx {{ $step['ok'] ? 'bx-check-circle text-success' : 'bx-x-circle text-danger' }} fs-5"></i>
+                <div>
+                    <div>{{ $step['title'] }}</div>
+                    <div class="text-muted small">{{ $step['result'] }}</div>
+                    @if ($step['note'])
+                        <div class="small text-danger mt-1">{{ $step['note'] }}</div>
+                    @endif
+                </div>
+            </div>
+        @endforeach
+    </div>
+@endif
+
+<details class="mt-3">
+    <summary class="small text-muted">Data teknis</summary>
+    <div class="row g-2 mt-2">
+        <div class="col-md-6">
+            <div class="text-muted small mb-1">Data yang dikirim</div>
+            <pre class="small mb-0 bg-light p-2 rounded" style="max-height:240px;overflow:auto">{{ $detail['request_json'] }}</pre>
+        </div>
+        <div class="col-md-6">
+            <div class="text-muted small mb-1">Jawaban SATUSEHAT</div>
+            <pre class="small mb-0 bg-light p-2 rounded" style="max-height:240px;overflow:auto">{{ $detail['response_json'] }}</pre>
+        </div>
+    </div>
+</details>

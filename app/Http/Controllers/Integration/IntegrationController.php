@@ -25,8 +25,10 @@ use App\Models\Visit;
 use App\Support\Integrations\IntegrationException;
 use App\Support\Integrations\IntegrationService;
 use App\Support\Integrations\SatuSehatClient;
+use App\Support\Integrations\SatuSehatLogView;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -158,7 +160,7 @@ class IntegrationController extends Controller
             ->toJson();
     }
 
-    public function satusehatLogShow(Request $request, IntegrationLog $log): JsonResponse
+    public function satusehatLogShow(Request $request, IntegrationLog $log): Response
     {
         abort_unless($request->user()?->can('satusehat.view'), 403);
         abort_unless($log->provider === IntegrationProvider::SatuSehat, 404);
@@ -169,14 +171,8 @@ class IntegrationController extends Controller
             abort_unless($request->user()?->canAccessBranch($branchId), 403);
         }
 
-        $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
-
-        return response()->json([
-            'action' => $log->action,
-            'created_at' => $log->created_at?->timezone(config('app.timezone'))->format('d M Y H:i'),
-            'error' => $log->error_message,
-            'request' => json_encode($log->request_payload, $flags),
-            'response' => json_encode($log->response_payload, $flags),
+        return response()->view('integrations.partials.log-detail', [
+            'detail' => SatuSehatLogView::from($log),
         ]);
     }
 

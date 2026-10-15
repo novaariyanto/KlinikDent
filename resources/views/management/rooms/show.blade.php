@@ -11,7 +11,11 @@
                 <x-table>
                     <tbody>
                         <tr><th width="180">Nama</th><td>{{ $room->name }}</td></tr>
+                        <tr><th>Kode internal</th><td>{{ $room->code ?: '-' }}</td></tr>
+                        <tr><th>Deskripsi</th><td>{{ $room->description ?: '-' }}</td></tr>
                         <tr><th>Cabang</th><td>{{ $room->branch?->name ?: '-' }}</td></tr>
+                        <tr><th>Telepon</th><td>{{ $room->phone ?: '-' }}</td></tr>
+                        <tr><th>Email</th><td>{{ $room->email ?: '-' }}</td></tr>
                         <tr><th>Tipe</th><td>{{ $room->type->label() }}</td></tr>
                         <tr>
                             <th>Status</th>

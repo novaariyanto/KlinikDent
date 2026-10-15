@@ -19,11 +19,32 @@
     <div class="col-md-6">
         <x-input name="name" label="Nama Cabang" :value="$branch?->name" required />
     </div>
-    <div class="col-md-6">
-        <x-input name="phone" label="Telepon" :value="$branch?->phone" />
-    </div>
     <div class="col-md-12">
         <x-input name="address" label="Alamat" :value="$branch?->address" />
+    </div>
+    <div class="col-md-4">
+        <x-input name="city" label="Kota" :value="$branch?->city" />
+    </div>
+    <div class="col-md-4">
+        <x-input name="postal_code" label="Kode Pos" :value="$branch?->postal_code" />
+    </div>
+    <div class="col-md-4">
+        <x-input name="phone" label="Telepon" :value="$branch?->phone" />
+    </div>
+    <div class="col-md-6">
+        <x-input name="email" type="email" label="Email" :value="$branch?->email" />
+    </div>
+    <div class="col-md-6">
+        <x-input name="website" label="Website" :value="$branch?->website" placeholder="www.klinik.co.id" />
+    </div>
+    <div class="col-md-4">
+        <x-input name="latitude" label="Lintang" :value="$branch?->latitude" placeholder="-6.2000000" />
+    </div>
+    <div class="col-md-4">
+        <x-input name="longitude" label="Bujur" :value="$branch?->longitude" placeholder="106.8166660" />
+    </div>
+    <div class="col-md-4">
+        <x-input name="altitude" label="Ketinggian (m)" :value="$branch?->altitude" />
     </div>
     <div class="col-md-6">
         <div class="form-check form-switch mb-3 mt-2">

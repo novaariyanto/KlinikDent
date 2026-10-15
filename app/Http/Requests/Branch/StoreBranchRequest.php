@@ -27,7 +27,14 @@ class StoreBranchRequest extends FormRequest
             ],
             'name' => ['required', 'string', 'max:255'],
             'address' => ['nullable', 'string', 'max:1000'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'postal_code' => ['nullable', 'string', 'max:10'],
             'phone' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'website' => ['nullable', 'string', 'max:255'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'altitude' => ['nullable', 'numeric', 'between:-500,9000'],
             'is_active' => ['required', 'boolean'],
             'opening_hours' => ['nullable', 'array'],
             'opening_hours.*' => ['nullable', 'string', 'max:50'],
@@ -39,6 +46,12 @@ class StoreBranchRequest extends FormRequest
         $this->merge([
             'is_active' => $this->boolean('is_active'),
         ]);
+
+        foreach (['address', 'city', 'postal_code', 'phone', 'email', 'website', 'longitude', 'latitude', 'altitude'] as $field) {
+            if ($this->input($field) === '') {
+                $this->merge([$field => null]);
+            }
+        }
 
         if (! $this->user()?->isPlatformAdmin()) {
             $this->merge([

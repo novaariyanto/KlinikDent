@@ -11,6 +11,18 @@
         <x-input name="name" label="Nama Poli / Ruangan" :value="$room?->name" required />
     </div>
     <div class="col-md-6">
+        <x-input name="code" label="Kode internal" :value="$room?->code" placeholder="A735470" />
+    </div>
+    <div class="col-md-12">
+        <x-input name="description" label="Deskripsi lokasi" :value="$room?->description" placeholder="Ruang Gigi 1, Lantai 1" />
+    </div>
+    <div class="col-md-6">
+        <x-input name="phone" label="Telepon ruangan" :value="$room?->phone" />
+    </div>
+    <div class="col-md-6">
+        <x-input name="email" type="email" label="Email ruangan" :value="$room?->email" />
+    </div>
+    <div class="col-md-6">
         <x-select name="type" label="Tipe" :options="\App\Enums\RoomType::options()" :selected="old('type', $room?->type?->value)" required />
     </div>
     <div class="col-md-6">

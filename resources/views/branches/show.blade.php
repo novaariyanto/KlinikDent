@@ -27,8 +27,34 @@
                             <td>{{ $branch->phone ?: '-' }}</td>
                         </tr>
                         <tr>
+                            <th>Email</th>
+                            <td>{{ $branch->email ?: '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Website</th>
+                            <td>{{ $branch->website ?: '-' }}</td>
+                        </tr>
+                        <tr>
                             <th>Alamat</th>
                             <td>{{ $branch->address ?: '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Kota</th>
+                            <td>{{ $branch->city ?: '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Kode Pos</th>
+                            <td>{{ $branch->postal_code ?: '-' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Koordinat</th>
+                            <td>
+                                @if ($branch->latitude !== null && $branch->longitude !== null)
+                                    {{ $branch->latitude }}, {{ $branch->longitude }}@if ($branch->altitude !== null), {{ $branch->altitude }} m @endif
+                                @else
+                                    -
+                                @endif
+                            </td>
                         </tr>
                         <tr>
                             <th>Status</th>

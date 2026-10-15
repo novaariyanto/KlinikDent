@@ -43,6 +43,17 @@ class UpdateRoomRequest extends FormRequest
                     ->where(fn ($query) => $query->where('branch_id', $this->input('branch_id')))
                     ->ignore($room->id),
             ],
+            'code' => [
+                'nullable',
+                'string',
+                'max:64',
+                Rule::unique('rooms', 'code')
+                    ->where(fn ($query) => $query->where('branch_id', $this->input('branch_id')))
+                    ->ignore($room->id),
+            ],
+            'description' => ['nullable', 'string', 'max:500'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:255'],
             'type' => ['required', Rule::enum(RoomType::class)],
             'is_active' => ['required', 'boolean'],
         ];
@@ -53,5 +64,11 @@ class UpdateRoomRequest extends FormRequest
         $this->merge([
             'is_active' => $this->boolean('is_active'),
         ]);
+
+        foreach (['code', 'description', 'phone', 'email'] as $field) {
+            if ($this->input($field) === '') {
+                $this->merge([$field => null]);
+            }
+        }
     }
 }

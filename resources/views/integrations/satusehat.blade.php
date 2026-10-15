@@ -111,7 +111,7 @@
                             }
                         @endphp
                         @if ($choices === [])
-                            <p class="text-muted mb-0">Uji koneksi untuk memuat lokasi dari SATUSEHAT. Cabang baru tidak membuat Organization.</p>
+                            <p class="text-muted mb-0">Uji koneksi untuk memuat lokasi dari SATUSEHAT. Organization ID cabang adalah organisasi induk yang sudah terdaftar, tidak dibuat dari aplikasi.</p>
                         @else
                             <form method="POST" action="{{ route('integrations.satusehat.location') }}">
                                 @csrf
@@ -120,12 +120,13 @@
                                 <input type="hidden" name="sync_enabled" value="0">
                                 <x-select
                                     name="location_id"
-                                    label="Location"
+                                    label="Lokasi poli cabang"
                                     :options="$choices"
                                     :selected="old('location_id', $branchSetting->location_id)"
                                     placeholder="Pilih lokasi"
                                     required
                                 />
+                                <p class="text-muted small">Ini lokasi induk cabang. Ruangan poli atau tindakan pada kunjungan didaftarkan sebagai Location bertipe Room di bawah lokasi ini.</p>
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" type="checkbox" name="sync_enabled" id="ss-sync" value="1" @checked(old('sync_enabled', $branchSetting->sync_enabled)) @disabled(! $branchSetting->connection_ok)>
                                     <label class="form-check-label" for="ss-sync">Aktifkan sinkronisasi otomatis cabang ini</label>
@@ -236,19 +237,8 @@
         />
     </x-card>
 
-    <x-modal id="ss-log-modal" title="Detail log" size="modal-lg">
-        <p class="mb-2" id="ss-log-meta"></p>
-        <p class="text-danger small mb-3" id="ss-log-error" hidden></p>
-        <div class="row g-2">
-            <div class="col-md-6">
-                <div class="text-muted small mb-1">Request</div>
-                <pre class="small mb-0" id="ss-log-request" style="max-height:360px;overflow:auto"></pre>
-            </div>
-            <div class="col-md-6">
-                <div class="text-muted small mb-1">Response</div>
-                <pre class="small mb-0" id="ss-log-response" style="max-height:360px;overflow:auto"></pre>
-            </div>
-        </div>
+    <x-modal id="ss-log-modal" title="Hasil pengiriman" size="modal-lg">
+        <div id="ss-log-body" class="text-muted">Memuat...</div>
     </x-modal>
 @endsection
 
@@ -285,15 +275,17 @@ document.addEventListener('DOMContentLoaded', function () {
         var button = event.target.closest('.js-ss-log');
         if (!button || !window.axios || !window.bootstrap) return;
 
+        var body = document.getElementById('ss-log-body');
+        body.className = 'text-muted';
+        body.textContent = 'Memuat...';
+        window.bootstrap.Modal.getOrCreateInstance(document.getElementById('ss-log-modal')).show();
+
         window.axios.get(button.dataset.url).then(function (response) {
-            var data = response.data || {};
-            document.getElementById('ss-log-meta').textContent = (data.created_at || '') + (data.action ? ' · ' + data.action : '');
-            var error = document.getElementById('ss-log-error');
-            error.hidden = !data.error;
-            error.textContent = data.error || '';
-            document.getElementById('ss-log-request').textContent = data.request || '-';
-            document.getElementById('ss-log-response').textContent = data.response || '-';
-            window.bootstrap.Modal.getOrCreateInstance(document.getElementById('ss-log-modal')).show();
+            body.className = '';
+            body.innerHTML = response.data;
+        }).catch(function () {
+            body.className = 'text-danger';
+            body.textContent = 'Detail pengiriman tidak bisa dimuat.';
         });
     });
 });

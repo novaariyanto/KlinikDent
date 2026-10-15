@@ -36,7 +36,14 @@ class Branch extends Model
         'tenant_id',
         'name',
         'address',
+        'city',
+        'postal_code',
         'phone',
+        'email',
+        'website',
+        'longitude',
+        'latitude',
+        'altitude',
         'opening_hours',
         'is_active',
         'queue_monitor_token',
@@ -51,6 +58,9 @@ class Branch extends Model
             'tenant_id' => 'integer',
             'opening_hours' => 'array',
             'is_active' => 'boolean',
+            'longitude' => 'decimal:7',
+            'latitude' => 'decimal:7',
+            'altitude' => 'decimal:2',
         ];
     }
 

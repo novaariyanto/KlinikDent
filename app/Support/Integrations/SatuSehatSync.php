@@ -2,8 +2,10 @@
 
 namespace App\Support\Integrations;
 
+use App\Enums\RoomType;
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
+use App\Models\Room;
 use App\Support\Clinical\CareExamOptions;
 use App\Models\BranchSatuSehatSetting;
 use App\Models\Diagnosis;
@@ -50,6 +52,8 @@ class SatuSehatSync
             'medicalRecord',
             'odontogramLogs',
             'referrals',
+            'room',
+            'branch',
         ]);
 
         $blocked = $this->blockedReason($visit);
@@ -70,11 +74,12 @@ class SatuSehatSync
             $start = $this->periodStart($visit);
             $end = $this->periodEnd($visit, $start);
 
+            $location = $this->encounterLocation($client, $visit);
             $encounterId = $this->send(
                 $client,
                 'Encounter',
                 'encounter:'.$visit->id,
-                $this->encounterPayload($visit, $patientIhs, $practitionerIhs, $start, $end, false, []),
+                $this->encounterPayload($visit, $patientIhs, $practitionerIhs, $location, $start, $end, false, []),
                 $visit,
             );
 
@@ -113,7 +118,7 @@ class SatuSehatSync
                 $client,
                 'Encounter',
                 'encounter:'.$visit->id,
-                $this->encounterPayload($visit, $patientIhs, $practitionerIhs, $start, $end, true, $conditionIds),
+                $this->encounterPayload($visit, $patientIhs, $practitionerIhs, $location, $start, $end, true, $conditionIds),
                 $visit,
             );
 
@@ -287,7 +292,7 @@ class SatuSehatSync
             ->where('local_key', $localKey)
             ->first();
 
-        if ($existing?->satusehat_id && $existing->sync_status === SatuSehatStatus::Synced && $type !== 'Encounter') {
+        if ($existing?->satusehat_id && $existing->sync_status === SatuSehatStatus::Synced && ! in_array($type, ['Encounter', 'Location'], true)) {
             return (string) $existing->satusehat_id;
         }
 
@@ -812,6 +817,141 @@ class SatuSehatSync
     }
 
     /**
+     * Cabang memakai Organization induk yang sudah ada di SATUSEHAT.
+     * Ruangan pemeriksaan didaftarkan sebagai Location bertipe Room di bawah lokasi poli cabang.
+     *
+     * @return array{id: string, name: string}
+     */
+    protected function encounterLocation(SatuSehatClient $client, Visit $visit): array
+    {
+        $room = $visit->room;
+
+        if ($room && in_array($room->type, [RoomType::Poli, RoomType::Tindakan], true)) {
+            return $this->ensureRoomLocation($client, $visit, $room);
+        }
+
+        if ($room?->type === RoomType::Tunggu) {
+            $this->notes[] = 'Ruang tunggu tidak dipakai sebagai lokasi pemeriksaan. Encounter memakai lokasi poli cabang.';
+        }
+
+        return [
+            'id' => (string) $this->branch->location_id,
+            'name' => (string) ($this->branch->location_name ?: $this->branch->location_id),
+        ];
+    }
+
+    /**
+     * @return array{id: string, name: string}
+     */
+    protected function ensureRoomLocation(SatuSehatClient $client, Visit $visit, Room $room): array
+    {
+        $name = (string) $room->name;
+        $id = $this->send(
+            $client,
+            'Location',
+            'location:room:'.$room->id,
+            $this->roomLocationPayload($visit, $room),
+            $room,
+        );
+
+        return ['id' => $id, 'name' => $name];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function roomLocationPayload(Visit $visit, Room $room): array
+    {
+        $branch = $visit->branch;
+        $organizationId = (string) $this->branch->organization_id;
+        $name = (string) $room->name;
+        $managing = ['reference' => 'Organization/'.$organizationId];
+
+        if (filled($this->branch->organization_name)) {
+            $managing['display'] = (string) $this->branch->organization_name;
+        }
+
+        $payload = [
+            'resourceType' => 'Location',
+            'identifier' => [[
+                'system' => 'http://sys-ids.kemkes.go.id/location/'.$organizationId,
+                'value' => filled($room->code) ? (string) $room->code : 'ROOM-'.$room->id,
+            ]],
+            'status' => $room->is_active ? 'active' : 'inactive',
+            'name' => $name,
+            'description' => filled($room->description)
+                ? (string) $room->description
+                : trim($name.', '.($room->type?->label() ?: 'Ruangan').', '.($branch?->name ?: 'Cabang')),
+            'mode' => 'instance',
+            'physicalType' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                'http://terminology.hl7.org/CodeSystem/location-physical-type',
+                'ro',
+                'Room',
+            )),
+            'managingOrganization' => $managing,
+            'partOf' => ['reference' => 'Location/'.$this->branch->location_id],
+            'extension' => [[
+                'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/LocationServiceClass',
+                'valueCodeableConcept' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                    'http://terminology.kemkes.go.id/CodeSystem/locationServiceClass-Outpatient',
+                    'reguler',
+                    'Kelas Reguler',
+                )),
+            ]],
+        ];
+
+        $telecom = [];
+        $phone = $room->phone ?: $branch?->phone;
+        $email = $room->email ?: $branch?->email;
+
+        if (filled($phone)) {
+            $telecom[] = ['system' => 'phone', 'value' => (string) $phone, 'use' => 'work'];
+        }
+
+        if (filled($email)) {
+            $telecom[] = ['system' => 'email', 'value' => (string) $email, 'use' => 'work'];
+        }
+
+        if (filled($branch?->website)) {
+            $telecom[] = ['system' => 'url', 'value' => (string) $branch->website, 'use' => 'work'];
+        }
+
+        if ($telecom !== []) {
+            $payload['telecom'] = $telecom;
+        }
+
+        if (filled($branch?->address)) {
+            $address = [
+                'use' => 'work',
+                'type' => 'both',
+                'line' => [(string) $branch->address],
+                'country' => 'ID',
+            ];
+
+            if (filled($branch->city)) {
+                $address['city'] = (string) $branch->city;
+            }
+
+            if (filled($branch->postal_code)) {
+                $address['postalCode'] = (string) $branch->postal_code;
+            }
+
+            $payload['address'] = [$address];
+        }
+
+        if ($branch?->longitude !== null && $branch?->latitude !== null) {
+            $payload['position'] = [
+                'longitude' => (float) $branch->longitude,
+                'latitude' => (float) $branch->latitude,
+                'altitude' => (float) ($branch->altitude ?? 0),
+            ];
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array{id: string, name: string}  $location
      * @param  list<string>  $conditionIds
      * @return array<string, mixed>
      */
@@ -819,6 +959,7 @@ class SatuSehatSync
         Visit $visit,
         string $patientIhs,
         string $practitionerIhs,
+        array $location,
         CarbonInterface $start,
         CarbonInterface $end,
         bool $finished,
@@ -875,7 +1016,10 @@ class SatuSehatSync
             ]],
             'period' => $period,
             'location' => [[
-                'location' => ['reference' => 'Location/'.$this->branch->location_id],
+                'location' => [
+                    'reference' => 'Location/'.$location['id'],
+                    'display' => $location['name'],
+                ],
                 'period' => $period,
                 'extension' => [[
                     'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/ServiceClass',
