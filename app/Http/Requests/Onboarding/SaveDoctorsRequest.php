@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Onboarding;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class SaveDoctorsRequest extends FormRequest
@@ -19,6 +20,11 @@ class SaveDoctorsRequest extends FormRequest
             'doctors.*.name' => ['nullable', 'string', 'max:255'],
             'doctors.*.title' => ['nullable', 'string', 'max:50'],
             'doctors.*.sip' => ['nullable', 'string', 'max:80'],
+            'doctors.*.nik' => [
+                'nullable',
+                'digits:16',
+                Rule::unique('doctors', 'nik')->where(fn ($query) => $query->where('tenant_id', $this->user()?->tenant_id)),
+            ],
             'doctors.*.specialization' => ['nullable', 'string', 'max:120'],
             'doctors.*.phone' => ['nullable', 'string', 'max:30'],
             'doctors.*.email' => ['nullable', 'email', 'max:255', 'distinct', 'unique:users,email'],
@@ -29,7 +35,7 @@ class SaveDoctorsRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $doctors = collect($this->input('doctors', []))->map(function ($row) {
-            foreach (['name', 'title', 'sip', 'specialization', 'phone', 'email', 'password'] as $key) {
+            foreach (['name', 'title', 'sip', 'nik', 'specialization', 'phone', 'email', 'password'] as $key) {
                 if (array_key_exists($key, $row) && $row[$key] === '') {
                     $row[$key] = null;
                 }
@@ -56,6 +62,20 @@ class SaveDoctorsRequest extends FormRequest
                 if (! filled($row['password'] ?? null)) {
                     $validator->errors()->add("doctors.$index.password", 'Password dokter wajib diisi.');
                 }
+            }
+
+            $seen = [];
+            foreach ((array) $this->input('doctors', []) as $index => $row) {
+                $nik = $row['nik'] ?? null;
+                if (! filled($nik)) {
+                    continue;
+                }
+
+                if (isset($seen[$nik])) {
+                    $validator->errors()->add("doctors.$index.nik", 'NIK dokter tidak boleh sama.');
+                }
+
+                $seen[$nik] = true;
             }
         });
     }

@@ -29,6 +29,7 @@ class DoctorController extends Controller
             ['data' => 'role', 'name' => 'role', 'title' => 'Peran', 'orderable' => false],
             ['data' => 'specialization', 'name' => 'specialization', 'title' => 'Spesialisasi'],
             ['data' => 'sip', 'name' => 'sip', 'title' => 'SIP'],
+            ['data' => 'nik', 'name' => 'nik', 'title' => 'NIK'],
             ['data' => 'branch', 'name' => 'user.branch.name', 'title' => 'Cabang'],
             ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
             ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
@@ -60,6 +61,7 @@ class DoctorController extends Controller
             ->addColumn('role', fn (Doctor $doctor) => '<span class="badge badge-soft-primary">'.e($doctor->roleLabel()).'</span>')
             ->editColumn('specialization', fn (Doctor $doctor) => e($doctor->specialization ?: '-'))
             ->editColumn('sip', fn (Doctor $doctor) => e($doctor->sip ?: '-'))
+            ->editColumn('nik', fn (Doctor $doctor) => e($doctor->nik ?: '-'))
             ->addColumn('branch', function (Doctor $doctor) {
                 $names = $doctor->user?->branches->pluck('name') ?? collect();
                 if ($names->isEmpty() && $doctor->user?->branch) {

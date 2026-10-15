@@ -21,6 +21,9 @@ class UpdateDoctorRequest extends FormRequest
      */
     public function rules(): array
     {
+        /** @var Doctor $doctor */
+        $doctor = $this->route('doctor');
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'sip' => ['nullable', 'string', 'max:80'],

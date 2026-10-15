@@ -193,6 +193,7 @@ class OnboardingService
                     'role' => RoleName::Dentist->value,
                     'branch_ids' => [$branch->id],
                     'sip' => $item['sip'] ?? null,
+                    'nik' => $item['nik'] ?? null,
                     'specialization' => $item['specialization'] ?? null,
                     'phone' => $item['phone'] ?? null,
                     'is_active' => true,

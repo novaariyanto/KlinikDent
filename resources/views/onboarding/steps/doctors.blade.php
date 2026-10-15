@@ -25,6 +25,9 @@
                             <x-input :name="'doctors['.$index.'][sip]'" label="Nomor SIP" :value="$row['sip'] ?? ''" />
                         </div>
                         <div class="col-md-6">
+                            <x-input :name="'doctors['.$index.'][nik]'" label="NIK" :value="$row['nik'] ?? ''" maxlength="16" inputmode="numeric" />
+                        </div>
+                        <div class="col-md-6">
                             <x-input :name="'doctors['.$index.'][specialization]'" label="Spesialisasi" :value="$row['specialization'] ?? ''" />
                         </div>
                         <div class="col-md-6">
@@ -56,6 +59,7 @@
                 <div class="col-md-6"><x-input name="doctors[__i__][name]" label="Nama" /></div>
                 <div class="col-md-3"><x-input name="doctors[__i__][title]" label="Gelar" placeholder="drg." /></div>
                 <div class="col-md-3"><x-input name="doctors[__i__][sip]" label="Nomor SIP" /></div>
+                <div class="col-md-6"><x-input name="doctors[__i__][nik]" label="NIK" maxlength="16" inputmode="numeric" /></div>
                 <div class="col-md-6"><x-input name="doctors[__i__][specialization]" label="Spesialisasi" /></div>
                 <div class="col-md-6"><x-input name="doctors[__i__][phone]" label="Nomor Telepon" /></div>
                 <div class="col-md-6"><x-input name="doctors[__i__][email]" type="email" label="Email" /></div>

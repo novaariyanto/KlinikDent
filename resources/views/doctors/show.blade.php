@@ -16,6 +16,7 @@
                         <tr><th>Spesialisasi</th><td>{{ $doctor->specialization ?: '-' }}</td></tr>
                         <tr><th>SIP</th><td>{{ $doctor->sip ?: '-' }}</td></tr>
                         <tr><th>STR</th><td>{{ $doctor->str ?: '-' }}</td></tr>
+                        <tr><th>NIK</th><td>{{ $doctor->nik ?: '-' }}</td></tr>
                         <tr><th>Telepon</th><td>{{ $doctor->phone ?: '-' }}</td></tr>
                         <tr>
                             <th>Cabang</th>
