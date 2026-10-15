@@ -35,7 +35,12 @@ class DoctorController extends Controller
             ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
         ];
 
-        return view('doctors.index', compact('columns'));
+        $editDoctor = null;
+        if (old('_return') === 'index' && old('_doctor_id')) {
+            $editDoctor = Doctor::query()->with('user')->find(old('_doctor_id'));
+        }
+
+        return view('doctors.index', compact('columns', 'editDoctor'));
     }
 
     public function data(): JsonResponse
@@ -124,7 +129,7 @@ class DoctorController extends Controller
         $this->doctors->update($doctor, $request->safe()->except('signature'));
 
         return redirect()
-            ->route('doctors.show', $doctor)
+            ->route('doctors.index')
             ->with('success', 'Profil tenaga medis diperbarui.');
     }
 
