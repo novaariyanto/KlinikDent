@@ -304,6 +304,7 @@ class SatuSehatClient
     public function forgetToken(): void
     {
         Cache::forget($this->tokenCacheKey());
+        Cache::forget($this->tokenBlockKey());
     }
 
     public function sandboxLocationId(): string
@@ -319,12 +320,28 @@ class SatuSehatClient
             return $cached;
         }
 
-        $response = $this->http()->asForm()->post($this->tokenUrl(), [
-            'client_id' => $this->branch->client_id,
-            'client_secret' => $this->branch->client_secret,
-        ]);
+        if (Cache::has($this->tokenBlockKey())) {
+            throw new IntegrationException('Permintaan token terlalu sering. SATUSEHAT hanya mengizinkan satu percobaan gagal per menit. Tunggu sebentar, lalu uji lagi.');
+        }
+
+        // POST /oauth2/v1/accesstoken?grant_type=client_credentials
+        // Body application/x-www-form-urlencoded: client_id, client_secret.
+        $response = Http::timeout(20)
+            ->withHeaders([
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/x-www-form-urlencoded',
+            ])
+            ->withUserAgent('KlinikDent')
+            ->asForm()
+            ->withQueryParameters(['grant_type' => 'client_credentials'])
+            ->post($this->branch->baseUrl().'/oauth2/v1/accesstoken', [
+                'client_id' => trim((string) $this->branch->client_id),
+                'client_secret' => trim((string) $this->branch->client_secret),
+            ]);
 
         if (! $response->successful() || ! filled($response->json('access_token'))) {
+            Cache::put($this->tokenBlockKey(), true, 60);
+
             throw new IntegrationException($this->failureMessage($response, 'Token SATUSEHAT ditolak. Periksa Client ID, Client Secret, dan environment.'));
         }
 
@@ -335,11 +352,6 @@ class SatuSehatClient
         return $token;
     }
 
-    protected function tokenUrl(): string
-    {
-        return $this->branch->baseUrl().'/oauth2/v1/accesstoken?grant_type=client_credentials';
-    }
-
     protected function fhirUrl(string $path): string
     {
         return $this->branch->baseUrl().'/fhir-r4/v1/'.ltrim($path, '/');
@@ -348,6 +360,11 @@ class SatuSehatClient
     protected function tokenCacheKey(): string
     {
         return 'satusehat.token.'.$this->branch->id.'.'.$this->branch->environment.'.'.sha1((string) $this->branch->client_id);
+    }
+
+    protected function tokenBlockKey(): string
+    {
+        return $this->tokenCacheKey().'.blocked';
     }
 
     protected function authed(): PendingRequest
@@ -366,12 +383,32 @@ class SatuSehatClient
     protected function failureMessage(Response $response, string $fallback): string
     {
         $diagnostic = $response->json('issue.0.diagnostics')
-            ?? $response->json('issue.0.details.text');
+            ?? $response->json('issue.0.details.text')
+            ?? $response->json('fault.faultstring')
+            ?? $response->json('error_description')
+            ?? $response->json('message');
 
-        $detail = is_string($diagnostic) && $diagnostic !== ''
-            ? $diagnostic
-            : 'HTTP '.$response->status();
+        if (! is_string($diagnostic) || trim($diagnostic) === '') {
+            $plain = trim(preg_replace('/\s+/', ' ', strip_tags($response->body())) ?? '');
+            $diagnostic = $plain !== ''
+                ? (mb_strlen($plain) > 180 ? mb_substr($plain, 0, 177).'…' : $plain)
+                : 'HTTP '.$response->status();
+        }
 
-        return $fallback.' '.$detail;
+        $normalized = strtolower($diagnostic);
+
+        if ($response->status() === 429 || str_contains($normalized, 'rate limit')) {
+            return 'Permintaan token terlalu sering. SATUSEHAT hanya mengizinkan satu percobaan gagal per menit. Tunggu sebentar, lalu uji lagi.';
+        }
+
+        if (str_contains($normalized, 'unacceptable') || str_contains($normalized, 'not able to be authenticated')) {
+            return 'Client ID atau Client Secret ditolak. Isi ulang keduanya dari menu Kode Akses API, dan pilih environment yang sama (Sandbox atau Production).';
+        }
+
+        if ($response->status() === 403) {
+            return 'Akses token ditolak (HTTP 403). '.$diagnostic.' Environment di aplikasi harus sama dengan halaman Kode Akses API tempat Client ID diambil.';
+        }
+
+        return $fallback.' '.$diagnostic;
     }
 }

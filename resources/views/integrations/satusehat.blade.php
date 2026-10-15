@@ -85,6 +85,7 @@
                                 placeholder=""
                                 required
                             />
+                            <p class="text-muted small">Client ID dan Client Secret diambil dari Kode Akses API environment yang sama. Sandbox dan production tidak bisa saling tukar. Setelah percobaan gagal, tunggu satu menit sebelum uji lagi.</p>
                             <x-input name="organization_id" label="Organization ID" :value="old('organization_id', $branchSetting->organization_id)" />
                             <x-input name="client_id" label="Client ID" :value="old('client_id', $branchSetting->client_id)" />
                             <x-input name="client_secret" type="password" label="Client Secret" placeholder="{{ $branchSetting->hasSecret() ? 'Tersimpan — isi ulang untuk mengganti' : '' }}" autocomplete="new-password" />
