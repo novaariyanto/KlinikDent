@@ -324,6 +324,8 @@ class SatuSehatClient
             throw new IntegrationException('Permintaan token terlalu sering. SATUSEHAT hanya mengizinkan satu percobaan gagal per menit. Tunggu sebentar, lalu uji lagi.');
         }
 
+        $this->assertCredentialsPassGateway();
+
         $endpoint = $this->branch->tokenUrl();
 
         if (! str_contains($endpoint, 'grant_type=')) {
@@ -380,6 +382,28 @@ class SatuSehatClient
         return $this->tokenCacheKey().'.blocked';
     }
 
+    protected function assertCredentialsPassGateway(): void
+    {
+        $fields = [
+            'Client ID' => (string) $this->branch->client_id,
+            'Client Secret' => (string) $this->branch->client_secret,
+        ];
+        $patterns = [
+            '/<script\b/i',
+            '/union\s+select/i',
+            '/information_schema/i',
+            '/etc\/passwd/i',
+        ];
+
+        foreach ($fields as $label => $value) {
+            foreach ($patterns as $pattern) {
+                if (preg_match($pattern, $value) === 1) {
+                    throw new IntegrationException($label.' berisi teks yang diblokir firewall SATUSEHAT. Isi ulang dari menu Kode Akses API pada environment yang sama, tanpa teks tambahan. Jika nilai aslinya memang berisi pola itu, buat ulang kode akses.');
+                }
+            }
+        }
+    }
+
     protected function authed(): PendingRequest
     {
         return $this->http()->withToken($this->accessToken())->asJson();
@@ -426,7 +450,7 @@ class SatuSehatClient
         }
 
         if ($response->status() === 403 && ! is_array($response->json('issue')) && ! is_array($response->json('fault'))) {
-            return 'Gateway menolak permintaan token (HTTP 403) ke '.$this->branch->tokenUrl().'. '.$diagnostic;
+            return 'Firewall SATUSEHAT menolak isi Client ID atau Client Secret (HTTP 403). Salin ulang keduanya dari menu Kode Akses API pada environment yang sama, tanpa teks tambahan. Jika tetap ditolak, buat ulang kode akses.';
         }
 
         if ($response->status() === 403) {
