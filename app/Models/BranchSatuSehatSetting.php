@@ -10,6 +10,8 @@ class BranchSatuSehatSetting extends Model
 {
     use BelongsToTenant;
 
+    protected $table = 'branch_satusehat_settings';
+
     /**
      * @var list<string>
      */

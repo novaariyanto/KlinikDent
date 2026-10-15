@@ -11,6 +11,8 @@ class SatuSehatResource extends Model
 {
     use BelongsToTenant;
 
+    protected $table = 'satusehat_resources';
+
     /**
      * @var list<string>
      */
