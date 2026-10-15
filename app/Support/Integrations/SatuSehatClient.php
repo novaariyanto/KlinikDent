@@ -11,6 +11,13 @@ use Illuminate\Support\Facades\Http;
 
 class SatuSehatClient
 {
+    /**
+     * Setiap panggilan FHIR: method, URL, body request, status HTTP, dan body response.
+     *
+     * @var list<array{method: string, url: string, request: mixed, status: int|null, response: mixed}>
+     */
+    public array $exchanges = [];
+
     public function __construct(
         protected TenantIntegration $tenant,
         protected BranchSatuSehatSetting $branch,
@@ -111,13 +118,23 @@ class SatuSehatClient
 
     public function findByNik(string $resourceType, string $nik): ?string
     {
+        $query = ['identifier' => SatuSehatCodes::NIK_SYSTEM.'|'.$nik];
+        $url = $this->fhirUrl($resourceType);
+
         if ($this->localSandbox()) {
-            return 'sandbox-'.strtolower($resourceType).'-'.substr(hash('sha256', $resourceType.'|'.$nik), 0, 12);
+            $id = 'sandbox-'.strtolower($resourceType).'-'.substr(hash('sha256', $resourceType.'|'.$nik), 0, 12);
+            $this->record('GET', $url, $query, 200, [
+                'resourceType' => 'Bundle',
+                'entry' => [[
+                    'resource' => ['resourceType' => $resourceType, 'id' => $id],
+                ]],
+            ]);
+
+            return $id;
         }
 
-        $response = $this->authed()->get($this->fhirUrl($resourceType), [
-            'identifier' => SatuSehatCodes::NIK_SYSTEM.'|'.$nik,
-        ]);
+        $response = $this->authed()->get($url, $query);
+        $this->record('GET', $url, $query, $response->status(), $this->responseBody($response));
 
         if (! $response->successful()) {
             throw new IntegrationException($this->failureMessage($response, 'Pencarian '.$resourceType.' gagal.'));
@@ -136,15 +153,21 @@ class SatuSehatClient
     {
         if ($this->localSandbox()) {
             $id = $existingId ?: 'sandbox-'.substr(hash('sha256', $localKey), 0, 16);
+            $body = [
+                'mode' => 'sandbox-lokal',
+                'resourceType' => $resourceType,
+                'id' => $id,
+            ];
+            $payload['resourceType'] = $resourceType;
+            if ($existingId) {
+                $payload['id'] = $existingId;
+            }
+            $this->record($existingId ? 'PUT' : 'POST', $this->fhirUrl($existingId ? $resourceType.'/'.$existingId : $resourceType), $payload, 200, $body);
 
             return [
                 'ok' => true,
                 'id' => $id,
-                'response' => [
-                    'mode' => 'sandbox-lokal',
-                    'resourceType' => $resourceType,
-                    'id' => $id,
-                ],
+                'response' => $body,
             ];
         }
 
@@ -154,13 +177,17 @@ class SatuSehatClient
 
             if ($existingId) {
                 $payload['id'] = $existingId;
-                $response = $request->put($this->fhirUrl($resourceType.'/'.$existingId), $payload);
+                $url = $this->fhirUrl($resourceType.'/'.$existingId);
+                $response = $request->put($url, $payload);
+                $method = 'PUT';
             } else {
-                $response = $request->post($this->fhirUrl($resourceType), $payload);
+                $url = $this->fhirUrl($resourceType);
+                $response = $request->post($url, $payload);
+                $method = 'POST';
             }
 
-            $body = $response->json();
-            $body = is_array($body) ? $body : ['body' => $response->body()];
+            $body = $this->responseBody($response);
+            $this->record($method, $url, $payload, $response->status(), $body);
 
             if (! $response->successful()) {
                 return [
@@ -183,15 +210,41 @@ class SatuSehatClient
             return [
                 'ok' => true,
                 'id' => $id,
-                'response' => ['resourceType' => $resourceType, 'id' => $id],
+                'response' => $body,
             ];
         } catch (IntegrationException $exception) {
+            $this->record('POST', $this->fhirUrl($resourceType), $payload, null, ['error' => $exception->getMessage()]);
+
             return [
                 'ok' => false,
-                'response' => [],
+                'response' => ['error' => $exception->getMessage()],
                 'error' => $exception->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $request
+     */
+    protected function record(string $method, string $url, mixed $request, ?int $status, mixed $response): void
+    {
+        $this->exchanges[] = [
+            'method' => $method,
+            'url' => $url,
+            'request' => $request,
+            'status' => $status,
+            'response' => $response,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function responseBody(Response $response): array
+    {
+        $body = $response->json();
+
+        return is_array($body) ? $body : ['body' => $response->body()];
     }
 
     public function forgetToken(): void

@@ -67,4 +67,35 @@ class PayloadRedactor
 
         return $redacted;
     }
+
+    /**
+     * Hanya kredensial yang disamarkan. Isi FHIR (NIK, nama, resource) tetap utuh.
+     *
+     * @param  array<string, mixed>|null  $payload
+     * @return array<string, mixed>|null
+     */
+    public static function redactSecrets(?array $payload): ?array
+    {
+        if ($payload === null) {
+            return null;
+        }
+
+        $redacted = [];
+
+        foreach ($payload as $key => $value) {
+            $normalized = strtolower((string) $key);
+
+            if (in_array($normalized, ['access_token', 'client_secret', 'client_id', 'secret', 'secret_key', 'password', 'authorization', 'user_key', 'cons_id', 'x-signature', 'x-api-key', 'api_key'], true)
+                || str_contains($normalized, 'secret')
+                || str_contains($normalized, 'token')) {
+                $redacted[$key] = '********';
+
+                continue;
+            }
+
+            $redacted[$key] = is_array($value) ? self::redactSecrets($value) : $value;
+        }
+
+        return $redacted;
+    }
 }

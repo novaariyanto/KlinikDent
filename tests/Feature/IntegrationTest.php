@@ -55,7 +55,7 @@ class IntegrationTest extends TestCase
         $this->branchA = Branch::factory()->create(['tenant_id' => $this->tenantA->id]);
     }
 
-    public function test_satusehat_and_bpjs_sandbox_update_status_and_redact_nik(): void
+    public function test_satusehat_and_bpjs_sandbox_update_status_and_store_exchange(): void
     {
         $owner = $this->tenantUser(RoleName::Owner, $this->tenantA, $this->branchA);
         $patient = Patient::factory()->create([
@@ -114,8 +114,11 @@ class IntegrationTest extends TestCase
 
         $log = IntegrationLog::query()->where('provider', 'satusehat')->first();
         $this->assertNotNull($log);
-        $encoded = json_encode($log->request_payload);
-        $this->assertStringNotContainsString('1234567890123456', (string) $encoded);
+        $encoded = json_encode([$log->request_payload, $log->response_payload]);
+        $this->assertNotEmpty($log->request_payload['calls'] ?? null);
+        $this->assertNotEmpty($log->response_payload['calls'] ?? null);
+        $this->assertStringContainsString('1234567890123456', (string) $encoded);
+        $this->assertStringNotContainsString('secret-', (string) $encoded);
     }
 
     public function test_insurance_claim_upload_is_tenant_isolated(): void
@@ -331,8 +334,13 @@ class IntegrationTest extends TestCase
         });
         Http::assertNotSent(fn ($request) => str_contains($request->url(), 'api-satusehat.kemkes.go.id'));
 
-        $encoded = json_encode(IntegrationLog::query()->where('provider', 'satusehat')->first()?->request_payload);
-        $this->assertStringNotContainsString('1234567890123456', (string) $encoded);
+        $log = IntegrationLog::query()->where('provider', 'satusehat')->first();
+        $encoded = json_encode([$log?->request_payload, $log?->response_payload]);
+        $this->assertNotEmpty($log?->request_payload['calls'] ?? null);
+        $this->assertNotEmpty($log?->response_payload['calls'] ?? null);
+        $this->assertStringContainsString('1234567890123456', (string) $encoded);
+        $this->assertStringContainsString('encounter-1', (string) $encoded);
+        $this->assertStringNotContainsString('secret-', (string) $encoded);
     }
 
     public function test_connection_test_stores_locations_from_the_api(): void

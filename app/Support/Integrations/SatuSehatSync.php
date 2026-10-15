@@ -115,12 +115,16 @@ class SatuSehatSync
                 'response' => [
                     'encounter_id' => $encounterId,
                     'skipped' => $this->notes,
+                    'exchanges' => $client->exchanges,
                 ],
             ];
         } catch (IntegrationException $exception) {
             return [
                 'ok' => false,
-                'response' => ['skipped' => $this->notes],
+                'response' => [
+                    'skipped' => $this->notes,
+                    'exchanges' => $client->exchanges,
+                ],
                 'error' => $exception->getMessage(),
             ];
         }
