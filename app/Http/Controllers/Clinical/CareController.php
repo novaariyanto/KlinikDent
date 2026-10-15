@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Clinical;
 
-use App\Enums\IntegrationProvider;
 use App\Enums\PrescriptionStatus;
 use App\Enums\QueueStatus;
 use App\Enums\ToothStatus;
@@ -24,7 +23,6 @@ use App\Http\Requests\Clinical\UpdateSystemicHistoryRequest;
 use App\Http\Requests\Clinical\UpdateToothRequest;
 use App\Http\Requests\Clinical\UpdateVitalsRequest;
 use App\Models\Diagnosis;
-use App\Models\IntegrationLog;
 use App\Models\Medicine;
 use App\Models\OdontogramTooth;
 use App\Models\Prescription;
@@ -41,7 +39,6 @@ use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
 use App\Support\Clinical\FdiTeeth;
 use App\Support\Clinical\IcdCatalog;
-use App\Support\Integrations\SatuSehatLogView;
 use App\Support\ClinicSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -178,15 +175,6 @@ class CareController extends Controller
             'medicines' => Medicine::query()->active()->orderBy('name')->get(),
             'history' => $history,
             'careQueues' => $careQueues,
-            'satusehatLogs' => $user->can('satusehat.view')
-                ? IntegrationLog::query()
-                    ->where('provider', IntegrationProvider::SatuSehat)
-                    ->where('subject_type', Visit::class)
-                    ->where('subject_id', $visit->id)
-                    ->latest('id')
-                    ->get()
-                    ->map(fn (IntegrationLog $log) => SatuSehatLogView::from($log))
-                : collect(),
         ]);
     }
 

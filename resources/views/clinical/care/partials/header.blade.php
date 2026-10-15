@@ -26,7 +26,6 @@
             <x-button href="{{ route('patients.history.show', $visit->patient) }}" variant="light" icon="bx bx-history">Riwayat</x-button>
         @endcan
         @can('satusehat.view')
-            <x-button href="{{ route('care.show', ['visit' => $visit, 'tab' => 'satusehat']) }}" variant="light" icon="bx bx-list-ul">Log SATUSEHAT</x-button>
             @if ($visit->status === \App\Enums\VisitStatus::Done)
                 <form action="{{ route('care.satusehat.send', $visit) }}" method="POST" class="d-inline">
                     @csrf

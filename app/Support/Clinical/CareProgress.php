@@ -2,7 +2,6 @@
 
 namespace App\Support\Clinical;
 
-use App\Enums\SatuSehatStatus;
 use App\Enums\ToothStatus;
 use App\Models\MedicalRecord;
 use App\Models\Visit;
@@ -39,7 +38,6 @@ final class CareProgress
             'instruksi' => filled($record?->clinical_notes)
                 || filled($instructions['items'] ?? null)
                 || filled($instructions['extra'] ?? null),
-            'satusehat' => $visit->satusehat_status === SatuSehatStatus::Synced,
         ];
     }
 
