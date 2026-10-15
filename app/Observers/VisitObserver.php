@@ -5,11 +5,15 @@ namespace App\Observers;
 use App\Enums\VisitStatus;
 use App\Enums\WhatsAppEvent;
 use App\Models\Visit;
+use App\Support\Integrations\IntegrationService;
 use App\Support\WhatsApp\WhatsAppAutomationService;
 
 class VisitObserver
 {
-    public function __construct(protected WhatsAppAutomationService $whatsapp) {}
+    public function __construct(
+        protected WhatsAppAutomationService $whatsapp,
+        protected IntegrationService $integrations,
+    ) {}
 
     public function created(Visit $visit): void
     {
@@ -30,6 +34,7 @@ class VisitObserver
         if ($visit->wasChanged('status') && $visit->status === VisitStatus::Done) {
             $this->whatsapp->syncControlDates($visit->loadMissing('medicalRecord'));
             $this->whatsapp->queueVisit(WhatsAppEvent::TreatmentCompleted, $visit);
+            $this->integrations->queueIfReady($visit);
         }
     }
 }

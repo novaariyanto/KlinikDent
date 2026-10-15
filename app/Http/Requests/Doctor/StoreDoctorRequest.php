@@ -4,6 +4,7 @@ namespace App\Http\Requests\Doctor;
 
 use App\Enums\RoleName;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
+use App\Models\Branch;
 use App\Models\Doctor;
 use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
@@ -48,6 +49,7 @@ class StoreDoctorRequest extends FormRequest
             'branch_ids.*' => ['integer', 'exists:branches,id'],
             'sip' => ['nullable', 'string', 'max:80'],
             'str' => ['nullable', 'string', 'max:80'],
+            'nik' => ['nullable', 'digits:16', Rule::unique('doctors', 'nik')->where(fn ($query) => $tenantId ? $query->where('tenant_id', $tenantId) : $query)],
             'specialization' => ['nullable', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'max:30'],
             'notes' => ['nullable', 'string', 'max:1000'],
@@ -85,7 +87,7 @@ class StoreDoctorRequest extends FormRequest
                 return;
             }
 
-            $valid = \App\Models\Branch::withoutGlobalScopes()
+            $valid = Branch::withoutGlobalScopes()
                 ->where('tenant_id', $tenantId)
                 ->whereIn('id', $branchIds)
                 ->count();
@@ -103,6 +105,7 @@ class StoreDoctorRequest extends FormRequest
             'is_active' => $this->boolean('is_active'),
             'user_id' => $this->filled('user_id') ? $this->input('user_id') : null,
             'branch_ids' => array_values(array_filter((array) $this->input('branch_ids', []))),
+            'nik' => $this->filled('nik') ? $this->input('nik') : null,
         ]);
     }
 }

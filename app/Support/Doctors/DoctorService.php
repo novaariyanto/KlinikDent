@@ -37,6 +37,7 @@ class DoctorService
                 'user_id' => $user->id,
                 'sip' => $data['sip'] ?? null,
                 'str' => $data['str'] ?? null,
+                'nik' => $data['nik'] ?? null,
                 'specialization' => $data['specialization'] ?? null,
                 'phone' => $data['phone'] ?? null,
                 'notes' => $data['notes'] ?? null,
@@ -57,6 +58,8 @@ class DoctorService
         $doctor->update([
             'sip' => $data['sip'] ?? null,
             'str' => $data['str'] ?? null,
+            'nik' => $data['nik'] ?? null,
+            'satusehat_id' => ($data['nik'] ?? null) === $doctor->nik ? $doctor->satusehat_id : null,
             'specialization' => $data['specialization'] ?? null,
             'phone' => $data['phone'] ?? null,
             'notes' => $data['notes'] ?? null,

@@ -2,153 +2,269 @@
 
 namespace App\Support\Integrations;
 
-use App\Enums\IntegrationProvider;
+use App\Models\BranchSatuSehatSetting;
 use App\Models\TenantIntegration;
-use App\Models\Visit;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 class SatuSehatClient
 {
-    public function __construct(protected TenantIntegration $settings)
-    {
-    }
+    public function __construct(
+        protected TenantIntegration $tenant,
+        protected BranchSatuSehatSetting $branch,
+    ) {}
 
-    public static function forTenant(int $tenantId): self
+    public function localSandbox(): bool
     {
-        return new self(TenantIntegration::forTenant($tenantId, IntegrationProvider::SatuSehat));
-    }
-
-    public function settings(): TenantIntegration
-    {
-        return $this->settings;
+        return (bool) $this->tenant->fake;
     }
 
     /**
-     * @return array{ok: bool, id?: string, response: array<string, mixed>, error?: string}
+     * @return array{ok: bool, organization_name?: string, locations: list<array{id: string, name: string}>, error?: string}
      */
-    public function sendEncounter(Visit $visit): array
+    public function testConnection(): array
     {
-        if (! $this->settings->enabled) {
+        if (! filled($this->branch->organization_id) || ! filled($this->branch->client_id) || ! $this->branch->hasSecret()) {
             return [
                 'ok' => false,
-                'response' => ['reason' => 'disabled'],
-                'error' => 'Modul SATUSEHAT belum diaktifkan untuk klinik ini.',
+                'locations' => [],
+                'error' => 'Organization ID, Client ID, dan Client Secret wajib diisi sebelum koneksi diuji.',
             ];
         }
 
-        $payload = $this->encounterPayload($visit);
-
-        if ($this->settings->fake) {
+        if ($this->localSandbox()) {
             return [
                 'ok' => true,
-                'id' => 'sandbox-'.Str::uuid()->toString(),
-                'response' => [
-                    'mode' => 'sandbox-fake',
-                    'tenant_id' => $this->settings->tenant_id,
-                    'resourceType' => 'Encounter',
-                    'id' => 'sandbox-local',
-                ],
-            ];
-        }
-
-        if (! $this->settings->hasCredential('client_id') || ! $this->settings->hasCredential('client_secret')) {
-            return [
-                'ok' => false,
-                'response' => ['reason' => 'missing-credentials'],
-                'error' => 'Kredensial SATUSEHAT klinik ini belum diisi.',
+                'organization_name' => 'Sandbox lokal',
+                'locations' => [[
+                    'id' => $this->sandboxLocationId(),
+                    'name' => 'Poli Gigi (sandbox lokal)',
+                ]],
             ];
         }
 
         try {
-            $token = $this->accessToken();
-            $response = $this->http()
-                ->withToken($token)
-                ->post(rtrim($this->baseUrl(), '/').'/fhir-r4/v1/Encounter', $payload);
+            $organization = $this->authed()->get($this->fhirUrl('Organization/'.$this->branch->organization_id));
 
-            $body = $response->json() ?? ['body' => $response->body()];
-
-            if (! $response->successful()) {
+            if (! $organization->successful() || ($organization->json('resourceType') !== 'Organization')) {
                 return [
                     'ok' => false,
-                    'response' => $body,
-                    'error' => 'HTTP '.$response->status(),
+                    'locations' => [],
+                    'error' => $this->failureMessage($organization, 'Organization tidak ditemukan di SATUSEHAT.'),
                 ];
             }
 
             return [
                 'ok' => true,
-                'id' => (string) ($body['id'] ?? $body['data']['id'] ?? Str::uuid()),
-                'response' => is_array($body) ? $body : ['body' => $body],
+                'organization_name' => (string) ($organization->json('name') ?: $this->branch->organization_id),
+                'locations' => $this->locations(),
             ];
-        } catch (\Throwable $e) {
+        } catch (IntegrationException $exception) {
             return [
                 'ok' => false,
-                'response' => ['exception' => $e->getMessage()],
-                'error' => $e->getMessage(),
+                'locations' => [],
+                'error' => $exception->getMessage(),
             ];
         }
     }
 
     /**
-     * @return array<string, mixed>
+     * @return list<array{id: string, name: string}>
      */
-    public function encounterPayload(Visit $visit): array
+    public function locations(): array
     {
-        $visit->loadMissing(['patient', 'doctor', 'branch']);
+        if ($this->localSandbox()) {
+            return [[
+                'id' => $this->sandboxLocationId(),
+                'name' => 'Poli Gigi (sandbox lokal)',
+            ]];
+        }
 
-        return [
-            'resourceType' => 'Encounter',
-            'status' => 'finished',
-            'class' => ['code' => 'AMB', 'display' => 'ambulatory'],
-            'period' => [
-                'start' => optional($visit->visit_date)?->toDateString(),
-            ],
-            'subject' => [
-                'display' => 'Pasien',
-                'nik' => $visit->patient?->nik,
-            ],
-            'serviceProvider' => [
-                'display' => $visit->branch?->name,
-                'identifier' => $this->settings->credential('organization_id'),
-            ],
-            'participant' => [
-                ['individual' => ['display' => $visit->doctor?->name]],
-            ],
-            'identifier' => [
-                ['system' => 'klinikdent-visit', 'value' => (string) $visit->id],
-            ],
-        ];
+        $response = $this->authed()->get($this->fhirUrl('Location'), [
+            'organization' => (string) $this->branch->organization_id,
+            '_count' => 50,
+        ]);
+
+        if (! $response->successful()) {
+            throw new IntegrationException($this->failureMessage($response, 'Daftar lokasi gagal diambil.'));
+        }
+
+        $locations = [];
+
+        foreach ($response->json('entry') ?? [] as $entry) {
+            $resource = $entry['resource'] ?? null;
+
+            if (! is_array($resource) || ($resource['resourceType'] ?? '') !== 'Location' || empty($resource['id'])) {
+                continue;
+            }
+
+            $locations[] = [
+                'id' => (string) $resource['id'],
+                'name' => (string) ($resource['name'] ?: $resource['id']),
+            ];
+        }
+
+        return $locations;
+    }
+
+    public function findByNik(string $resourceType, string $nik): ?string
+    {
+        if ($this->localSandbox()) {
+            return 'sandbox-'.strtolower($resourceType).'-'.substr(hash('sha256', $resourceType.'|'.$nik), 0, 12);
+        }
+
+        $response = $this->authed()->get($this->fhirUrl($resourceType), [
+            'identifier' => SatuSehatCodes::NIK_SYSTEM.'|'.$nik,
+        ]);
+
+        if (! $response->successful()) {
+            throw new IntegrationException($this->failureMessage($response, 'Pencarian '.$resourceType.' gagal.'));
+        }
+
+        $id = $response->json('entry.0.resource.id');
+
+        return filled($id) ? (string) $id : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array{ok: bool, id?: string, response: array<string, mixed>, error?: string}
+     */
+    public function submit(string $resourceType, array $payload, ?string $existingId, string $localKey): array
+    {
+        if ($this->localSandbox()) {
+            $id = $existingId ?: 'sandbox-'.substr(hash('sha256', $localKey), 0, 16);
+
+            return [
+                'ok' => true,
+                'id' => $id,
+                'response' => [
+                    'mode' => 'sandbox-lokal',
+                    'resourceType' => $resourceType,
+                    'id' => $id,
+                ],
+            ];
+        }
+
+        try {
+            $payload['resourceType'] = $resourceType;
+            $request = $this->authed();
+
+            if ($existingId) {
+                $payload['id'] = $existingId;
+                $response = $request->put($this->fhirUrl($resourceType.'/'.$existingId), $payload);
+            } else {
+                $response = $request->post($this->fhirUrl($resourceType), $payload);
+            }
+
+            $body = $response->json();
+            $body = is_array($body) ? $body : ['body' => $response->body()];
+
+            if (! $response->successful()) {
+                return [
+                    'ok' => false,
+                    'response' => $body,
+                    'error' => $this->failureMessage($response, 'Pengiriman '.$resourceType.' gagal.'),
+                ];
+            }
+
+            $id = (string) ($body['id'] ?? $existingId ?? '');
+
+            if ($id === '') {
+                return [
+                    'ok' => false,
+                    'response' => $body,
+                    'error' => 'SATUSEHAT tidak mengembalikan ID '.$resourceType.'.',
+                ];
+            }
+
+            return [
+                'ok' => true,
+                'id' => $id,
+                'response' => ['resourceType' => $resourceType, 'id' => $id],
+            ];
+        } catch (IntegrationException $exception) {
+            return [
+                'ok' => false,
+                'response' => [],
+                'error' => $exception->getMessage(),
+            ];
+        }
+    }
+
+    public function forgetToken(): void
+    {
+        Cache::forget($this->tokenCacheKey());
+    }
+
+    public function sandboxLocationId(): string
+    {
+        return 'sandbox-location-'.$this->branch->branch_id;
     }
 
     protected function accessToken(): string
     {
-        $response = $this->http()->asForm()->post(
-            $this->tokenUrl(),
-            [
-                'client_id' => $this->settings->credential('client_id'),
-                'client_secret' => $this->settings->credential('client_secret'),
-            ]
-        );
+        $cached = Cache::get($this->tokenCacheKey());
 
-        $response->throw();
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
 
-        return (string) ($response->json('access_token') ?? $response->json('data.access_token'));
-    }
+        $response = $this->http()->asForm()->post($this->tokenUrl(), [
+            'client_id' => $this->branch->client_id,
+            'client_secret' => $this->branch->client_secret,
+        ]);
 
-    protected function baseUrl(): string
-    {
-        return (string) $this->settings->credential('base_url', config('integrations.satusehat.base_url'));
+        if (! $response->successful() || ! filled($response->json('access_token'))) {
+            throw new IntegrationException($this->failureMessage($response, 'Token SATUSEHAT ditolak. Periksa Client ID, Client Secret, dan environment.'));
+        }
+
+        $token = (string) $response->json('access_token');
+        $ttl = max(60, ((int) $response->json('expires_in', 3600)) - 30);
+        Cache::put($this->tokenCacheKey(), $token, $ttl);
+
+        return $token;
     }
 
     protected function tokenUrl(): string
     {
-        return (string) $this->settings->credential('token_url', config('integrations.satusehat.token_url'));
+        return $this->branch->baseUrl().'/oauth2/v1/accesstoken?grant_type=client_credentials';
+    }
+
+    protected function fhirUrl(string $path): string
+    {
+        return $this->branch->baseUrl().'/fhir-r4/v1/'.ltrim($path, '/');
+    }
+
+    protected function tokenCacheKey(): string
+    {
+        return 'satusehat.token.'.$this->branch->id.'.'.$this->branch->environment.'.'.sha1((string) $this->branch->client_id);
+    }
+
+    protected function authed(): PendingRequest
+    {
+        return $this->http()->withToken($this->accessToken())->asJson();
     }
 
     protected function http(): PendingRequest
     {
         return Http::timeout(20)->acceptJson();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function failureMessage(Response $response, string $fallback): string
+    {
+        $diagnostic = $response->json('issue.0.diagnostics')
+            ?? $response->json('issue.0.details.text');
+
+        $detail = is_string($diagnostic) && $diagnostic !== ''
+            ? $diagnostic
+            : 'HTTP '.$response->status();
+
+        return $fallback.' '.$detail;
     }
 }

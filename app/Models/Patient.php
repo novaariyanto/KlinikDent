@@ -25,6 +25,7 @@ class Patient extends Model
         'medical_record_number',
         'name',
         'nik',
+        'satusehat_id',
         'dob',
         'gender',
         'phone',

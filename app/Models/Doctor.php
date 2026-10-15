@@ -22,6 +22,8 @@ class Doctor extends Model
     protected $fillable = [
         'tenant_id',
         'user_id',
+        'nik',
+        'satusehat_id',
         'sip',
         'str',
         'specialization',

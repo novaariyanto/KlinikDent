@@ -18,6 +18,9 @@
         <x-input name="str" label="STR" :value="$doctor?->str" />
     </div>
     <div class="col-md-6">
+        <x-input name="nik" label="NIK SATUSEHAT" :value="$doctor?->nik" maxlength="16" inputmode="numeric" />
+    </div>
+    <div class="col-md-6">
         <x-input name="phone" label="Telepon" :value="$doctor?->phone" />
     </div>
     <div class="col-md-6">

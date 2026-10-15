@@ -1,0 +1,10 @@
+Organization ID
+ae5873db-f2f4-4562-a1dc-9df5de9d32e0
+Client ID
+mSPoVbB7IsdM0jci2mFLjDDZu1M1KsDAki5sNJAPoAzglgtd
+Client Secret
+gkbbAfqisDsCd2WlZ1RIQHKOrKzXYqOrwlEfNCc8bwQZA6DfX7SoybOoRAjqSRru
+
+
+
+

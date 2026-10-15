@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Str;
 
 class Branch extends Model
@@ -92,6 +93,14 @@ class Branch extends Model
     public function visits(): HasMany
     {
         return $this->hasMany(Visit::class);
+    }
+
+    /**
+     * @return HasOne<BranchSatuSehatSetting, $this>
+     */
+    public function satusehatSetting(): HasOne
+    {
+        return $this->hasOne(BranchSatuSehatSetting::class);
     }
 
     public function monitorUrl(): string

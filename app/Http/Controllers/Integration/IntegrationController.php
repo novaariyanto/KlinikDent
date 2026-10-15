@@ -5,10 +5,17 @@ namespace App\Http\Controllers\Integration;
 use App\Enums\InsuranceClaimStatus;
 use App\Enums\IntegrationProvider;
 use App\Enums\PayerType;
+use App\Enums\SatuSehatStatus;
+use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Integration\StoreInsuranceClaimRequest;
+use App\Http\Requests\Integration\TestSatuSehatConnectionRequest;
 use App\Http\Requests\Integration\UpdateBpjsSettingsRequest;
+use App\Http\Requests\Integration\UpdateSatuSehatLocationRequest;
 use App\Http\Requests\Integration\UpdateSatuSehatSettingsRequest;
+use App\Models\Branch;
+use App\Models\BranchSatuSehatSetting;
+use App\Models\Doctor;
 use App\Models\InsuranceClaim;
 use App\Models\IntegrationLog;
 use App\Models\Patient;
@@ -17,8 +24,10 @@ use App\Models\TenantIntegration;
 use App\Models\Visit;
 use App\Support\Integrations\IntegrationException;
 use App\Support\Integrations\IntegrationService;
+use App\Support\Integrations\SatuSehatClient;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -38,19 +47,69 @@ class IntegrationController extends Controller
         ]);
     }
 
-    public function satusehat(): View
+    public function satusehat(Request $request): View
     {
-        abort_unless(auth()->user()?->can('satusehat.view'), 403);
+        abort_unless($request->user()?->can('satusehat.view'), 403);
 
-        $tenantId = (int) auth()->user()?->tenant_id;
+        $user = $request->user();
+        $tenantId = (int) $user?->tenant_id;
+        $branches = $user->applyBranchLimit(Branch::query()->orderBy('name'), 'id')->get();
+        $branch = $branches->firstWhere('id', (int) $request->query('branch_id')) ?? $branches->first();
+        $branchSetting = $branch
+            ? BranchSatuSehatSetting::query()->firstOrNew([
+                'tenant_id' => $branch->tenant_id,
+                'branch_id' => $branch->id,
+            ])
+            : null;
         $settings = TenantIntegration::forTenant($tenantId, IntegrationProvider::SatuSehat);
+        $visits = $branch
+            ? Visit::query()->with('patient')->where('branch_id', $branch->id)->where('status', VisitStatus::Done)->latest('id')->limit(30)->get()
+            : collect();
+        $visitErrors = IntegrationLog::query()
+            ->where('provider', IntegrationProvider::SatuSehat)
+            ->where('subject_type', Visit::class)
+            ->whereIn('subject_id', $visits->pluck('id'))
+            ->latest('id')
+            ->get()
+            ->unique('subject_id')
+            ->keyBy('subject_id');
+
+        $done = Visit::query()->where('branch_id', $branch?->id ?: 0)->where('status', VisitStatus::Done);
 
         return view('integrations.satusehat', [
             'settings' => $settings,
-            'canManage' => (bool) auth()->user()?->can('integration.manage'),
-            'visits' => Visit::query()->with('patient')->latest('id')->limit(50)->get(),
+            'canManage' => (bool) $user?->can('integration.manage'),
+            'branches' => $branches,
+            'branch' => $branch,
+            'branchSetting' => $branchSetting,
+            'locationChoices' => $branch
+                ? session('satusehat.locations.'.$branch->id, [])
+                : [],
+            'visits' => $visits,
+            'visitErrors' => $visitErrors,
+            'stats' => [
+                'waiting' => (clone $done)->where(function ($query) {
+                    $query->whereNull('satusehat_status')
+                        ->orWhere('satusehat_status', SatuSehatStatus::Pending);
+                })->count(),
+                'queued' => (clone $done)->where('satusehat_status', SatuSehatStatus::Queued)->count(),
+                'synced' => (clone $done)->where('satusehat_status', SatuSehatStatus::Synced)->count(),
+                'failed' => (clone $done)->where('satusehat_status', SatuSehatStatus::Failed)->count(),
+                'last_synced_at' => (clone $done)->max('satusehat_synced_at'),
+            ],
+            'readiness' => [
+                'doctors_missing_nik' => Doctor::query()->where(function ($query) {
+                    $query->whereNull('nik')->orWhere('nik', '');
+                })->count(),
+                'patients_missing_nik' => $branch
+                    ? Patient::query()->whereHas('visits', fn ($query) => $query->where('branch_id', $branch->id))->where(function ($query) {
+                        $query->whereNull('nik')->orWhere('nik', '');
+                    })->count()
+                    : 0,
+            ],
             'logs' => IntegrationLog::query()
                 ->where('provider', IntegrationProvider::SatuSehat)
+                ->when($branch, fn ($query) => $query->where('request_payload->branch_id', $branch->id))
                 ->latest('id')
                 ->limit(30)
                 ->get(),
@@ -59,15 +118,171 @@ class IntegrationController extends Controller
 
     public function updateSatuSehat(UpdateSatuSehatSettingsRequest $request): RedirectResponse
     {
-        $this->saveSettings(
-            IntegrationProvider::SatuSehat,
-            $request->boolean('enabled'),
-            $request->boolean('fake'),
-            $request->only(['client_id', 'client_secret', 'organization_id', 'base_url', 'token_url']),
-            ['client_secret'],
-        );
+        $branch = $this->branchForIntegration((int) $request->validated('branch_id'));
+        $enabled = $request->boolean('enabled');
+        $fake = $request->boolean('fake');
 
-        return back()->with('success', 'Pengaturan SATUSEHAT klinik disimpan.');
+        $this->saveSettings(IntegrationProvider::SatuSehat, $enabled, $fake, [], []);
+
+        $setting = BranchSatuSehatSetting::query()->firstOrNew([
+            'tenant_id' => $branch->tenant_id,
+            'branch_id' => $branch->id,
+        ]);
+        $data = $request->validated();
+        $organizationId = $data['organization_id'] ?: null;
+        $clientId = $data['client_id'] ?: null;
+        $secret = $data['client_secret'] ?? null;
+        $organizationChanged = (string) $setting->organization_id !== (string) $organizationId;
+        $credentialsChanged = ! $setting->exists
+            || $setting->environment !== $data['environment']
+            || $organizationChanged
+            || (string) $setting->client_id !== (string) $clientId
+            || (filled($secret) && $secret !== $setting->client_secret);
+
+        if ($organizationChanged) {
+            $setting->location_id = null;
+            $setting->location_name = null;
+        }
+
+        $setting->tenant_id = $branch->tenant_id;
+        $setting->environment = $data['environment'];
+        $setting->organization_id = $organizationId;
+        $setting->client_id = $clientId;
+
+        if (filled($secret)) {
+            $setting->client_secret = $secret;
+        }
+
+        if ($credentialsChanged) {
+            $setting->connection_ok = false;
+            $setting->sync_enabled = false;
+            $setting->validated_at = null;
+            $setting->last_error = null;
+            $setting->organization_name = null;
+        }
+
+        $setting->save();
+
+        $tenant = TenantIntegration::forTenant((int) $branch->tenant_id, IntegrationProvider::SatuSehat);
+        (new SatuSehatClient($tenant, $setting))->forgetToken();
+
+        activity_log('updated', $setting, [
+            'branch_id' => $branch->id,
+            'environment' => $setting->environment,
+            'organization_id' => $setting->organization_id,
+            'enabled' => $enabled,
+            'fake' => $fake,
+        ], 'Pengaturan SATUSEHAT cabang diubah.', 'integrations');
+
+        return redirect()
+            ->route('integrations.satusehat', ['branch_id' => $branch->id])
+            ->with('success', 'Pengaturan SATUSEHAT cabang disimpan. Uji koneksi sebelum mengaktifkan sinkronisasi.');
+    }
+
+    public function testSatuSehat(TestSatuSehatConnectionRequest $request): RedirectResponse
+    {
+        $branch = $this->branchForIntegration((int) $request->validated('branch_id'));
+        $setting = BranchSatuSehatSetting::query()->where('branch_id', $branch->id)->first();
+
+        if (! $setting) {
+            return redirect()
+                ->route('integrations.satusehat', ['branch_id' => $branch->id])
+                ->with('error', 'Simpan Organization ID dan kredensial cabang terlebih dahulu.');
+        }
+
+        $tenant = TenantIntegration::forTenant((int) $branch->tenant_id, IntegrationProvider::SatuSehat);
+        $result = (new SatuSehatClient($tenant, $setting))->testConnection();
+        $locationIds = array_column($result['locations'], 'id');
+
+        $setting->connection_ok = $result['ok'];
+        $setting->validated_at = $result['ok'] ? now() : null;
+        $setting->last_error = $result['error'] ?? null;
+        $setting->organization_name = $result['organization_name'] ?? ($result['ok'] ? $setting->organization_name : null);
+
+        if (! $result['ok'] || ($setting->location_id && ! in_array($setting->location_id, $locationIds, true))) {
+            $setting->sync_enabled = false;
+
+            if ($setting->location_id && ! in_array($setting->location_id, $locationIds, true)) {
+                $setting->location_id = null;
+                $setting->location_name = null;
+            }
+        }
+
+        $setting->save();
+
+        $redirect = redirect()->route('integrations.satusehat', ['branch_id' => $branch->id]);
+
+        if (! $result['ok']) {
+            return $redirect->with('error', $result['error'] ?? 'Koneksi SATUSEHAT gagal.');
+        }
+
+        session([
+            'satusehat.locations.'.$branch->id => collect($result['locations'])
+                ->mapWithKeys(fn (array $location) => [$location['id'] => $location['name']])
+                ->all(),
+        ]);
+
+        $message = $tenant->fake
+            ? 'Sandbox lokal siap. Pilih lokasi, lalu aktifkan sinkronisasi. Tidak ada panggilan ke server Kemenkes.'
+            : 'Koneksi berhasil ke '.$setting->organization_name.'. Pilih lokasi pelayanan.';
+
+        return $redirect->with('success', $message);
+    }
+
+    public function updateSatuSehatLocation(UpdateSatuSehatLocationRequest $request): RedirectResponse
+    {
+        $branch = $this->branchForIntegration((int) $request->validated('branch_id'));
+        $setting = BranchSatuSehatSetting::query()->where('branch_id', $branch->id)->first();
+
+        if (! $setting?->connection_ok) {
+            return redirect()
+                ->route('integrations.satusehat', ['branch_id' => $branch->id])
+                ->with('error', 'Uji koneksi yang berhasil diperlukan sebelum memilih lokasi.');
+        }
+
+        $tenant = TenantIntegration::forTenant((int) $branch->tenant_id, IntegrationProvider::SatuSehat);
+
+        try {
+            $locations = collect((new SatuSehatClient($tenant, $setting))->locations())->keyBy('id');
+        } catch (IntegrationException $exception) {
+            $setting->forceFill([
+                'connection_ok' => false,
+                'sync_enabled' => false,
+                'last_error' => $exception->getMessage(),
+            ])->save();
+
+            return redirect()
+                ->route('integrations.satusehat', ['branch_id' => $branch->id])
+                ->with('error', $exception->getMessage());
+        }
+
+        $locationId = (string) $request->validated('location_id');
+
+        if (! $locations->has($locationId)) {
+            return redirect()
+                ->route('integrations.satusehat', ['branch_id' => $branch->id])
+                ->with('error', 'Lokasi itu tidak termasuk dalam organisasi SATUSEHAT cabang ini.');
+        }
+
+        $enable = $request->boolean('sync_enabled');
+        $setting->forceFill([
+            'location_id' => $locationId,
+            'location_name' => $locations[$locationId]['name'],
+            'sync_enabled' => $enable,
+            'last_error' => null,
+        ])->save();
+
+        activity_log('updated', $setting, [
+            'branch_id' => $branch->id,
+            'location_id' => $locationId,
+            'sync_enabled' => $enable,
+        ], 'Lokasi SATUSEHAT cabang diperbarui.', 'integrations');
+
+        return redirect()
+            ->route('integrations.satusehat', ['branch_id' => $branch->id])
+            ->with('success', $enable
+                ? 'Lokasi disimpan dan sinkronisasi cabang diaktifkan.'
+                : 'Lokasi disimpan. Sinkronisasi cabang belum diaktifkan.');
     }
 
     public function bpjs(): View
@@ -115,16 +330,31 @@ class IntegrationController extends Controller
         }
 
         $this->authorizeVisit($visit);
+        abort_unless($request->user()?->canAccessBranch((int) $visit->branch_id), 403);
 
         try {
-            $integrations->queueSatuSehat($visit);
+            $integrations->queueSatuSehat($visit, true);
         } catch (IntegrationException $exception) {
             return back()->with('error', $exception->getMessage());
         }
 
+        $visit->refresh();
+
+        if ($visit->satusehat_status === SatuSehatStatus::Failed) {
+            $error = IntegrationLog::query()
+                ->where('subject_type', Visit::class)
+                ->where('subject_id', $visit->id)
+                ->latest('id')
+                ->value('error_message');
+
+            return back()->with('error', $error ?: 'Pengiriman SATUSEHAT gagal.');
+        }
+
         activity_log('updated', $visit, [], 'Kunjungan dikirim ke SATUSEHAT.', 'integrations');
 
-        return back()->with('success', 'Pengiriman SATUSEHAT masuk antrian.');
+        return back()->with('success', $visit->satusehat_status === SatuSehatStatus::Synced
+            ? 'Kunjungan berhasil dikirim ke SATUSEHAT.'
+            : 'Pengiriman SATUSEHAT masuk antrian.');
     }
 
     public function checkBpjs(Request $request, IntegrationService $integrations, ?Patient $patient = null): RedirectResponse
@@ -184,9 +414,9 @@ class IntegrationController extends Controller
     public function downloadClaim(InsuranceClaim $insuranceClaim): StreamedResponse
     {
         $this->authorize('view', $insuranceClaim);
-        abort_unless($insuranceClaim->document_path && \Illuminate\Support\Facades\Storage::disk('local')->exists($insuranceClaim->document_path), 404);
+        abort_unless($insuranceClaim->document_path && Storage::disk('local')->exists($insuranceClaim->document_path), 404);
 
-        return \Illuminate\Support\Facades\Storage::disk('local')->download($insuranceClaim->document_path);
+        return Storage::disk('local')->download($insuranceClaim->document_path);
     }
 
     /**
@@ -219,5 +449,14 @@ class IntegrationController extends Controller
     protected function authorizeVisit(Visit $visit): void
     {
         abort_unless(auth()->user()?->belongsToTenantId((int) $visit->tenant_id), 403);
+    }
+
+    protected function branchForIntegration(int $branchId): Branch
+    {
+        $branch = Branch::query()->findOrFail($branchId);
+        abort_unless(auth()->user()?->canAccessBranch($branch->id), 403);
+        abort_unless(auth()->user()?->belongsToTenantId((int) $branch->tenant_id), 403);
+
+        return $branch;
     }
 }

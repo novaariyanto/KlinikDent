@@ -2,11 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Enums\IntegrationProvider;
 use App\Enums\SatuSehatStatus;
+use App\Models\BranchSatuSehatSetting;
 use App\Models\IntegrationLog;
+use App\Models\TenantIntegration;
 use App\Models\Visit;
 use App\Support\Integrations\IntegrationLogger;
-use App\Support\Integrations\SatuSehatClient;
+use App\Support\Integrations\SatuSehatSync;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -17,19 +20,31 @@ class SyncSatuSehatEncounter implements ShouldQueue
     public function __construct(
         public int $visitId,
         public int $logId,
-    ) {
-    }
+    ) {}
 
     public function handle(IntegrationLogger $logger): void
     {
-        $visit = Visit::withoutGlobalScopes()->with(['patient', 'doctor', 'branch'])->find($this->visitId);
+        $visit = Visit::withoutGlobalScopes()->find($this->visitId);
         $log = IntegrationLog::withoutGlobalScopes()->find($this->logId);
 
         if (! $visit || ! $log) {
             return;
         }
 
-        $result = SatuSehatClient::forTenant((int) $visit->tenant_id)->sendEncounter($visit);
+        $tenant = TenantIntegration::forTenant((int) $visit->tenant_id, IntegrationProvider::SatuSehat);
+        $branch = BranchSatuSehatSetting::withoutGlobalScopes()
+            ->where('tenant_id', $visit->tenant_id)
+            ->where('branch_id', $visit->branch_id)
+            ->first();
+
+        if (! $branch) {
+            $logger->finish($log, false, null, 'Cabang kunjungan belum memiliki pengaturan SATUSEHAT.');
+            $visit->update(['satusehat_status' => SatuSehatStatus::Failed]);
+
+            return;
+        }
+
+        $result = (new SatuSehatSync($tenant, $branch))->run($visit);
 
         $logger->finish($log, $result['ok'], $result['response'] ?? null, $result['error'] ?? null);
 

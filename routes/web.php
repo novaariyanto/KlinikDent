@@ -13,10 +13,6 @@ use App\Http\Controllers\Clinical\CareController;
 use App\Http\Controllers\Clinical\ClinicalIndexController;
 use App\Http\Controllers\Clinical\DentalLabController;
 use App\Http\Controllers\Clinical\PatientHistoryController;
-use App\Http\Controllers\Owner\PracticeArchiveController;
-use App\Http\Controllers\Portal\DocumentCheckController;
-use App\Http\Controllers\Portal\PatientPortalController;
-use App\Http\Controllers\Registration\PublicBookingController;
 use App\Http\Controllers\Clinical\PharmacyPrescriptionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DoctorController;
@@ -44,12 +40,16 @@ use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\Onboarding\OnboardingController;
 use App\Http\Controllers\Owner\PlanController;
+use App\Http\Controllers\Owner\PracticeArchiveController;
 use App\Http\Controllers\Pharmacy\PharmacyDashboardController;
 use App\Http\Controllers\Pharmacy\PharmacyReportController;
 use App\Http\Controllers\Pharmacy\PurchaseOrderController;
 use App\Http\Controllers\Pharmacy\StockController;
 use App\Http\Controllers\Pharmacy\SupplierController;
+use App\Http\Controllers\Portal\DocumentCheckController;
+use App\Http\Controllers\Portal\PatientPortalController;
 use App\Http\Controllers\Registration\PatientController;
+use App\Http\Controllers\Registration\PublicBookingController;
 use App\Http\Controllers\Registration\QueueController;
 use App\Http\Controllers\Registration\QueueMonitorController;
 use App\Http\Controllers\Registration\VisitController;
@@ -458,6 +458,12 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::put('/integrations/satusehat', [IntegrationController::class, 'updateSatuSehat'])
                 ->middleware('permission:integration.manage')
                 ->name('integrations.satusehat.update');
+            Route::post('/integrations/satusehat/test', [IntegrationController::class, 'testSatuSehat'])
+                ->middleware('permission:integration.manage')
+                ->name('integrations.satusehat.test');
+            Route::put('/integrations/satusehat/location', [IntegrationController::class, 'updateSatuSehatLocation'])
+                ->middleware('permission:integration.manage')
+                ->name('integrations.satusehat.location');
             Route::post('/integrations/satusehat', [IntegrationController::class, 'sendSatuSehat'])
                 ->middleware('permission:satusehat.view')
                 ->name('integrations.satusehat.send');

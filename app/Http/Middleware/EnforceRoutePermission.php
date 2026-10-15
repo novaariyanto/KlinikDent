@@ -14,6 +14,8 @@ class EnforceRoutePermission
     protected array $exact = [
         'integrations.satusehat' => 'satusehat.view',
         'integrations.satusehat.update' => 'integration.manage',
+        'integrations.satusehat.test' => 'integration.manage',
+        'integrations.satusehat.location' => 'integration.manage',
         'integrations.satusehat.send' => 'satusehat.view',
         'care.satusehat.send' => 'satusehat.view',
         'integrations.bpjs' => 'bpjs.view',

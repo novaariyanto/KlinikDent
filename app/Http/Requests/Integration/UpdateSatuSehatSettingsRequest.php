@@ -19,11 +19,11 @@ class UpdateSatuSehatSettingsRequest extends FormRequest
         return [
             'enabled' => ['sometimes', 'boolean'],
             'fake' => ['sometimes', 'boolean'],
+            'branch_id' => ['required', 'integer', 'exists:branches,id'],
+            'environment' => ['required', 'in:sandbox,production'],
+            'organization_id' => ['nullable', 'string', 'max:64'],
             'client_id' => ['nullable', 'string', 'max:255'],
             'client_secret' => ['nullable', 'string', 'max:255'],
-            'organization_id' => ['nullable', 'string', 'max:255'],
-            'base_url' => ['nullable', 'url', 'max:255'],
-            'token_url' => ['nullable', 'url', 'max:255'],
         ];
     }
 }

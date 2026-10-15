@@ -136,6 +136,8 @@ class ActivityLog extends Model
             'user_key',
             'cons_id',
             'credentials',
+            'nik',
+            'client_id',
         ];
 
         foreach ($properties as $key => $value) {

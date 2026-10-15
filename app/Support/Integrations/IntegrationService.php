@@ -4,19 +4,28 @@ namespace App\Support\Integrations;
 
 use App\Enums\IntegrationProvider;
 use App\Enums\SatuSehatStatus;
+use App\Enums\VisitStatus;
 use App\Jobs\CheckBpjsMembership;
 use App\Jobs\SyncSatuSehatEncounter;
+use App\Models\BranchSatuSehatSetting;
 use App\Models\Patient;
 use App\Models\TenantIntegration;
 use App\Models\Visit;
 
 class IntegrationService
 {
-    public function __construct(protected IntegrationLogger $logger)
+    public function __construct(protected IntegrationLogger $logger) {}
+
+    public function queueIfReady(Visit $visit): void
     {
+        try {
+            $this->queueSatuSehat($visit);
+        } catch (IntegrationException) {
+            // Cabang yang belum dikonfigurasi tidak boleh menggagalkan penyelesaian kunjungan.
+        }
     }
 
-    public function queueSatuSehat(Visit $visit): void
+    public function queueSatuSehat(Visit $visit, bool $manual = false): void
     {
         $settings = TenantIntegration::forTenant((int) $visit->tenant_id, IntegrationProvider::SatuSehat);
 
@@ -24,14 +33,34 @@ class IntegrationService
             throw new IntegrationException('Modul SATUSEHAT belum diaktifkan untuk klinik ini.');
         }
 
-        $client = new SatuSehatClient($settings);
-        $payload = $client->encounterPayload($visit);
+        $branch = BranchSatuSehatSetting::withoutGlobalScopes()
+            ->where('tenant_id', $visit->tenant_id)
+            ->where('branch_id', $visit->branch_id)
+            ->first();
+
+        if (! $branch?->readyToSync()) {
+            throw new IntegrationException('Sinkronisasi SATUSEHAT cabang ini belum aktif. Uji koneksi dan pilih lokasi pelayanan terlebih dahulu.');
+        }
+
+        if ($visit->status !== VisitStatus::Done) {
+            throw new IntegrationException('Hanya kunjungan selesai yang dikirim ke SATUSEHAT.');
+        }
+
+        if (! $manual && in_array($visit->satusehat_status, [SatuSehatStatus::Queued, SatuSehatStatus::Synced], true)) {
+            return;
+        }
+
         $log = $this->logger->queued(
             IntegrationProvider::SatuSehat,
-            'encounter.send',
+            'encounter.sync',
             (int) $visit->tenant_id,
             $visit,
-            $payload,
+            [
+                'visit_id' => $visit->id,
+                'branch_id' => $visit->branch_id,
+                'organization_id' => $branch->organization_id,
+                'location_id' => $branch->location_id,
+            ],
         );
 
         $visit->update(['satusehat_status' => SatuSehatStatus::Queued]);
