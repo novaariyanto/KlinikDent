@@ -146,6 +146,60 @@ class SatuSehatClient
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function read(string $resourceType, string $id): array
+    {
+        $url = $this->fhirUrl($resourceType.'/'.$id);
+
+        if ($this->localSandbox()) {
+            $body = [
+                'resourceType' => $resourceType,
+                'id' => $id,
+                'status' => 'active',
+                'name' => (string) ($this->branch->location_name ?: $id),
+                'mode' => 'instance',
+            ];
+            $this->record('GET', $url, null, 200, $body);
+
+            return $body;
+        }
+
+        $response = $this->authed()->get($url);
+        $body = $this->responseBody($response);
+        $this->record('GET', $url, null, $response->status(), $body);
+
+        if (! $response->successful() || ($body['resourceType'] ?? '') !== $resourceType) {
+            throw new IntegrationException($this->failureMessage($response, $resourceType.' tidak ditemukan di SATUSEHAT.'));
+        }
+
+        return $body;
+    }
+
+    public function findByIdentifier(string $resourceType, string $system, string $value): ?string
+    {
+        $query = ['identifier' => $system.'|'.$value];
+        $url = $this->fhirUrl($resourceType);
+
+        if ($this->localSandbox()) {
+            $this->record('GET', $url, $query, 200, ['resourceType' => 'Bundle', 'total' => 0]);
+
+            return null;
+        }
+
+        $response = $this->authed()->get($url, $query);
+        $this->record('GET', $url, $query, $response->status(), $this->responseBody($response));
+
+        if (! $response->successful()) {
+            throw new IntegrationException($this->failureMessage($response, 'Pencarian '.$resourceType.' gagal.'));
+        }
+
+        $id = $response->json('entry.0.resource.id');
+
+        return filled($id) ? (string) $id : null;
+    }
+
+    /**
      * @param  array<string, mixed>  $payload
      * @return array{ok: bool, id?: string, response: array<string, mixed>, error?: string}
      */

@@ -85,6 +85,10 @@ final class CareTabs
             $sections['instruksi'] = ['label' => 'Instruksi', 'icon' => 'bx bx-edit-alt'];
         }
 
+        if ($user->can('satusehat.view')) {
+            $sections['satusehat'] = ['label' => 'SATUSEHAT', 'icon' => 'bx bx-cloud-upload'];
+        }
+
         return $sections;
     }
 
@@ -129,6 +133,7 @@ final class CareTabs
             'dokumen' => 'surat',
             'adendum' => 'adendum',
             'kunci' => 'adendum',
+            'satusehat' => 'satusehat',
         ];
 
         $sections = self::flow($user);

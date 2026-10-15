@@ -273,9 +273,24 @@ class IntegrationTest extends TestCase
                 'resourceType' => 'Bundle',
                 'entry' => [['resource' => ['resourceType' => 'Practitioner', 'id' => 'practitioner-ihs']]],
             ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Location/*' => function ($request) {
+                $id = basename((string) parse_url($request->url(), PHP_URL_PATH));
+
+                return Http::response([
+                    'resourceType' => 'Location',
+                    'id' => $id,
+                    'status' => 'active',
+                    'name' => 'Poli Gigi',
+                    'mode' => 'instance',
+                ], $request->method() === 'POST' ? 201 : 200);
+            },
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Condition' => Http::response([
                 'resourceType' => 'Condition',
                 'id' => 'condition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Observation' => Http::response([
+                'resourceType' => 'Observation',
+                'id' => 'observation-1',
             ], 201),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
@@ -325,6 +340,13 @@ class IntegrationTest extends TestCase
         $this->assertSame(SatuSehatStatus::Synced, $visit->fresh()->satusehat_status);
         $this->assertSame('patient-ihs', $patient->fresh()->satusehat_id);
 
+        Http::assertSent(function ($request) use ($setting) {
+            return $request->method() === 'PUT'
+                && str_ends_with($request->url(), '/Location/'.$setting->location_id)
+                && ($request['id'] ?? null) === $setting->location_id
+                && ($request['managingOrganization']['reference'] ?? null) === 'Organization/'.$setting->organization_id;
+        });
+        Http::assertNotSent(fn ($request) => $request->method() === 'POST' && str_contains($request->url(), '/Location'));
         Http::assertSent(function ($request) use ($setting) {
             return $request->method() === 'PUT'
                 && ($request['status'] ?? null) === 'finished'

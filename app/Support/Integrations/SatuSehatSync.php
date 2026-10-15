@@ -127,6 +127,8 @@ class SatuSehatSync
                 'id' => $encounterId,
                 'response' => [
                     'encounter_id' => $encounterId,
+                    'organization_id' => (string) $this->branch->organization_id,
+                    'location_id' => $location['id'],
                     'skipped' => $this->notes,
                     'exchanges' => $client->exchanges,
                 ],
@@ -286,18 +288,24 @@ class SatuSehatSync
         string $localKey,
         array $payload,
         ?Model $internal = null,
+        ?string $knownId = null,
+        bool $useKnownId = false,
     ): string {
         $existing = SatuSehatResource::withoutGlobalScopes()
             ->where('tenant_id', $this->branch->tenant_id)
             ->where('local_key', $localKey)
             ->first();
 
-        if ($existing?->satusehat_id && $existing->sync_status === SatuSehatStatus::Synced && ! in_array($type, ['Encounter', 'Location'], true)) {
-            return (string) $existing->satusehat_id;
+        $remoteId = ($useKnownId && filled($knownId))
+            ? (string) $knownId
+            : (filled($existing?->satusehat_id) ? (string) $existing->satusehat_id : $knownId);
+
+        if ($remoteId && $existing?->sync_status === SatuSehatStatus::Synced && ! in_array($type, ['Encounter', 'Location'], true)) {
+            return (string) $remoteId;
         }
 
-        $result = $client->submit($type, $payload, $existing?->satusehat_id, $localKey);
-        $this->remember($type, $localKey, $internal, $result['id'] ?? $existing?->satusehat_id, $result['ok'], $result['error'] ?? null);
+        $result = $client->submit($type, $payload, $remoteId, $localKey);
+        $this->remember($type, $localKey, $internal, $result['id'] ?? $remoteId, $result['ok'], $result['error'] ?? null);
 
         if (! $result['ok']) {
             throw new IntegrationException($result['error'] ?? 'Pengiriman '.$type.' gagal.');
@@ -824,6 +832,8 @@ class SatuSehatSync
      */
     protected function encounterLocation(SatuSehatClient $client, Visit $visit): array
     {
+        $this->syncBranchLocation($client, $visit);
+
         $room = $visit->room;
 
         if ($room && in_array($room->type, [RoomType::Poli, RoomType::Tindakan], true)) {
@@ -836,8 +846,40 @@ class SatuSehatSync
 
         return [
             'id' => (string) $this->branch->location_id,
-            'name' => (string) ($this->branch->location_name ?: $this->branch->location_id),
+            'name' => (string) ($this->branch->location_name ?: $visit->branch?->name ?: $this->branch->location_id),
         ];
+    }
+
+    protected function syncBranchLocation(SatuSehatClient $client, Visit $visit): void
+    {
+        $locationId = (string) $this->branch->location_id;
+        $current = $client->read('Location', $locationId);
+        unset($current['meta']);
+
+        $current['resourceType'] = 'Location';
+        $current['id'] = $locationId;
+        $current['status'] = $current['status'] ?? 'active';
+        $current['mode'] = $current['mode'] ?? 'instance';
+        $current['name'] = (string) ($this->branch->location_name ?: ($current['name'] ?? null) ?: $visit->branch?->name ?: 'Poli');
+
+        $organizationId = (string) $this->branch->organization_id;
+        $current['managingOrganization'] = ['reference' => 'Organization/'.$organizationId];
+
+        if (filled($this->branch->organization_name)) {
+            $current['managingOrganization']['display'] = (string) $this->branch->organization_name;
+        }
+
+        $current = array_replace($current, $this->placeDetails($visit->branch));
+
+        $this->send(
+            $client,
+            'Location',
+            'location:branch:'.$this->branch->branch_id,
+            $current,
+            $visit->branch,
+            $locationId,
+            true,
+        );
     }
 
     /**
@@ -845,13 +887,23 @@ class SatuSehatSync
      */
     protected function ensureRoomLocation(SatuSehatClient $client, Visit $visit, Room $room): array
     {
+        $organizationId = (string) $this->branch->organization_id;
+        $identifier = filled($room->code) ? (string) $room->code : 'ROOM-'.$room->id;
+        $system = 'http://sys-ids.kemkes.go.id/location/'.$organizationId;
+        $localKey = 'location:room:'.$room->id;
+        $storedId = SatuSehatResource::withoutGlobalScopes()
+            ->where('tenant_id', $this->branch->tenant_id)
+            ->where('local_key', $localKey)
+            ->value('satusehat_id');
+        $knownId = filled($storedId) ? (string) $storedId : $client->findByIdentifier('Location', $system, $identifier);
         $name = (string) $room->name;
         $id = $this->send(
             $client,
             'Location',
-            'location:room:'.$room->id,
+            $localKey,
             $this->roomLocationPayload($visit, $room),
             $room,
+            $knownId,
         );
 
         return ['id' => $id, 'name' => $name];
@@ -900,9 +952,18 @@ class SatuSehatSync
             ]],
         ];
 
+        return array_replace($payload, $this->placeDetails($branch, $room));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function placeDetails(?\App\Models\Branch $branch, ?Room $room = null): array
+    {
+        $details = [];
         $telecom = [];
-        $phone = $room->phone ?: $branch?->phone;
-        $email = $room->email ?: $branch?->email;
+        $phone = $room?->phone ?: $branch?->phone;
+        $email = $room?->email ?: $branch?->email;
 
         if (filled($phone)) {
             $telecom[] = ['system' => 'phone', 'value' => (string) $phone, 'use' => 'work'];
@@ -917,7 +978,7 @@ class SatuSehatSync
         }
 
         if ($telecom !== []) {
-            $payload['telecom'] = $telecom;
+            $details['telecom'] = $telecom;
         }
 
         if (filled($branch?->address)) {
@@ -936,18 +997,18 @@ class SatuSehatSync
                 $address['postalCode'] = (string) $branch->postal_code;
             }
 
-            $payload['address'] = [$address];
+            $details['address'] = [$address];
         }
 
         if ($branch?->longitude !== null && $branch?->latitude !== null) {
-            $payload['position'] = [
+            $details['position'] = [
                 'longitude' => (float) $branch->longitude,
                 'latitude' => (float) $branch->latitude,
                 'altitude' => (float) ($branch->altitude ?? 0),
             ];
         }
 
-        return $payload;
+        return $details;
     }
 
     /**

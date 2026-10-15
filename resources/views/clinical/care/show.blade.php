@@ -13,6 +13,7 @@
         'resep' => 'clinical.care.partials.plan-prescriptions',
         'rujukan' => 'clinical.care.partials.plan-referrals',
         'instruksi' => 'clinical.care.partials.plan-notes',
+        'satusehat' => 'clinical.care.partials.satusehat',
         'lab' => 'clinical.care.partials.plan-lab',
         'surat' => 'clinical.care.partials.plan-letters',
         'adendum' => 'clinical.care.partials.plan-amendments',

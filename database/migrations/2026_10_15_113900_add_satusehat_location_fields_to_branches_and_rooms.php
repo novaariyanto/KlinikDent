@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -57,10 +56,7 @@ return new class extends Migration
             }
         });
 
-        $indexed = collect(DB::select('SHOW INDEX FROM rooms'))
-            ->contains(fn ($index) => $index->Key_name === 'rooms_branch_id_code_unique');
-
-        if (! $indexed) {
+        if (! $this->hasIndex('rooms', 'rooms_branch_id_code_unique')) {
             Schema::table('rooms', function (Blueprint $table) {
                 $table->unique(['branch_id', 'code']);
             });
@@ -69,10 +65,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        $indexed = collect(DB::select('SHOW INDEX FROM rooms'))
-            ->contains(fn ($index) => $index->Key_name === 'rooms_branch_id_code_unique');
-
-        if ($indexed) {
+        if ($this->hasIndex('rooms', 'rooms_branch_id_code_unique')) {
             Schema::table('rooms', function (Blueprint $table) {
                 $table->dropUnique('rooms_branch_id_code_unique');
             });
@@ -99,5 +92,20 @@ return new class extends Migration
                 $table->dropColumn($columns);
             }
         });
+    }
+
+    private function hasIndex(string $table, string $name): bool
+    {
+        $connection = Schema::getConnection();
+
+        if ($connection->getDriverName() === 'sqlite') {
+            return $connection->select(
+                "SELECT 1 FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND name = ?",
+                [$table, $name],
+            ) !== [];
+        }
+
+        return collect($connection->select('SHOW INDEX FROM '.$table))
+            ->contains(fn ($index) => $index->Key_name === $name);
     }
 };
