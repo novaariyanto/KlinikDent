@@ -65,6 +65,7 @@ class StoreVisitRequest extends FormRequest
     {
         $this->merge([
             'patient_id' => $this->filled('patient_id') ? $this->input('patient_id') : null,
+            'nik' => $this->filled('nik') ? $this->input('nik') : null,
             'doctor_id' => $this->filled('doctor_id') ? $this->input('doctor_id') : null,
             'room_id' => $this->filled('room_id') ? $this->input('room_id') : null,
             'visit_date' => $this->input('visit_date') ?: now()->toDateString(),

@@ -16,6 +16,8 @@ use Illuminate\Validation\ValidationException;
 
 class VisitRegistrar
 {
+    public bool $reusedExistingPatient = false;
+
     public function __construct(
         protected DocumentSequenceGenerator $sequences,
         protected ScheduleAvailability $schedules,
@@ -26,6 +28,8 @@ class VisitRegistrar
      */
     public function register(User $actor, array $data): Visit
     {
+        $this->reusedExistingPatient = false;
+
         return DB::transaction(function () use ($actor, $data) {
             $tenantId = (int) $actor->tenant_id;
             $branch = $this->resolveBranch($actor, $data['branch_id'] ?? null);
@@ -201,11 +205,23 @@ class VisitRegistrar
             ]);
         }
 
+        $nik = filled($data['nik'] ?? null) ? (string) $data['nik'] : null;
+
+        if ($nik) {
+            $existing = Patient::query()->where('nik', $nik)->first();
+
+            if ($existing) {
+                $this->reusedExistingPatient = true;
+
+                return $existing;
+            }
+        }
+
         return Patient::query()->create([
             'tenant_id' => $tenantId,
             'medical_record_number' => $this->sequences->nextMedicalRecord($tenant, $branch),
             'name' => $data['name'],
-            'nik' => $data['nik'] ?? null,
+            'nik' => $nik,
             'dob' => $data['dob'] ?? null,
             'gender' => $data['gender'] ?? null,
             'phone' => $data['phone'] ?? null,
