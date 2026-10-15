@@ -337,18 +337,7 @@ class SatuSehatClient
             'client_secret' => trim((string) $this->branch->client_secret),
         ], '', '&', PHP_QUERY_RFC3986);
 
-        $response = Http::timeout(20)
-            ->withOptions([
-                'version' => 1.1,
-                'curl' => [
-                    CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
-                    CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-                ],
-            ])
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'Expect' => '',
-            ])
+        $response = $this->http()
             ->withBody($payload, 'application/x-www-form-urlencoded')
             ->post($endpoint);
 
@@ -382,6 +371,17 @@ class SatuSehatClient
         return $this->tokenCacheKey().'.blocked';
     }
 
+    protected function egressIp(): ?string
+    {
+        try {
+            $ip = trim($this->http()->get('https://api.ipify.org')->body());
+        } catch (\Throwable) {
+            return null;
+        }
+
+        return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : null;
+    }
+
     protected function assertCredentialsPassGateway(): void
     {
         $fields = [
@@ -413,7 +413,13 @@ class SatuSehatClient
     {
         return Http::timeout(20)
             ->acceptJson()
+            ->withHeaders([
+                'User-Agent' => 'KlinikDent/1.0',
+                'Expect' => '',
+            ])
             ->withOptions([
+                'version' => 1.1,
+                'proxy' => '',
                 'curl' => [
                     CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
                     CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
@@ -450,7 +456,11 @@ class SatuSehatClient
         }
 
         if ($response->status() === 403 && ! is_array($response->json('issue')) && ! is_array($response->json('fault'))) {
-            return 'Firewall SATUSEHAT menolak isi Client ID atau Client Secret (HTTP 403). Salin ulang keduanya dari menu Kode Akses API pada environment yang sama, tanpa teks tambahan. Jika tetap ditolak, buat ulang kode akses.';
+            $ip = $this->egressIp();
+
+            return 'Firewall SATUSEHAT menolak permintaan dari jaringan server ini (HTTP 403). IP publik server terdeteksi di luar Indonesia.'
+                .($ip ? ' IP keluar: '.$ip.'.' : '')
+                .' Pindahkan traffic keluar ke IP Indonesia, lalu uji lagi.';
         }
 
         if ($response->status() === 403) {
