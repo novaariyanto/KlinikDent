@@ -18,6 +18,16 @@
                         <tr><th>Email</th><td>{{ $room->email ?: '-' }}</td></tr>
                         <tr><th>Tipe</th><td>{{ $room->type->label() }}</td></tr>
                         <tr>
+                            <th>IHS</th>
+                            <td>
+                                @if ($room->type === \App\Enums\RoomType::Poli)
+                                    {{ $room->satusehatLocation?->satusehat_id ?: '-' }}
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        </tr>
+                        <tr>
                             <th>Status</th>
                             <td>
                                 <span class="{{ $room->is_active ? 'badge bg-success' : 'badge bg-danger' }}">
@@ -30,6 +40,12 @@
                 <div class="mt-3 d-flex flex-wrap gap-2">
                     @can('update', $room)
                         <x-button href="{{ route('management.rooms.edit', $room) }}" icon="bx bx-edit">Edit</x-button>
+                        @if ($room->type === \App\Enums\RoomType::Poli && ! filled($room->satusehatLocation?->satusehat_id))
+                            <form action="{{ route('management.rooms.satusehat', $room) }}" method="POST">
+                                @csrf
+                                <x-button type="submit" variant="secondary" icon="bx bx-cloud-download">Ambil IHS</x-button>
+                            </form>
+                        @endif
                     @endcan
                     <x-button href="{{ route('management.rooms.index') }}" variant="secondary">Back</x-button>
                 </div>

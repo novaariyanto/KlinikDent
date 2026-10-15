@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Room extends Model
 {
@@ -52,6 +53,16 @@ class Room extends Model
     public function branch(): BelongsTo
     {
         return $this->belongsTo(Branch::class);
+    }
+
+    /**
+     * @return HasOne<SatuSehatResource, $this>
+     */
+    public function satusehatLocation(): HasOne
+    {
+        return $this->hasOne(SatuSehatResource::class, 'internal_id')
+            ->where('internal_type', self::class)
+            ->where('resource_type', 'Location');
     }
 
     /**

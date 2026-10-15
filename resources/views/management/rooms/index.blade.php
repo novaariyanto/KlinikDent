@@ -11,6 +11,6 @@
                 <x-button href="{{ route('management.rooms.create') }}" icon="bx bx-plus">Tambah Ruangan</x-button>
             @endcan
         </x-slot:header-actions>
-        <x-data-table id="rooms-table" :ajax="route('management.rooms.data')" :columns="$columns" :order="[[5, 'desc']]" />
+        <x-data-table id="rooms-table" :ajax="route('management.rooms.data')" :columns="$columns" :order="[[6, 'desc']]" />
     </x-card>
 @endsection

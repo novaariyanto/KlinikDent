@@ -3,6 +3,7 @@
 namespace App\Support\Integrations;
 
 use App\Enums\IntegrationProvider;
+use App\Enums\RoomType;
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
 use App\Jobs\CheckBpjsMembership;
@@ -10,6 +11,7 @@ use App\Jobs\SyncSatuSehatEncounter;
 use App\Models\Branch;
 use App\Models\BranchSatuSehatSetting;
 use App\Models\Patient;
+use App\Models\Room;
 use App\Models\TenantIntegration;
 use App\Models\Visit;
 
@@ -65,7 +67,62 @@ class IntegrationService
                 'exchanges' => $sync->exchanges,
             ], $exception->getMessage());
 
+            return $id;
+        } catch (IntegrationException $exception) {
+            $this->logger->finish($log, false, [
+                'exchanges' => $sync->exchanges,
+            ], $exception->getMessage());
+
             return null;
+        }
+    }
+
+    public function lookupRoomIhs(Room $room): string
+    {
+        if ($room->type !== RoomType::Poli) {
+            throw new IntegrationException('IHS hanya diambil untuk ruangan poli.');
+        }
+
+        $tenantId = $room->tenantId();
+        $settings = TenantIntegration::forTenant((int) $tenantId, IntegrationProvider::SatuSehat);
+        $branchSetting = BranchSatuSehatSetting::withoutGlobalScopes()
+            ->where('tenant_id', $tenantId)
+            ->where('branch_id', $room->branch_id)
+            ->first();
+
+        if (! $settings->enabled || ! $branchSetting?->readyToSync()) {
+            throw new IntegrationException('Sinkronisasi SATUSEHAT cabang ini belum aktif. Uji koneksi dan pilih lokasi poli terlebih dahulu.');
+        }
+
+        $log = $this->logger->queued(
+            IntegrationProvider::SatuSehat,
+            'room.ihs',
+            (int) $tenantId,
+            $room,
+            [
+                'room_id' => $room->id,
+                'branch_id' => $room->branch_id,
+                'organization_id' => $branchSetting->organization_id,
+                'location_id' => $branchSetting->location_id,
+            ],
+        );
+
+        $sync = new SatuSehatSync($settings, $branchSetting);
+
+        try {
+            $id = $sync->ensureRoomIhs($room);
+            $this->logger->finish($log, true, [
+                'ihs' => $id,
+                'exchanges' => $sync->exchanges,
+            ]);
+
+            return $id;
+        } catch (IntegrationException $exception) {
+            $this->logger->finish($log, false, [
+                'exchanges' => $sync->exchanges,
+            ], $exception->getMessage());
+
+            throw $exception;
         }
     }
 

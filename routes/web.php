@@ -193,6 +193,9 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::get('rooms/data', [RoomController::class, 'data'])
                     ->middleware('permission:room.view')
                     ->name('rooms.data');
+                Route::post('rooms/{room}/satusehat', [RoomController::class, 'fetchIhs'])
+                    ->middleware('permission:room.manage')
+                    ->name('rooms.satusehat');
                 Route::resource('rooms', RoomController::class);
             });
 

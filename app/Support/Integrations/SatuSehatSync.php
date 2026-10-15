@@ -837,7 +837,7 @@ class SatuSehatSync
         $room = $visit->room;
 
         if ($room && in_array($room->type, [RoomType::Poli, RoomType::Tindakan], true)) {
-            return $this->ensureRoomLocation($client, $visit, $room);
+            return $this->ensureRoomLocation($client, $room);
         }
 
         if ($room?->type === RoomType::Tunggu) {
@@ -885,7 +885,7 @@ class SatuSehatSync
     /**
      * @return array{id: string, name: string}
      */
-    protected function ensureRoomLocation(SatuSehatClient $client, Visit $visit, Room $room): array
+    protected function ensureRoomLocation(SatuSehatClient $client, Room $room): array
     {
         $organizationId = (string) $this->branch->organization_id;
         $identifier = filled($room->code) ? (string) $room->code : 'ROOM-'.$room->id;
@@ -901,7 +901,7 @@ class SatuSehatSync
             $client,
             'Location',
             $localKey,
-            $this->roomLocationPayload($visit, $room),
+            $this->roomLocationPayload($room),
             $room,
             $knownId,
         );
@@ -909,12 +909,52 @@ class SatuSehatSync
         return ['id' => $id, 'name' => $name];
     }
 
+    public function ensureRoomIhs(Room $room): string
+    {
+        if ($room->type !== RoomType::Poli) {
+            throw new IntegrationException('IHS hanya diambil untuk ruangan poli.');
+        }
+
+        $client = new SatuSehatClient($this->tenant, $this->branch);
+
+        try {
+            $localKey = 'location:room:'.$room->id;
+            $storedId = SatuSehatResource::withoutGlobalScopes()
+                ->where('tenant_id', $this->branch->tenant_id)
+                ->where('local_key', $localKey)
+                ->value('satusehat_id');
+
+            if (filled($storedId)) {
+                return (string) $storedId;
+            }
+
+            $organizationId = (string) $this->branch->organization_id;
+            $identifier = filled($room->code) ? (string) $room->code : 'ROOM-'.$room->id;
+            $knownId = $client->findByIdentifier(
+                'Location',
+                'http://sys-ids.kemkes.go.id/location/'.$organizationId,
+                $identifier,
+            );
+
+            if (filled($knownId)) {
+                $this->remember('Location', $localKey, $room, $knownId, true, null);
+
+                return $knownId;
+            }
+
+            return $this->ensureRoomLocation($client, $room)['id'];
+        } finally {
+            $this->exchanges = $client->exchanges;
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */
-    protected function roomLocationPayload(Visit $visit, Room $room): array
+    protected function roomLocationPayload(Room $room): array
     {
-        $branch = $visit->branch;
+        $room->loadMissing('branch');
+        $branch = $room->branch;
         $organizationId = (string) $this->branch->organization_id;
         $name = (string) $room->name;
         $managing = ['reference' => 'Organization/'.$organizationId];

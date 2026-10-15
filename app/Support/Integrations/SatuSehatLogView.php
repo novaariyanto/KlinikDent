@@ -84,6 +84,7 @@ final class SatuSehatLogView
         return match ($action) {
             'encounter.sync' => 'Pengiriman kunjungan',
             'patient.ihs' => 'Pencarian data pasien',
+            'room.ihs' => 'Pengambilan IHS ruangan',
             default => 'Pengiriman SATUSEHAT',
         };
     }

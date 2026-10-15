@@ -7,6 +7,16 @@
         @can('update', $room)
             <li><a class="dropdown-item" href="{{ route('management.rooms.edit', $room) }}"><i class="bx bx-edit me-1"></i> Edit</a></li>
         @endcan
+        @if ($room->type === \App\Enums\RoomType::Poli && ! filled($room->satusehatLocation?->satusehat_id))
+            @can('update', $room)
+                <li>
+                    <form action="{{ route('management.rooms.satusehat', $room) }}" method="POST">
+                        @csrf
+                        <button type="submit" class="dropdown-item"><i class="bx bx-cloud-download me-1"></i> Ambil IHS</button>
+                    </form>
+                </li>
+            @endcan
+        @endif
         @can('delete', $room)
             <li><hr class="dropdown-divider"></li>
             <li>

@@ -7,6 +7,8 @@ use App\Http\Requests\Room\StoreRoomRequest;
 use App\Http\Requests\Room\UpdateRoomRequest;
 use App\Models\Branch;
 use App\Models\Room;
+use App\Support\Integrations\IntegrationException;
+use App\Support\Integrations\IntegrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -23,6 +25,7 @@ class RoomController extends Controller
             ['data' => 'name', 'name' => 'name', 'title' => 'Ruangan'],
             ['data' => 'branch', 'name' => 'branch.name', 'title' => 'Cabang'],
             ['data' => 'type', 'name' => 'type', 'title' => 'Tipe'],
+            ['data' => 'ihs', 'name' => 'ihs', 'title' => 'IHS', 'orderable' => false, 'searchable' => false],
             ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
             ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
@@ -35,10 +38,21 @@ class RoomController extends Controller
     {
         $this->authorize('viewAny', Room::class);
 
-        return DataTables::eloquent(Room::query()->with('branch'))
+        return DataTables::eloquent(Room::query()->with(['branch', 'satusehatLocation']))
             ->addIndexColumn()
             ->addColumn('branch', fn (Room $room) => e($room->branch?->name ?: '-'))
             ->editColumn('type', fn (Room $room) => e($room->type->label()))
+            ->addColumn('ihs', function (Room $room) {
+                if ($room->type !== \App\Enums\RoomType::Poli) {
+                    return '<span class="text-muted">-</span>';
+                }
+
+                $ihs = $room->satusehatLocation?->satusehat_id;
+
+                return filled($ihs)
+                    ? '<code>'.e($ihs).'</code>'
+                    : '<span class="text-muted">-</span>';
+            })
             ->editColumn('is_active', function (Room $room) {
                 return $room->is_active
                     ? '<span class="badge bg-success">Aktif</span>'
@@ -46,7 +60,7 @@ class RoomController extends Controller
             })
             ->editColumn('created_at', fn (Room $room) => $room->created_at?->format('d M Y H:i'))
             ->addColumn('action', fn (Room $room) => view('management.rooms.partials.actions', compact('room'))->render())
-            ->rawColumns(['is_active', 'action'])
+            ->rawColumns(['is_active', 'ihs', 'action'])
             ->toJson();
     }
 
@@ -69,9 +83,22 @@ class RoomController extends Controller
     public function show(Room $room): View
     {
         $this->authorize('view', $room);
-        $room->load('branch');
+        $room->load(['branch', 'satusehatLocation']);
 
         return view('management.rooms.show', compact('room'));
+    }
+
+    public function fetchIhs(Room $room, IntegrationService $integrations): RedirectResponse
+    {
+        $this->authorize('update', $room);
+
+        try {
+            $ihs = $integrations->lookupRoomIhs($room);
+        } catch (IntegrationException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return back()->with('success', 'IHS ruangan '.$room->name.' tersimpan: '.$ihs);
     }
 
     public function edit(Room $room): View
