@@ -1,5 +1,6 @@
 @php
     $doctor = $doctor ?? null;
+    $isActive = filter_var(old('is_active', $doctor?->is_active ?? true), FILTER_VALIDATE_BOOLEAN);
 @endphp
 
 <div class="row">
@@ -24,9 +25,15 @@
         <x-input name="phone" label="Telepon" :value="$doctor?->phone" />
     </div>
     <div class="col-md-6">
-        <div class="form-check form-switch mb-3 mt-4">
-            <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1" @checked(old('is_active', $doctor?->is_active ?? true))>
-            <label class="form-check-label" for="is_active">Aktif praktik</label>
+        <div class="mb-3">
+            <label for="is_active" class="form-label">Status <span class="text-danger">*</span></label>
+            <select name="is_active" id="is_active" class="form-select @error('is_active') is-invalid @enderror" required>
+                <option value="1" @selected($isActive)>Aktif</option>
+                <option value="0" @selected(! $isActive)>Nonaktif</option>
+            </select>
+            @error('is_active')
+                <div class="invalid-feedback d-block">{{ $message }}</div>
+            @enderror
         </div>
     </div>
     <div class="col-12">

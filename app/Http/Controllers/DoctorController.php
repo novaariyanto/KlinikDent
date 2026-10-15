@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Enums\RoleName;
+use App\Enums\Weekday;
 use App\Http\Requests\Doctor\StoreDoctorRequest;
 use App\Http\Requests\Doctor\UpdateDoctorRequest;
 use App\Models\Branch;
@@ -10,79 +11,61 @@ use App\Models\Doctor;
 use App\Models\Room;
 use App\Models\User;
 use App\Support\Doctors\DoctorService;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Yajra\DataTables\Facades\DataTables;
 
 class DoctorController extends Controller
 {
     public function __construct(protected DoctorService $doctors) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
         $this->authorize('viewAny', Doctor::class);
 
-        $columns = [
-            ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
-            ['data' => 'name', 'name' => 'user.name', 'title' => 'Nama'],
-            ['data' => 'role', 'name' => 'role', 'title' => 'Peran', 'orderable' => false],
-            ['data' => 'specialization', 'name' => 'specialization', 'title' => 'Spesialisasi'],
-            ['data' => 'sip', 'name' => 'sip', 'title' => 'SIP'],
-            ['data' => 'nik', 'name' => 'nik', 'title' => 'NIK'],
-            ['data' => 'branch', 'name' => 'user.branch.name', 'title' => 'Cabang'],
-            ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
-            ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
+        $base = $this->visibleDoctors();
+        $filters = $this->indexFilters($request);
+
+        $stats = [
+            'total' => (clone $base)->count(),
+            'active' => (clone $base)->where('is_active', true)->count(),
+            'dentists' => (clone $base)->whereHas('user', fn (Builder $user) => $user->role(RoleName::Dentist->value))->count(),
+            'inactive' => (clone $base)->where('is_active', false)->count(),
         ];
 
-        $editDoctor = null;
-        if (old('_return') === 'index' && old('_doctor_id')) {
-            $editDoctor = Doctor::query()->with('user')->find(old('_doctor_id'));
-        }
+        $query = $this->visibleDoctors();
+        $this->applyIndexFilters($query, $filters);
 
-        return view('doctors.index', compact('columns', 'editDoctor'));
-    }
+        $doctors = $query
+            ->with([
+                'user.roles',
+                'user.branch',
+                'user.branches',
+                'schedules' => fn ($schedules) => $schedules->today()->active()->with(['branch', 'room']),
+            ])
+            ->orderBy(
+                User::query()->select('name')->whereColumn('users.id', 'doctors.user_id')->limit(1)
+            )
+            ->paginate(12)
+            ->withQueryString();
 
-    public function data(): JsonResponse
-    {
-        $this->authorize('viewAny', Doctor::class);
+        $branches = Branch::query()->orderBy('name');
+        $request->user()?->applyBranchLimit($branches, 'id');
 
-        $query = Doctor::query()->with(['user.roles', 'user.branch', 'user.branches']);
+        $roleOptions = collect(RoleName::cases())
+            ->filter(fn (RoleName $role) => $role->isMedicalStaff())
+            ->mapWithKeys(fn (RoleName $role) => [$role->value => $role->label()])
+            ->all();
 
-        $actor = auth()->user();
-        if ($actor) {
-            $ids = $actor->restrictedBranchIds();
-            if ($ids !== null) {
-                $query->whereHas('user', function ($userQuery) use ($ids) {
-                    $userQuery->whereIn('branch_id', $ids)
-                        ->orWhereHas('branches', fn ($branches) => $branches->whereIn('branches.id', $ids));
-                });
-            }
-        }
-
-        return DataTables::eloquent($query)
-            ->addIndexColumn()
-            ->addColumn('name', fn (Doctor $doctor) => e($doctor->displayName()))
-            ->addColumn('role', fn (Doctor $doctor) => '<span class="badge badge-soft-primary">'.e($doctor->roleLabel()).'</span>')
-            ->editColumn('specialization', fn (Doctor $doctor) => e($doctor->specialization ?: '-'))
-            ->editColumn('sip', fn (Doctor $doctor) => e($doctor->sip ?: '-'))
-            ->editColumn('nik', fn (Doctor $doctor) => e($doctor->nik ?: '-'))
-            ->addColumn('branch', function (Doctor $doctor) {
-                $names = $doctor->user?->branches->pluck('name') ?? collect();
-                if ($names->isEmpty() && $doctor->user?->branch) {
-                    $names = collect([$doctor->user->branch->name]);
-                }
-
-                return e($names->implode(', ') ?: '-');
-            })
-            ->editColumn('is_active', function (Doctor $doctor) {
-                return $doctor->is_active
-                    ? '<span class="badge bg-success">Aktif</span>'
-                    : '<span class="badge bg-danger">Nonaktif</span>';
-            })
-            ->addColumn('action', fn (Doctor $doctor) => view('doctors.partials.actions', compact('doctor'))->render())
-            ->rawColumns(['role', 'is_active', 'action'])
-            ->toJson();
+        return view('doctors.index', [
+            'doctors' => $doctors,
+            'stats' => $stats,
+            'filters' => $filters,
+            'branches' => $branches->get(),
+            'roleOptions' => $roleOptions,
+            'today' => Weekday::today(),
+        ]);
     }
 
     public function create(): View
@@ -131,6 +114,93 @@ class DoctorController extends Controller
         return redirect()
             ->route('doctors.index')
             ->with('success', 'Profil tenaga medis dihapus. Akun login tetap ada.');
+    }
+
+    /**
+     * @return Builder<Doctor>
+     */
+    protected function visibleDoctors(): Builder
+    {
+        $query = Doctor::query();
+        $actor = auth()->user();
+
+        if ($actor) {
+            $ids = $actor->restrictedBranchIds();
+            if ($ids !== null) {
+                $query->whereHas('user', function (Builder $userQuery) use ($ids) {
+                    $userQuery->whereIn('branch_id', $ids)
+                        ->orWhereHas('branches', fn (Builder $branches) => $branches->whereIn('branches.id', $ids));
+                });
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return array{q: string, role: string, status: string, branch: int|string}
+     */
+    protected function indexFilters(Request $request): array
+    {
+        $role = (string) $request->query('role', '');
+        if (! in_array($role, RoleName::medicalStaffValues(), true)) {
+            $role = '';
+        }
+
+        $status = (string) $request->query('status', '');
+        if (! in_array($status, ['active', 'inactive'], true)) {
+            $status = '';
+        }
+
+        $branchId = $request->integer('branch');
+        $allowed = $request->user()?->restrictedBranchIds();
+        if ($branchId <= 0 || ($allowed !== null && ! in_array($branchId, $allowed, true))) {
+            $branchId = 0;
+        }
+
+        return [
+            'q' => trim((string) $request->query('q', '')),
+            'role' => $role,
+            'status' => $status,
+            'branch' => $branchId > 0 ? $branchId : '',
+        ];
+    }
+
+    /**
+     * @param  Builder<Doctor>  $query
+     * @param  array{q: string, role: string, status: string, branch: int|string}  $filters
+     */
+    protected function applyIndexFilters(Builder $query, array $filters): void
+    {
+        if ($filters['q'] !== '') {
+            $like = '%'.addcslashes($filters['q'], '%_\\').'%';
+            $query->where(function (Builder $inner) use ($like) {
+                $inner->where('specialization', 'like', $like)
+                    ->orWhere('sip', 'like', $like)
+                    ->orWhere('str', 'like', $like)
+                    ->orWhere('nik', 'like', $like)
+                    ->orWhere('phone', 'like', $like)
+                    ->orWhereHas('user', function (Builder $user) use ($like) {
+                        $user->where('name', 'like', $like)->orWhere('email', 'like', $like);
+                    });
+            });
+        }
+
+        if ($filters['role'] !== '') {
+            $query->whereHas('user', fn (Builder $user) => $user->role($filters['role']));
+        }
+
+        if ($filters['status'] !== '') {
+            $query->where('is_active', $filters['status'] === 'active');
+        }
+
+        if ($filters['branch'] !== '') {
+            $branchId = (int) $filters['branch'];
+            $query->whereHas('user', function (Builder $user) use ($branchId) {
+                $user->where('branch_id', $branchId)
+                    ->orWhereHas('branches', fn (Builder $branches) => $branches->where('branches.id', $branchId));
+            });
+        }
     }
 
     /**

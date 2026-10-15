@@ -198,9 +198,6 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
 
             Route::get('/doctors/{doctor}/edit', [DoctorController::class, 'edit'])->name('doctors.edit');
             Route::match(['put', 'patch'], '/doctors/{doctor}', [DoctorController::class, 'update'])->name('doctors.update');
-            Route::get('/doctors/data', [DoctorController::class, 'data'])
-                ->middleware('permission:doctor.view')
-                ->name('doctors.data');
             Route::get('/doctors/schedule/today', [DoctorScheduleController::class, 'today'])
                 ->middleware('permission:schedule.view')
                 ->name('doctors.schedule.today');

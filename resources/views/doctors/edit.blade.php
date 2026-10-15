@@ -8,7 +8,7 @@
         if ($branchNames->isEmpty() && $doctor->user?->branch) {
             $branchNames = collect([$doctor->user->branch->name]);
         }
-        $active = (bool) old('is_active', $doctor->is_active);
+        $active = filter_var(old('is_active', $doctor->is_active), FILTER_VALIDATE_BOOLEAN);
     @endphp
 
     <x-page-header title="Edit {{ $doctor->displayName() }}" :breadcrumb="['Tenaga Medis' => route('doctors.index'), 'Edit' => null]" />
@@ -40,11 +40,16 @@
                         <div class="col-md-6">
                             <x-input name="phone" label="Telepon" :value="$doctor->phone" />
                         </div>
-                        <div class="col-12">
-                            <div class="form-check form-switch mb-3">
-                                <input type="hidden" name="is_active" value="0">
-                                <input class="form-check-input" type="checkbox" name="is_active" id="is_active" value="1" @checked($active)>
-                                <label class="form-check-label" for="is_active">Aktif praktik</label>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="is_active" class="form-label">Status <span class="text-danger">*</span></label>
+                                <select name="is_active" id="is_active" class="form-select @error('is_active') is-invalid @enderror" required>
+                                    <option value="1" @selected($active)>Aktif</option>
+                                    <option value="0" @selected(! $active)>Nonaktif</option>
+                                </select>
+                                @error('is_active')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
                             </div>
                         </div>
                         <div class="col-12">
