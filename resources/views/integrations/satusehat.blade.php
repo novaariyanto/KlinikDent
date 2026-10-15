@@ -85,8 +85,32 @@
                                 placeholder=""
                                 required
                             />
-                            <p class="text-muted small">Client ID dan Client Secret diambil dari Kode Akses API environment yang sama. Sandbox memakai api-satusehat-stg.dto.kemkes.go.id. Setelah percobaan gagal, tunggu satu menit sebelum uji lagi.</p>
+                            <x-input name="base_url" label="Base URL" :value="old('base_url', $branchSetting->base_url ?: $branchSetting->baseUrl())" />
+                            <x-input name="token_url" label="Token URL" :value="old('token_url', $branchSetting->token_url ?: $branchSetting->tokenUrl())" />
+                            <p class="text-muted small">Base URL dan Token URL dibaca dari isian ini. Ganti environment hanya mengisi ulang URL bawaan jika isian masih URL resmi SATUSEHAT.</p>
                             <x-input name="organization_id" label="Organization ID" :value="old('organization_id', $branchSetting->organization_id)" />
+                            <script>
+                                document.getElementById('environment')?.addEventListener('change', function () {
+                                    var urls = {
+                                        sandbox: {
+                                            base_url: 'https://api-satusehat-stg.dto.kemkes.go.id',
+                                            token_url: 'https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1/accesstoken?grant_type=client_credentials'
+                                        },
+                                        production: {
+                                            base_url: 'https://api-satusehat.kemkes.go.id',
+                                            token_url: 'https://api-satusehat.kemkes.go.id/oauth2/v1/accesstoken?grant_type=client_credentials'
+                                        }
+                                    };
+                                    var next = urls[this.value];
+                                    if (!next) return;
+                                    ['base_url', 'token_url'].forEach(function (name) {
+                                        var input = document.getElementById(name);
+                                        if (!input) return;
+                                        var known = Object.values(urls).some(function (item) { return item[name] === input.value; });
+                                        if (input.value === '' || known) input.value = next[name];
+                                    });
+                                });
+                            </script>
                             <x-input name="client_id" label="Client ID" :value="old('client_id', $branchSetting->client_id)" />
                             <x-input name="client_secret" type="password" label="Client Secret" placeholder="{{ $branchSetting->hasSecret() ? 'Tersimpan — isi ulang untuk mengganti' : '' }}" autocomplete="new-password" />
                             <x-button type="submit" icon="bx bx-save">Simpan pengaturan</x-button>

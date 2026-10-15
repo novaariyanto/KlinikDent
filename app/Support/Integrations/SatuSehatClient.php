@@ -326,13 +326,17 @@ class SatuSehatClient
 
         // POST /oauth2/v1/accesstoken?grant_type=client_credentials
         // Body application/x-www-form-urlencoded: client_id, client_secret.
-        $response = $this->http()
-            ->asForm()
-            ->withQueryParameters(['grant_type' => 'client_credentials'])
-            ->post($this->branch->baseUrl().'/oauth2/v1/accesstoken', [
-                'client_id' => trim((string) $this->branch->client_id),
-                'client_secret' => trim((string) $this->branch->client_secret),
-            ]);
+        $endpoint = $this->branch->tokenUrl();
+        $pending = $this->http()->asForm();
+
+        if (! str_contains($endpoint, 'grant_type=')) {
+            $pending = $pending->withQueryParameters(['grant_type' => 'client_credentials']);
+        }
+
+        $response = $pending->post($endpoint, [
+            'client_id' => trim((string) $this->branch->client_id),
+            'client_secret' => trim((string) $this->branch->client_secret),
+        ]);
 
         if (! $response->successful() || ! filled($response->json('access_token'))) {
             Cache::put($this->tokenBlockKey(), true, 60);

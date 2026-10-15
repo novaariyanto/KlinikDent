@@ -19,6 +19,8 @@ class BranchSatuSehatSetting extends Model
         'tenant_id',
         'branch_id',
         'environment',
+        'base_url',
+        'token_url',
         'organization_id',
         'organization_name',
         'client_id',
@@ -66,9 +68,26 @@ class BranchSatuSehatSetting extends Model
 
     public function baseUrl(): string
     {
-        $environments = config('integrations.satusehat.environments');
+        $configured = trim((string) $this->base_url);
 
-        return (string) ($environments[$this->environment]['base_url'] ?? $environments['sandbox']['base_url']);
+        if ($configured !== '') {
+            return rtrim($configured, '/');
+        }
+
+        return $this->isProduction()
+            ? 'https://api-satusehat.kemkes.go.id'
+            : 'https://api-satusehat-stg.dto.kemkes.go.id';
+    }
+
+    public function tokenUrl(): string
+    {
+        $configured = trim((string) $this->token_url);
+
+        if ($configured !== '') {
+            return $configured;
+        }
+
+        return $this->baseUrl().'/oauth2/v1/accesstoken?grant_type=client_credentials';
     }
 
     public function readyToSync(): bool

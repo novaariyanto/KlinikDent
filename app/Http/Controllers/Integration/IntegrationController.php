@@ -211,9 +211,13 @@ class IntegrationController extends Controller
         $organizationId = $data['organization_id'] ?: null;
         $clientId = $data['client_id'] ?: null;
         $secret = $data['client_secret'] ?? null;
+        $baseUrl = filled($data['base_url'] ?? null) ? rtrim((string) $data['base_url'], '/') : null;
+        $tokenUrl = filled($data['token_url'] ?? null) ? trim((string) $data['token_url']) : null;
         $organizationChanged = (string) $setting->organization_id !== (string) $organizationId;
         $credentialsChanged = ! $setting->exists
             || $setting->environment !== $data['environment']
+            || (string) $setting->base_url !== (string) $baseUrl
+            || (string) $setting->token_url !== (string) $tokenUrl
             || $organizationChanged
             || (string) $setting->client_id !== (string) $clientId
             || (filled($secret) && $secret !== $setting->client_secret);
@@ -225,6 +229,8 @@ class IntegrationController extends Controller
 
         $setting->tenant_id = $branch->tenant_id;
         $setting->environment = $data['environment'];
+        $setting->base_url = $baseUrl;
+        $setting->token_url = $tokenUrl;
         $setting->organization_id = $organizationId;
         $setting->client_id = $clientId;
 
