@@ -13,7 +13,6 @@ final class CareExamOptions
             'normal' => 'Normal Bite',
             'cross' => 'Cross Bite',
             'steep' => 'Steep Bite',
-            'deep' => 'Deep Bite',
         ];
     }
 
@@ -23,7 +22,7 @@ final class CareExamOptions
     public static function torus(): array
     {
         return [
-            'none' => 'Tidak Ada',
+            'none' => 'Tidak ada',
             'small' => 'Kecil',
             'medium' => 'Sedang',
             'large' => 'Besar',
@@ -39,7 +38,7 @@ final class CareExamOptions
     public static function torusMandibularis(): array
     {
         return [
-            'none' => 'Tidak Ada',
+            'none' => 'Tidak ada',
             'left' => 'Sisi Kiri',
             'right' => 'Sisi Kanan',
             'both' => 'Kedua Sisi',

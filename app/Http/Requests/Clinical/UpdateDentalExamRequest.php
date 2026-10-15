@@ -28,7 +28,7 @@ class UpdateDentalExamRequest extends FormRequest
         return [
             'occlusion' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::occlusion()))],
             'torus_palatinus' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::torus()))],
-            'torus_mandibularis' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::torusMandibularis() + CareExamOptions::torus()))],
+            'torus_mandibularis' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::torusMandibularis()))],
             'palate' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::palate()))],
             'gingiva' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::gingiva()))],
             'mucosa' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::mucosa()))],

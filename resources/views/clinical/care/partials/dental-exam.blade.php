@@ -23,7 +23,7 @@
                             <textarea name="intraoral_note" id="intraoral_note" rows="2" class="form-control">{{ $exam['intraoral_note'] ?? '' }}</textarea>
                         </div>
 
-                        @include('clinical.care.partials.choice-group', ['name' => 'occlusion', 'label' => 'Occlusi', 'options' => $examOptions['occlusion'], 'selected' => $exam['occlusion'] ?? null])
+                        @include('clinical.care.partials.choice-group', ['name' => 'occlusion', 'label' => 'Occlusi', 'options' => $examOptions['occlusion'], 'selected' => ($exam['occlusion'] ?? null) === 'deep' ? 'steep' : ($exam['occlusion'] ?? null)])
                         @include('clinical.care.partials.choice-group', ['name' => 'gingiva', 'label' => 'Gingiva', 'options' => $examOptions['gingiva'], 'selected' => $exam['gingiva'] ?? 'normal'])
                         @include('clinical.care.partials.choice-group', ['name' => 'mucosa', 'label' => 'Mukosa', 'options' => $examOptions['mucosa'], 'selected' => $exam['mucosa'] ?? 'normal'])
                         @include('clinical.care.partials.choice-group', ['name' => 'palate', 'label' => 'Palatum', 'options' => $examOptions['palate'], 'selected' => $exam['palate'] ?? null])
@@ -34,8 +34,7 @@
                             'label' => 'Torus Mandibularis',
                             'options' => $examOptions['torus_mandibularis'],
                             'selected' => $mandibularisKnown ? ($exam['torus_mandibularis'] ?? 'none') : null,
-                            'fallback' => $mandibularisKnown ? null : ($exam['torus_mandibularis'] ?? null),
-                            'hint' => $mandibularisKnown ? null : 'Nilai lama (ukuran) tidak dikirim. Pilih sisi kiri, kanan, atau kedua sisi.',
+                            'hint' => $mandibularisKnown ? null : 'Nilai lama berupa ukuran. Pilih Tidak ada, Sisi Kiri, Sisi Kanan, atau Kedua Sisi.',
                         ])
 
                         @include('clinical.care.partials.choice-group', ['name' => 'diastema', 'label' => 'Diastema', 'options' => $examOptions['presence'], 'selected' => $exam['diastema'] ?? 'none', 'reveal' => 'diastema'])

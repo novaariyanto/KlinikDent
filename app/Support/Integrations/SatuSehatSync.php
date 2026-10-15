@@ -4,6 +4,7 @@ namespace App\Support\Integrations;
 
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
+use App\Support\Clinical\CareExamOptions;
 use App\Models\BranchSatuSehatSetting;
 use App\Models\Diagnosis;
 use App\Models\Doctor;
@@ -439,6 +440,22 @@ class SatuSehatSync
             filled($exam['anomaly_description'] ?? null) ? (string) $exam['anomaly_description'] : null,
         );
 
+        $this->send(
+            $client,
+            'Observation',
+            'observation:other-oral:'.$visit->id,
+            $this->observationBase(
+                $patientIhs,
+                $practitionerIhs,
+                $encounterId,
+                $at,
+                'exam',
+                'Exam',
+                SatuSehatCodes::coding(SatuSehatCodes::CLINICAL, 'OC000060', 'Kondisi Gigi dan Mulut Lainnya'),
+            ) + ['valueString' => $this->otherOralCondition($exam)],
+            $visit->medicalRecord,
+        );
+
         $this->sendOdontogram($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $at);
         $this->sendToothCounts($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $at);
     }
@@ -524,6 +541,46 @@ class SatuSehatSync
             ],
             $visit->medicalRecord,
         );
+    }
+
+    /**
+     * Playbook OC000060 memakai teks bebas. Default resmi bila tidak ada temuan: "Tidak ada".
+     *
+     * @param  array<string, mixed>  $exam
+     */
+    protected function otherOralCondition(array $exam): string
+    {
+        $parts = [];
+
+        if (($exam['extraoral'] ?? null) === 'abnormal') {
+            $parts[] = 'Ekstraoral: '.(filled($exam['extraoral_note'] ?? null) ? $exam['extraoral_note'] : 'Ada kelainan');
+        }
+
+        if (($exam['intraoral'] ?? null) === 'abnormal') {
+            $parts[] = 'Intraoral: '.(filled($exam['intraoral_note'] ?? null) ? $exam['intraoral_note'] : 'Ada kelainan');
+        }
+
+        $gingiva = (string) ($exam['gingiva'] ?? '');
+
+        if ($gingiva !== '' && $gingiva !== 'normal') {
+            $parts[] = 'Gingiva: '.(CareExamOptions::gingiva()[$gingiva] ?? $gingiva);
+        }
+
+        $mucosa = (string) ($exam['mucosa'] ?? '');
+
+        if ($mucosa !== '' && $mucosa !== 'normal') {
+            $parts[] = 'Mukosa: '.(CareExamOptions::mucosa()[$mucosa] ?? $mucosa);
+        }
+
+        if (($exam['supernumerary'] ?? null) === 'present') {
+            $parts[] = 'Gigi supernumerary: '.(filled($exam['supernumerary_teeth'] ?? null) ? $exam['supernumerary_teeth'] : 'Ada');
+        }
+
+        if (filled($exam['habits'] ?? null)) {
+            $parts[] = (string) $exam['habits'];
+        }
+
+        return $parts === [] ? 'Tidak ada' : implode('. ', $parts);
     }
 
     protected function sendOdontogram(

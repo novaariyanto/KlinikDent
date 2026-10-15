@@ -56,7 +56,7 @@
         <x-card title="Kelengkapan data">
             <p class="mb-1">Dokter tanpa NIK: <strong>{{ $readiness['doctors_missing_nik'] }}</strong></p>
             <p class="mb-1">Pasien cabang ini tanpa NIK: <strong>{{ $readiness['patients_missing_nik'] }}</strong></p>
-            <p class="mb-0 text-muted small">Sinkron terakhir: {{ $stats['last_synced_at'] ? \Illuminate\Support\Carbon::parse($stats['last_synced_at'])->timezone(config('app.timezone'))->format('d M Y H:i') : 'belum ada' }}. OHIS, golongan darah, dan farmasi tidak dikirim. Torus mandibularis terkirim bila nilainya Tidak Ada, Sisi Kiri, Sisi Kanan, atau Kedua Sisi.</p>
+            <p class="mb-0 text-muted small">Sinkron terakhir: {{ $stats['last_synced_at'] ? \Illuminate\Support\Carbon::parse($stats['last_synced_at'])->timezone(config('app.timezone'))->format('d M Y H:i') : 'belum ada' }}. Ekstraoral, intraoral, gingiva, mukosa, gigi supernumerary, dan kebiasaan dikirim sebagai Kondisi Gigi dan Mulut Lainnya. OHIS, golongan darah, dan farmasi tidak dikirim.</p>
         </x-card>
 
         <div class="row">
@@ -213,6 +213,89 @@
     @endif
 
     <x-card title="Log SATUSEHAT cabang ini">
-        @include('saas.partials.integration-logs', ['logs' => $logs])
+        <form id="ss-log-filter" class="row g-2 align-items-end mb-3">
+            <div class="col-md-3">
+                <label class="form-label" for="ss-log-from">Dari</label>
+                <input id="ss-log-from" type="date" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="ss-log-to">Sampai</label>
+                <input id="ss-log-to" type="date" class="form-control">
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+                <x-button type="submit" variant="secondary" icon="bx bx-filter-alt">Filter</x-button>
+                <x-button type="button" variant="light" id="ss-log-reset">Reset</x-button>
+            </div>
+        </form>
+        <x-data-table
+            id="ss-logs-table"
+            :ajax="route('integrations.satusehat.logs')"
+            :columns="$logColumns"
+            :order="[[0, 'desc']]"
+            data-branch-id="{{ $branch?->id }}"
+        />
     </x-card>
+
+    <x-modal id="ss-log-modal" title="Detail log" size="modal-lg">
+        <p class="mb-2" id="ss-log-meta"></p>
+        <p class="text-danger small mb-3" id="ss-log-error" hidden></p>
+        <div class="row g-2">
+            <div class="col-md-6">
+                <div class="text-muted small mb-1">Request</div>
+                <pre class="small mb-0" id="ss-log-request" style="max-height:360px;overflow:auto"></pre>
+            </div>
+            <div class="col-md-6">
+                <div class="text-muted small mb-1">Response</div>
+                <pre class="small mb-0" id="ss-log-response" style="max-height:360px;overflow:auto"></pre>
+            </div>
+        </div>
+    </x-modal>
 @endsection
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var table = document.getElementById('ss-logs-table');
+    var filter = document.getElementById('ss-log-filter');
+    if (!table || !filter || !window.initServerDataTable) return;
+
+    var dt = window.initServerDataTable(table, {
+        ajax: {
+            url: table.dataset.ajax,
+            data: function (payload) {
+                payload.branch_id = table.dataset.branchId || '';
+                payload.date_from = document.getElementById('ss-log-from').value;
+                payload.date_to = document.getElementById('ss-log-to').value;
+            }
+        }
+    });
+
+    filter.addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (dt) dt.ajax.reload();
+    });
+
+    document.getElementById('ss-log-reset').addEventListener('click', function () {
+        document.getElementById('ss-log-from').value = '';
+        document.getElementById('ss-log-to').value = '';
+        if (dt) dt.ajax.reload();
+    });
+
+    document.addEventListener('click', function (event) {
+        var button = event.target.closest('.js-ss-log');
+        if (!button || !window.axios || !window.bootstrap) return;
+
+        window.axios.get(button.dataset.url).then(function (response) {
+            var data = response.data || {};
+            document.getElementById('ss-log-meta').textContent = (data.created_at || '') + (data.action ? ' · ' + data.action : '');
+            var error = document.getElementById('ss-log-error');
+            error.hidden = !data.error;
+            error.textContent = data.error || '';
+            document.getElementById('ss-log-request').textContent = data.request || '-';
+            document.getElementById('ss-log-response').textContent = data.response || '-';
+            window.bootstrap.Modal.getOrCreateInstance(document.getElementById('ss-log-modal')).show();
+        });
+    });
+});
+</script>
+@endpush

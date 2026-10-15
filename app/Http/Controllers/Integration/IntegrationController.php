@@ -25,11 +25,13 @@ use App\Models\Visit;
 use App\Support\Integrations\IntegrationException;
 use App\Support\Integrations\IntegrationService;
 use App\Support\Integrations\SatuSehatClient;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Yajra\DataTables\Facades\DataTables;
 
 class IntegrationController extends Controller
 {
@@ -107,12 +109,74 @@ class IntegrationController extends Controller
                     })->count()
                     : 0,
             ],
-            'logs' => IntegrationLog::query()
-                ->where('provider', IntegrationProvider::SatuSehat)
-                ->when($branch, fn ($query) => $query->where('request_payload->branch_id', $branch->id))
-                ->latest('id')
-                ->limit(30)
-                ->get(),
+            'logColumns' => [
+                ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Waktu'],
+                ['data' => 'action', 'name' => 'action', 'title' => 'Aksi'],
+                ['data' => 'status', 'name' => 'status', 'title' => 'Status', 'searchable' => false],
+                ['data' => 'error_message', 'name' => 'error_message', 'title' => 'Error'],
+                ['data' => 'detail', 'name' => 'detail', 'title' => '', 'orderable' => false, 'searchable' => false, 'className' => 'text-end', 'width' => '90px'],
+            ],
+        ]);
+    }
+
+    public function satusehatLogs(Request $request): JsonResponse
+    {
+        abort_unless($request->user()?->can('satusehat.view'), 403);
+
+        $validated = $request->validate([
+            'branch_id' => ['nullable', 'integer'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
+
+        $branchId = (int) ($validated['branch_id'] ?? 0);
+
+        if ($branchId > 0) {
+            abort_unless($request->user()?->canAccessBranch($branchId), 403);
+        }
+
+        $query = IntegrationLog::query()
+            ->where('provider', IntegrationProvider::SatuSehat)
+            ->when($branchId > 0, fn ($builder) => $builder->where('request_payload->branch_id', $branchId))
+            ->when(filled($validated['date_from'] ?? null), fn ($builder) => $builder->whereDate('created_at', '>=', $validated['date_from']))
+            ->when(filled($validated['date_to'] ?? null), fn ($builder) => $builder->whereDate('created_at', '<=', $validated['date_to']));
+
+        return DataTables::eloquent($query)
+            ->editColumn('created_at', fn (IntegrationLog $log) => $log->created_at?->timezone(config('app.timezone'))->format('d M Y H:i'))
+            ->editColumn('status', fn (IntegrationLog $log) => '<span class="'.$log->status->badgeClass().'">'.e($log->status->label()).'</span>')
+            ->editColumn('error_message', function (IntegrationLog $log) {
+                $message = trim((string) $log->error_message);
+
+                return $message === ''
+                    ? '<span class="text-muted">-</span>'
+                    : e(\Illuminate\Support\Str::limit($message, 120));
+            })
+            ->addColumn('detail', function (IntegrationLog $log) {
+                return '<button type="button" class="btn btn-sm btn-soft-secondary js-ss-log" data-url="'.e(route('integrations.satusehat.logs.show', $log)).'">Detail</button>';
+            })
+            ->rawColumns(['status', 'error_message', 'detail'])
+            ->toJson();
+    }
+
+    public function satusehatLogShow(Request $request, IntegrationLog $log): JsonResponse
+    {
+        abort_unless($request->user()?->can('satusehat.view'), 403);
+        abort_unless($log->provider === IntegrationProvider::SatuSehat, 404);
+
+        $branchId = (int) data_get($log->request_payload, 'branch_id');
+
+        if ($branchId > 0) {
+            abort_unless($request->user()?->canAccessBranch($branchId), 403);
+        }
+
+        $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+
+        return response()->json([
+            'action' => $log->action,
+            'created_at' => $log->created_at?->timezone(config('app.timezone'))->format('d M Y H:i'),
+            'error' => $log->error_message,
+            'request' => json_encode($log->request_payload, $flags),
+            'response' => json_encode($log->response_payload, $flags),
         ]);
     }
 
