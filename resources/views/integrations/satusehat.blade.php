@@ -113,6 +113,9 @@
                             </script>
                             <x-input name="client_id" label="Client ID" :value="old('client_id', $branchSetting->client_id)" />
                             <x-input name="client_secret" type="password" label="Client Secret" placeholder="{{ $branchSetting->hasSecret() ? 'Tersimpan — isi ulang untuk mengganti' : '' }}" autocomplete="new-password" />
+                            @if ($branchSetting->secretIsUnreadable())
+                                <p class="text-danger small">Client secret tersimpan tidak bisa dibuka. Isi ulang, lalu simpan.</p>
+                            @endif
                             <x-button type="submit" icon="bx bx-save">Simpan pengaturan</x-button>
                         </form>
                         <form method="POST" action="{{ route('integrations.satusehat.test') }}" class="mt-3">
