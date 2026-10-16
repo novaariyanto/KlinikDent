@@ -22,7 +22,18 @@
                                 @endif
                             </td>
                         </tr>
-                        <tr><th>Satuan</th><td>{{ $medicine->unitLabel() }}</td></tr>
+                        <tr>
+                            <th>Kekuatan zat aktif</th>
+                            <td>
+                                @if ($medicine->strengthLabel())
+                                    {{ $medicine->strengthLabel() }}
+                                @else
+                                    <span class="text-muted">Belum diisi</span>
+                                    <span class="text-muted small d-block">Dipakai otomatis saat racikan d.t.d (SD).</span>
+                                @endif
+                            </td>
+                        </tr>
+                        <tr><th>Satuan kemasan</th><td>{{ $medicine->unitLabel() }}</td></tr>
                         <tr><th>Kategori</th><td>{{ $medicine->categoryLabel() }}</td></tr>
                         <tr><th>Harga Dasar</th><td>Rp {{ number_format((float) $medicine->base_price, 0, ',', '.') }}</td></tr>
                         <tr><th>Margin</th><td>{{ \App\Models\Medicine::MARGIN_TYPES[$medicine->margin_type] ?? $medicine->margin_type }} ({{ $medicine->marginLabel() }})</td></tr>

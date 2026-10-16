@@ -12,6 +12,8 @@
             <thead>
                 <tr>
                     <th>Obat</th>
+                    <th>KFA</th>
+                    <th>Kekuatan</th>
                     <th>Cabang</th>
                     <th>Batch</th>
                     <th>Expired</th>
@@ -23,6 +25,8 @@
                 @forelse ($stocks as $stock)
                     <tr class="{{ $stock->isExpired() ? 'table-danger' : 'table-warning' }}">
                         <td>{{ $stock->medicine?->name }}</td>
+                        <td>{{ $stock->medicine?->kfa_code ?: '—' }}</td>
+                        <td>{{ $stock->medicine?->strengthLabel() ?: '—' }}</td>
                         <td>{{ $stock->branch?->name }}</td>
                         <td>{{ $stock->batch_number }}</td>
                         <td>{{ $stock->expired_date?->format('d M Y') }}</td>
@@ -36,7 +40,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="text-muted">Tidak ada batch expired / hampir expired.</td></tr>
+                    <tr><td colspan="8" class="text-muted">Tidak ada batch expired / hampir expired.</td></tr>
                 @endforelse
             </tbody>
         </x-table>

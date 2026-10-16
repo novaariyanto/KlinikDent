@@ -152,6 +152,16 @@ final class SatuSehatPayloadValidator
                 'Validasi lokal gagal ['.$localKey.']: MedicationRequest.subject.reference wajib diisi.'
             );
         }
+
+        $quantity = $payload['dispenseRequest']['quantity'] ?? null;
+        $system = is_array($quantity) ? (string) ($quantity['system'] ?? '') : '';
+        $code = is_array($quantity) ? (string) ($quantity['code'] ?? '') : '';
+
+        if ($system === '' || $code === '') {
+            throw IntegrationException::permanent(
+                'Validasi lokal gagal ['.$localKey.']: MedicationRequest.dispenseRequest.quantity wajib punya system dan code (OrderableDrugForm/UCUM/SNOMED).'
+            );
+        }
     }
 
     /**
@@ -167,8 +177,21 @@ final class SatuSehatPayloadValidator
             return $match[1];
         }
 
-        if (preg_match('/Validasi lokal gagal \[[^\]]+\]:\s*([A-Za-z0-9.]+)/i', $message, $match) === 1) {
-            return $match[1];
+        foreach ([
+            'Medication.extension',
+            'Medication.code',
+            'Medication.ingredient',
+            'ServiceRequest.code',
+            'ServiceRequest.subject',
+            'ServiceRequest.status',
+            'ServiceRequest.intent',
+            'MedicationRequest.dispenseRequest.quantity',
+            'MedicationRequest.subject',
+            'MedicationRequest',
+        ] as $element) {
+            if (str_contains($message, $element)) {
+                return $element;
+            }
         }
 
         return null;

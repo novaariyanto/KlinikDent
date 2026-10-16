@@ -17,8 +17,9 @@ final class SatuSehatLogView
      *     encounter_id: string|null,
      *     visit_id: int|string|null,
      *     skipped: list<string>,
-     *     steps: list<array{title: string, method: string, ok: bool, result: string, note: string|null}>,
-     *     resources: list<array{type: string, state: string, label: string, badge: string, items: list<array{title: string, ok: bool, result: string, note: string|null}>}>,
+     *     failures: list<array{type: string, local_key: string, error: string, stage: string, element: ?string, http_status: ?int}>,
+     *     steps: list<array{title: string, method: string, ok: bool, result: string, note: string|null, local_key: ?string, http_status: ?int, element: ?string}>,
+     *     resources: list<array{type: string, state: string, label: string, badge: string, items: list<array{title: string, ok: bool, result: string, note: string|null, local_key: ?string, http_status: ?int, element: ?string}>}>,
      *     request_json: string,
      *     response_json: string
      * }
@@ -28,6 +29,7 @@ final class SatuSehatLogView
         $request = is_array($log->request_payload) ? $log->request_payload : [];
         $response = is_array($log->response_payload) ? $log->response_payload : [];
         $skipped = self::skipped($response);
+        $failures = self::failures($response);
         $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
 
         return [
@@ -41,11 +43,47 @@ final class SatuSehatLogView
                 : null,
             'visit_id' => is_scalar($request['visit_id'] ?? null) ? $request['visit_id'] : null,
             'skipped' => $skipped,
+            'failures' => $failures,
             'steps' => self::steps($request, $response),
             'resources' => self::resources($request, $response),
             'request_json' => (string) json_encode($request, $flags),
             'response_json' => (string) json_encode($response, $flags),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     * @return list<array{type: string, local_key: string, error: string, stage: string, element: ?string, http_status: ?int}>
+     */
+    private static function failures(array $response): array
+    {
+        $rows = [];
+
+        foreach ($response['failures'] ?? [] as $failure) {
+            if (! is_array($failure)) {
+                continue;
+            }
+
+            $error = self::text($failure['error'] ?? null);
+
+            if ($error === null) {
+                continue;
+            }
+
+            $rows[] = [
+                'type' => (string) ($failure['type'] ?? 'Resource'),
+                'local_key' => (string) ($failure['local_key'] ?? '-'),
+                'error' => $error,
+                'stage' => (string) ($failure['stage'] ?? 'remote'),
+                'element' => self::text($failure['element'] ?? null)
+                    ?? SatuSehatPayloadValidator::fhirElementFromMessage($error),
+                'http_status' => isset($failure['http_status']) && is_numeric($failure['http_status'])
+                    ? (int) $failure['http_status']
+                    : null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -93,7 +131,7 @@ final class SatuSehatLogView
     /**
      * @param  array<string, mixed>  $request
      * @param  array<string, mixed>  $response
-     * @return list<array{title: string, ok: bool, result: string, note: string|null}>
+     * @return list<array{title: string, method: string, ok: bool, result: string, note: string|null, local_key: ?string, http_status: ?int, element: ?string}>
      */
     private static function steps(array $request, array $response): array
     {
@@ -108,13 +146,17 @@ final class SatuSehatLogView
             $replyBody = is_array($reply['body'] ?? null) ? $reply['body'] : [];
             $status = isset($reply['status']) && is_numeric($reply['status']) ? (int) $reply['status'] : null;
             $ok = $status !== null && $status >= 200 && $status < 300;
+            $note = $ok ? null : self::issue($replyBody);
 
             $steps[] = [
                 'title' => self::title($call, $body),
                 'method' => strtoupper((string) ($call['method'] ?? '')),
                 'ok' => $ok,
                 'result' => self::resultLabel($status),
-                'note' => $ok ? null : self::issue($replyBody),
+                'note' => $note,
+                'local_key' => self::text($call['local_key'] ?? $reply['local_key'] ?? null),
+                'http_status' => $status,
+                'element' => $ok ? null : SatuSehatPayloadValidator::fhirElementFromMessage($note),
             ];
         }
 
@@ -147,6 +189,11 @@ final class SatuSehatLogView
             'Condition' => self::labeled('Diagnosis', self::text($body['code']['text'] ?? null) ?? self::codingDisplay($body['code'] ?? null)),
             'Procedure' => self::labeled('Tindakan', self::codingDisplay($body['code'] ?? null)),
             'Observation' => self::labeled('Pemeriksaan', self::observationName($body)),
+            'Medication' => self::labeled('Obat', self::codingDisplay($body['code'] ?? null) ?? self::text($body['code']['text'] ?? null)),
+            'MedicationRequest' => 'Resep obat',
+            'MedicationDispense' => 'Penyerahan obat',
+            'ServiceRequest' => self::labeled('Rujukan/permintaan', self::codingDisplay($body['code'] ?? null) ?? self::text($body['code']['text'] ?? null)),
+            'ClinicalImpression' => 'Prognosis',
             'Patient' => 'Mendaftarkan pasien',
             'Practitioner' => 'Mendaftarkan dokter',
             default => $type !== '' ? 'Mengirim '.$type : 'Mengirim data',
@@ -290,6 +337,11 @@ final class SatuSehatLogView
             'Condition',
             'Observation',
             'Procedure',
+            'Medication',
+            'MedicationRequest',
+            'MedicationDispense',
+            'ServiceRequest',
+            'ClinicalImpression',
             'Location',
         ];
     }

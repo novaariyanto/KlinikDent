@@ -94,7 +94,7 @@ class CareController extends Controller
             'diagnoses',
             'procedureRecords.procedure',
             'prescriptions.items.medicine',
-            'prescriptions.items.ingredients',
+            'prescriptions.items.ingredients.medicine',
             'prescriptions.doctor',
             'referrals',
         ]);
@@ -466,11 +466,19 @@ class CareController extends Controller
                 continue;
             }
 
+            $stockMedicine = filled($ingredient['medicine_id'] ?? null)
+                ? \App\Models\Medicine::query()->find($ingredient['medicine_id'])
+                : null;
+
             $item->ingredients()->create([
                 'medicine_id' => $ingredient['medicine_id'] ?: null,
                 'name' => $ingredient['name'],
                 'unit' => $ingredient['unit'] ?? null,
                 'quantity' => $ingredient['quantity'],
+                'strength_value' => $ingredient['strength_value']
+                    ?? $stockMedicine?->strength_value,
+                'strength_unit' => $ingredient['strength_unit']
+                    ?? $stockMedicine?->strength_unit,
             ]);
         }
 

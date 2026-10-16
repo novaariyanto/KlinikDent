@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\MedicationTypeCode;
 use App\Enums\PrescriptionItemKind;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -18,6 +19,7 @@ class PrescriptionItem extends Model
     protected $fillable = [
         'prescription_id',
         'kind',
+        'medication_type',
         'medicine_id',
         'dosage',
         'frequency',
@@ -33,6 +35,7 @@ class PrescriptionItem extends Model
         return [
             'prescription_id' => 'integer',
             'kind' => PrescriptionItemKind::class,
+            'medication_type' => MedicationTypeCode::class,
             'medicine_id' => 'integer',
             'quantity' => 'integer',
         ];

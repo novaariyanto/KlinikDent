@@ -21,7 +21,9 @@
                 <tbody>
                     @foreach ($order->items as $item)
                         <tr>
-                            <td>{{ $item->medicine?->name }}</td>
+                            <td>
+                                <x-medicine-meta :medicine="$item->medicine" show-missing-kfa />
+                            </td>
                             <td>{{ $item->quantity }}</td>
                             <td>
                                 <input class="form-control" name="items[{{ $item->id }}][batch_number]" value="{{ old('items.'.$item->id.'.batch_number') }}" required>

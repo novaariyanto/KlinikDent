@@ -26,7 +26,9 @@
             <tbody>
                 @foreach ($order->items as $item)
                     <tr>
-                        <td>{{ $item->medicine?->name }}</td>
+                        <td>
+                            <x-medicine-meta :medicine="$item->medicine" show-missing-kfa />
+                        </td>
                         <td>{{ $item->quantity }}</td>
                         <td>{{ number_format((float) $item->unit_price, 0, ',', '.') }}</td>
                         <td>{{ $item->batch_number ?: '-' }}</td>

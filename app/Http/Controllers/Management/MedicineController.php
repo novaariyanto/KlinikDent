@@ -21,6 +21,7 @@ class MedicineController extends Controller
             ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Obat'],
             ['data' => 'kfa_code', 'name' => 'kfa_code', 'title' => 'KFA'],
+            ['data' => 'strength', 'name' => 'strength_value', 'title' => 'Kekuatan'],
             ['data' => 'unit', 'name' => 'unit', 'title' => 'Satuan'],
             ['data' => 'category', 'name' => 'category', 'title' => 'Kategori'],
             ['data' => 'base_price', 'name' => 'base_price', 'title' => 'Harga Dasar', 'className' => 'text-end'],
@@ -42,8 +43,9 @@ class MedicineController extends Controller
             ->editColumn('kfa_code', function (Medicine $medicine) {
                 return filled($medicine->kfa_code)
                     ? e($medicine->kfa_code)
-                    : '<span class="text-muted">—</span>';
+                    : '<span class="badge bg-soft-warning text-warning">Belum KFA</span>';
             })
+            ->addColumn('strength', fn (Medicine $medicine) => e($medicine->strengthLabel() ?: '—'))
             ->editColumn('unit', fn (Medicine $medicine) => e($medicine->unitLabel()))
             ->editColumn('category', fn (Medicine $medicine) => e($medicine->categoryLabel()))
             ->editColumn('base_price', fn (Medicine $medicine) => number_format((float) $medicine->base_price, 0, ',', '.'))

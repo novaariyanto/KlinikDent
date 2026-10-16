@@ -12,11 +12,14 @@
             <select class="form-select" name="medicine_id" id="medicine_id" onchange="if (this.value) window.location='{{ url('/pharmacy/stock/card') }}/'+this.value">
                 <option value="">Pilih obat</option>
                 @foreach ($medicines as $row)
-                    <option value="{{ $row->id }}" @selected($medicine && $medicine->id === $row->id)>{{ $row->name }} @if ($row->kfa_code) · KFA {{ $row->kfa_code }} @endif</option>
+                    <option value="{{ $row->id }}" @selected($medicine && $medicine->id === $row->id)>{{ $row->catalogLabel() }}</option>
                 @endforeach
             </select>
         </form>
         @if ($medicine)
+            <div class="mb-3">
+                <x-medicine-meta :medicine="$medicine" show-missing-kfa />
+            </div>
             <x-table>
                 <thead>
                     <tr><th>Waktu</th><th>Batch</th><th>Jenis</th><th>Qty</th><th>Catatan</th></tr>

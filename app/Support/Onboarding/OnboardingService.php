@@ -302,6 +302,8 @@ class OnboardingService
                         ['tenant_id' => $tenant->id, 'name' => $item['name']],
                         [
                             'kfa_code' => filled($item['kfa_code'] ?? null) ? $item['kfa_code'] : null,
+                            'strength_value' => filled($item['strength_value'] ?? null) ? $item['strength_value'] : null,
+                            'strength_unit' => filled($item['strength_unit'] ?? null) ? $item['strength_unit'] : null,
                             'unit' => $item['unit'] ?? 'tablet',
                             'category' => $item['category'] ?? 'lainnya',
                             'base_price' => $item['base_price'] ?? 0,

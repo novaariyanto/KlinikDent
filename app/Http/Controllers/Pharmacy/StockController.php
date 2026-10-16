@@ -86,7 +86,8 @@ class StockController extends Controller
             ->orderBy('id')
             ->get()
             ->mapWithKeys(function (MedicineStock $stock) {
-                $label = ($stock->medicine?->name ?? 'Obat').' / '.$stock->batch_number.' / stok '.$stock->quantity;
+                $medicineLabel = $stock->medicine?->catalogLabel(withUnit: false) ?? 'Obat';
+                $label = $medicineLabel.' / '.$stock->batch_number.' / stok '.$stock->quantity;
 
                 return [$stock->id => $label];
             })
@@ -236,7 +237,10 @@ class StockController extends Controller
             $term = '%'.$request->string('q')->toString().'%';
             $query->where(function ($inner) use ($term) {
                 $inner->where('batch_number', 'like', $term)
-                    ->orWhereHas('medicine', fn ($medicine) => $medicine->where('name', 'like', $term));
+                    ->orWhereHas('medicine', function ($medicine) use ($term) {
+                        $medicine->where('name', 'like', $term)
+                            ->orWhere('kfa_code', 'like', $term);
+                    });
             });
         }
 

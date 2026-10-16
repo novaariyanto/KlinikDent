@@ -38,7 +38,9 @@
                     <tr>
                         <td>{{ $movement->created_at?->format('d M Y H:i') }}</td>
                         <td><span class="{{ $movement->type->badgeClass() }}">{{ $movement->type->label() }}</span></td>
-                        <td>{{ $movement->stock?->medicine?->name }}</td>
+                        <td>
+                            <x-medicine-meta :medicine="$movement->stock?->medicine" compact />
+                        </td>
                         <td>{{ $movement->stock?->batch_number }}</td>
                         <td>{{ $movement->stock?->branch?->name }}</td>
                         <td>{{ $movement->quantity }}</td>

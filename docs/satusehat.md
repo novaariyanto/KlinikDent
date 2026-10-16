@@ -39,9 +39,36 @@ HTTP 2xx saja tidak otomatis berarti playbook lengkap.
 | Observation | Vital, exam gigi, odontogram, DMF; OHIS jika DI+CI lengkap; ABO/Rh/hamil jika terisi |
 | AllergyIntolerance | `allergy_status=present` (+detail) atau `none_confirmed` |
 | MedicationStatement | `medication_status=present` + detail teks |
-| Medication / MedicationRequest | Resep sent/fulfilled + item punya `kfa_code` |
+| Medication / MedicationRequest | Resep sent/fulfilled + item siap (obat jadi: `kfa_code`; racikan: bahan ber-KFA + tipe EP) |
 | MedicationDispense | Hanya prescription `fulfilled` |
-| ServiceRequest | Ada Referral dengan tujuan/alasan |
+| ServiceRequest | Ada Referral dengan tujuan/alasan; `code.coding` SNOMED `103697008` (rujukan gigi) |
+
+### Medication.extension MedicationType
+
+Wajib. Extension URL tetap `https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationType`, tetapi `coding.system` harus
+`http://terminology.kemkes.go.id/CodeSystem/medication-type` (tanpa `s` — server staging/production menolak `https://` pada path ini).
+
+Mapping dari kolom `prescription_items.medication_type`:
+
+| Data lokal | Kode | Arti |
+|---|---|---|
+| Obat jadi (`kind=ready`) | `NC` | Non-compound |
+| Racikan bagi sama rata | `EP` | Divide into equal parts (jumlah bungkus) |
+| Racikan d.t.d | `SD` | Give of such doses (`strength_value`/`strength_unit` per bahan) |
+
+SQL/migration: `docs/sql/2026-10-16-prescription-medication-type.sql`.
+
+Master obat (`/management/medicines`) menyimpan `strength_value` / `strength_unit` sebagai default kekuatan zat aktif; terisi otomatis ke bahan racikan SD. SQL: `docs/sql/2026-10-16-medicine-strength-fields.sql`.
+
+### MedicationRequest.dispenseRequest.quantity
+
+Wajib `SimpleQuantity` lengkap (`value`, `unit`, `system`, `code`). Tanpa `system` server menolak dengan `Invalid coding system: (RuleNumber: 10348)`.
+
+`system` = `http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm`. Mapping satuan lokal: tablet→`TAB`, kapsul→`CAP`, botol→`BOT`, tube→`TUBE`, ampul→`AMP`, sachet/bungkus (racikan)→`PKG`.
+
+### ServiceRequest untuk rujukan
+
+Local key `servicerequest:referral:{id}` berasal dari tabel `referrals`. Payload wajib punya `code.coding` (bukan hanya `text`).
 | ClinicalImpression | Hanya jika `plan_instructions.prognosis` terisi |
 
 Tidak dikirim: Composition, Specimen, ImagingStudy, DiagnosticReport (tidak relevan / tidak ada sumber lokal klinis).
@@ -55,8 +82,9 @@ Tidak dikirim: Composition, Specimen, ImagingStudy, DiagnosticReport (tidak rele
 1. Restart `php artisan queue:work` setelah deploy.
 2. Status partial → buka log detail, perbaiki data, kirim ulang manual.
 3. Practitioner tidak ditemukan → lengkapi NIK dokter yang terdaftar di SATUSEHAT.
-4. Obat tidak terkirim → isi `medicines.kfa_code`.
-5. OHIS tidak terkirim → isi DI dan CI sekaligus di pemeriksaan.
+4. Obat tidak terkirim → isi `medicines.kfa_code`; pastikan resep status sent/fulfilled; cek notes/failures untuk MedicationType / `dispenseRequest.quantity` (system+code).
+5. ServiceRequest gagal / `Element not found: ServiceRequest.code` → pastikan rujukan punya tujuan/alasan; kirim ulang setelah deploy perbaikan coding.
+6. OHIS tidak terkirim → isi DI dan CI sekaligus di pemeriksaan.
 
 ## Batasan
 

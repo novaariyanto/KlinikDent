@@ -25,6 +25,33 @@
     </dl>
 @endif
 
+@if ($detail['failures'] !== [])
+    <div class="mb-3">
+        <div class="fw-semibold mb-2">Kegagalan resource</div>
+        <div class="border rounded">
+            @foreach ($detail['failures'] as $failure)
+                <div class="@if (! $loop->last) border-bottom @endif px-3 py-2">
+                    <div class="d-flex flex-wrap justify-content-between gap-2">
+                        <div>
+                            <span class="fw-semibold">{{ $failure['type'] }}</span>
+                            <code class="ms-1 small">{{ $failure['local_key'] }}</code>
+                        </div>
+                        <div class="text-muted small">
+                            @if ($failure['http_status']) HTTP {{ $failure['http_status'] }} · @endif
+                            {{ $failure['stage'] === 'local_validation' ? 'Validasi lokal' : 'Ditolak SATUSEHAT' }}
+                        </div>
+                    </div>
+                    @if ($failure['element'])
+                        <div class="small text-muted mt-1">Elemen FHIR: <code>{{ $failure['element'] }}</code></div>
+                    @endif
+                    <div class="small text-danger mt-1">{{ $failure['error'] }}</div>
+                </div>
+            @endforeach
+        </div>
+        <p class="text-muted small mb-0 mt-2">Perbaiki payload/data sumber, lalu gunakan tombol kirim ulang pada kunjungan terkait.</p>
+    </div>
+@endif
+
 @if ($detail['skipped'] !== [])
     <div class="mb-3">
         <div class="fw-semibold mb-2">Tidak ikut terkirim</div>
@@ -51,7 +78,14 @@
                             <i class="bx {{ $step['ok'] ? 'bx-check-circle text-success' : 'bx-x-circle text-danger' }}"></i>
                             <div>
                                 <div class="small">{{ $step['title'] }}</div>
-                                <div class="text-muted small">{{ $step['result'] }}</div>
+                                <div class="text-muted small">
+                                    {{ $step['result'] }}
+                                    @if (! empty($step['http_status'])) · HTTP {{ $step['http_status'] }}@endif
+                                    @if (! empty($step['local_key'])) · <code>{{ $step['local_key'] }}</code>@endif
+                                </div>
+                                @if (! empty($step['element']))
+                                    <div class="small text-muted">Elemen: <code>{{ $step['element'] }}</code></div>
+                                @endif
                                 @if ($step['note'])
                                     <div class="small text-danger">{{ $step['note'] }}</div>
                                 @endif

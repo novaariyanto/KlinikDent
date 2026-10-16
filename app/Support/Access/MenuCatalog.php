@@ -124,6 +124,9 @@ final class MenuCatalog
             'finance.expenses',
             'finance.expenses.categories',
             'finance.expenses.suppliers',
+            'finance.sharing-fees.rules.index',
+            'finance.sharing-fees.settlements.index',
+            'finance.sharing-fees.reports.doctors',
             'finance.receivables',
             'finance.payables',
             'finance.cash-bank',
@@ -263,7 +266,12 @@ final class MenuCatalog
                 self::item('owner.doctors', 'Dokter & Tenaga Medis', 'bx bx-user', 'doctors.index', 'doctor.view', 'Dokter dan tenaga medis klinik.'),
             ]),
             self::heading('owner.group.finance', 'Keuangan', [
-                self::item('owner.finance', 'Keuangan', 'bx bx-wallet', 'finance.index', 'finance.view', 'Keuangan klinik.'),
+                self::item('owner.finance', 'Dashboard Keuangan', 'bx bx-wallet', 'finance.index', 'finance.view', 'Keuangan klinik.'),
+                self::item('owner.finance.sharing-fees', 'Sharing Fee', 'bx bx-share-alt', null, 'sharing_fee.view', 'Bagi hasil jasa dokter.', [
+                    self::item('owner.finance.sharing-fees.rules', 'Aturan Fee', 'bx bx-slider-alt', 'finance.sharing-fees.rules.index', 'sharing_fee.view', 'Konfigurasi aturan sharing fee.'),
+                    self::item('owner.finance.sharing-fees.settlements', 'Settlement', 'bx bx-list-check', 'finance.sharing-fees.settlements.index', 'sharing_fee.view', 'Settlement sharing fee.'),
+                    self::item('owner.finance.sharing-fees.reports', 'Laporan Fee', 'bx bx-bar-chart', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee per dokter.'),
+                ]),
                 self::item('owner.reports', 'Laporan', 'bx bx-bar-chart-alt-2', 'reports.index', 'report.view', 'Laporan klinik.'),
             ]),
             self::heading('owner.group.master', 'Master Data', [
@@ -334,6 +342,14 @@ final class MenuCatalog
                 self::item('manager.billing.invoices', 'Tagihan', 'bx bx-receipt', 'billing.invoices', 'billing.view', 'Tagihan pasien.'),
                 self::item('manager.billing.payments', 'Pembayaran', 'bx bx-money', 'billing.payments', 'payment.view', 'Pembayaran pasien.'),
                 self::item('manager.billing.receivables', 'Piutang', 'bx bx-wallet', 'billing.receivables', 'receivable.view', 'Piutang pasien.'),
+            ]),
+            self::item('manager.finance', 'Keuangan', 'bx bx-wallet', null, 'finance.view', 'Keuangan klinik.', [
+                self::item('manager.finance.dashboard', 'Dashboard Keuangan', 'bx bx-home-circle', 'finance.index', 'finance.view', 'Ringkasan keuangan klinik.'),
+                self::item('manager.finance.sharing-fees', 'Sharing Fee', 'bx bx-share-alt', null, 'sharing_fee.view', 'Bagi hasil jasa dokter.', [
+                    self::item('manager.finance.sharing-fees.rules', 'Aturan Fee', 'bx bx-slider-alt', 'finance.sharing-fees.rules.index', 'sharing_fee.view', 'Konfigurasi aturan sharing fee.'),
+                    self::item('manager.finance.sharing-fees.settlements', 'Settlement', 'bx bx-list-check', 'finance.sharing-fees.settlements.index', 'sharing_fee.view', 'Settlement sharing fee.'),
+                    self::item('manager.finance.sharing-fees.reports', 'Laporan Fee', 'bx bx-bar-chart', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee per dokter.'),
+                ]),
             ]),
             self::item('manager.reports', 'Laporan', 'bx bx-bar-chart-alt-2', null, 'report.view', 'Laporan operasional klinik.', [
                 self::item('manager.reports.visits', 'Kunjungan', 'bx bx-calendar-check', 'reports.visits', 'report.view', 'Laporan kunjungan.'),
@@ -542,6 +558,11 @@ final class MenuCatalog
                 self::item('finance.expenses.categories', 'Kategori', 'bx bx-category', 'finance.expenses.categories', 'expense.view', 'Kategori pengeluaran.'),
                 self::item('finance.expenses.suppliers', 'Supplier', 'bx bx-store', 'finance.expenses.suppliers', 'supplier.view', 'Supplier pengeluaran.'),
             ]),
+            self::item('finance.sharing-fees', 'Sharing Fee', 'bx bx-share-alt', null, 'sharing_fee.view', 'Bagi hasil jasa dokter.', [
+                self::item('finance.sharing-fees.rules', 'Aturan Fee', 'bx bx-slider-alt', 'finance.sharing-fees.rules.index', 'sharing_fee.view', 'Konfigurasi aturan sharing fee.'),
+                self::item('finance.sharing-fees.settlements', 'Settlement', 'bx bx-list-check', 'finance.sharing-fees.settlements.index', 'sharing_fee.view', 'Settlement sharing fee.'),
+                self::item('finance.sharing-fees.reports', 'Laporan Fee', 'bx bx-bar-chart', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee per dokter.'),
+            ]),
             self::item('finance.receivables', 'Piutang', 'bx bx-wallet', 'finance.receivables', 'receivable.view', 'Piutang klinik.'),
             self::item('finance.payables', 'Hutang', 'bx bx-credit-card', 'finance.payables', 'payable.view', 'Hutang klinik.'),
             self::item('finance.cash-bank', 'Kas & Bank', 'bx bx-bank', 'finance.cash-bank', 'cash_bank.view', 'Kas dan rekening bank klinik.'),
@@ -574,6 +595,7 @@ final class MenuCatalog
             self::item('auditor.finance', 'Keuangan', 'bx bx-wallet', null, 'finance.view', 'Informasi keuangan.', [
                 self::item('auditor.finance.revenue', 'Pendapatan', 'bx bx-dollar', 'finance.revenue.daily', 'revenue.view', 'Pendapatan klinik.'),
                 self::item('auditor.finance.expenses', 'Pengeluaran', 'bx bx-minus-circle', 'finance.expenses', 'expense.view', 'Pengeluaran klinik.'),
+                self::item('auditor.finance.sharing-fees', 'Sharing Fee', 'bx bx-share-alt', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee dokter.'),
             ]),
             self::item('auditor.reports', 'Laporan', 'bx bx-bar-chart-alt-2', null, 'report.view', 'Laporan klinik.', [
                 self::item('auditor.reports.operational', 'Operasional', 'bx bx-cog', 'reports.operational', 'report.view', 'Laporan operasional.'),

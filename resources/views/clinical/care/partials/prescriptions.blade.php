@@ -18,7 +18,12 @@
                 <tbody>
                     @foreach ($prescription->items as $item)
                         <tr>
-                            <td>{{ $item->medicine?->name }}</td>
+                            <td>
+                                <x-medicine-meta :medicine="$item->medicine" :name="$item->label()" show-missing-kfa />
+                                @if ($item->medication_type)
+                                    <div class="text-muted font-size-12">Tipe {{ $item->medication_type->value }}</div>
+                                @endif
+                            </td>
                             <td>{{ $item->dosage ?: '-' }}</td>
                             <td>{{ $item->frequency ?: '-' }}</td>
                             <td>{{ $item->duration ?: '-' }}</td>
@@ -49,7 +54,7 @@
                         <x-select
                             name="medicine_id"
                             label="Obat"
-                            :options="$medicines->mapWithKeys(fn ($medicine) => [$medicine->id => $medicine->name.' ('.$medicine->unitLabel().')'])->all()"
+                            :options="$medicines->mapWithKeys(fn ($medicine) => [$medicine->id => $medicine->catalogLabel()])->all()"
                             :selected="old('medicine_id')"
                             required
                             placeholder="Pilih obat"

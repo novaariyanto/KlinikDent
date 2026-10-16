@@ -10,7 +10,22 @@
         <p class="form-text mb-3">Lihat playbook di panel kanan untuk langkah pengisian.</p>
     </div>
     <div class="col-md-3">
-        <x-select name="unit" label="Satuan" :options="\App\Models\Medicine::UNITS" :selected="old('unit', $medicine?->unit)" required />
+        <x-input name="strength_value" type="number" step="0.0001" label="Kekuatan zat aktif" :value="old('strength_value', $medicine?->strength_value)" placeholder="500" />
+        <p class="form-text mt-n2">Untuk racikan d.t.d (SD) di resep; contoh 500.</p>
+    </div>
+    <div class="col-md-3">
+        <x-input name="strength_unit" label="Satuan kekuatan" :value="old('strength_unit', $medicine?->strength_unit)" placeholder="mg" list="medicine-strength-units" />
+        <datalist id="medicine-strength-units">
+            <option value="mg"></option>
+            <option value="g"></option>
+            <option value="ml"></option>
+            <option value="mcg"></option>
+            <option value="IU"></option>
+        </datalist>
+        <p class="form-text mt-n2">Contoh: mg, ml, IU.</p>
+    </div>
+    <div class="col-md-3">
+        <x-select name="unit" label="Satuan kemasan" :options="\App\Models\Medicine::UNITS" :selected="old('unit', $medicine?->unit)" required />
     </div>
     <div class="col-md-3">
         <x-select name="category" label="Kategori" :options="\App\Models\Medicine::CATEGORIES" :selected="old('category', $medicine?->category)" required />

@@ -38,10 +38,19 @@
                             <tr>
                                 <td>
                                     {{ $item->label() }}
+                                    @if ($item->medication_type)
+                                        <div class="text-muted font-size-12">Tipe {{ $item->medication_type->value }} — {{ $item->medication_type->label() }}</div>
+                                    @endif
                                     @if ($item->medicine && ! filled($item->medicine->kfa_code))
                                         <div class="text-warning font-size-12">Belum ada kode KFA — tidak terkirim ke SATUSEHAT</div>
                                     @elseif ($item->medicine?->kfa_code)
                                         <div class="text-muted font-size-12">KFA {{ $item->medicine->kfa_code }}</div>
+                                    @endif
+                                    @if ($item->isCompound())
+                                        @php($missingKfa = $item->ingredients->contains(fn ($ing) => ! filled($ing->medicine?->kfa_code)))
+                                        @if ($missingKfa)
+                                            <div class="text-warning font-size-12">Bahan racikan belum punya KFA — tidak terkirim ke SATUSEHAT</div>
+                                        @endif
                                     @endif
                                 </td>
                                 <td>{{ $item->dosage ?: '-' }}</td>
@@ -106,7 +115,8 @@
                     <form action="{{ route('care.prescription-item.store', $visit) }}" method="POST">
                         @csrf
                         <input type="hidden" name="_form" value="prescription-create">
-                        <div class="care-typeahead mb-3" data-typeahead data-typeahead-items="{{ json_encode($medicines->map(fn ($medicine) => ['id' => $medicine->id, 'label' => $medicine->name.' ('.$medicine->unitLabel().')'])->values()) }}">
+                        <input type="hidden" name="medication_type" value="NC">
+                        <div class="care-typeahead mb-3" data-typeahead data-typeahead-items="{{ json_encode($medicines->map(fn ($medicine) => ['id' => $medicine->id, 'label' => $medicine->catalogLabel()])->values()) }}">
                             <label class="form-label">Cari obat</label>
                             <input type="search" class="form-control" data-typeahead-q placeholder="Nama obat" autocomplete="off">
                             <input type="hidden" name="medicine_id" data-typeahead-id value="{{ $reopenRx ? old('medicine_id') : '' }}" required>
@@ -137,24 +147,45 @@
                         <input type="hidden" name="_form" value="compound-create">
                         <input type="hidden" name="kind" value="racikan">
                         <div class="row">
-                            <div class="col-md-4"><x-input name="dosage" id="compound-dosage" label="Bentuk" :value="old('dosage')" placeholder="Puyer" /></div>
-                            <div class="col-md-4"><x-input name="frequency" id="compound-frequency" label="Frekuensi" :value="old('frequency')" /></div>
-                            <div class="col-md-4"><x-input name="quantity" id="compound-quantity" type="number" label="Jumlah bungkus" :value="old('quantity', 1)" required /></div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="compound-medication-type">Tipe racikan (SATUSEHAT)</label>
+                                <select class="form-select mb-3" name="medication_type" id="compound-medication-type" required data-compound-type>
+                                    @php($selectedType = old('medication_type', 'EP'))
+                                    @foreach (\App\Enums\MedicationTypeCode::compoundOptions() as $type)
+                                        <option value="{{ $type->value }}" @selected($selectedType === $type->value)>{{ $type->label() }}</option>
+                                    @endforeach
+                                </select>
+                                <p class="form-text mt-n2">EP = bagi sama rata (puyer/bungkus). SD = d.t.d per dosis.</p>
+                            </div>
+                            <div class="col-md-3"><x-input name="dosage" id="compound-dosage" label="Bentuk" :value="old('dosage')" placeholder="Puyer" /></div>
+                            <div class="col-md-3"><x-input name="frequency" id="compound-frequency" label="Frekuensi" :value="old('frequency')" /></div>
+                            <div class="col-md-3"><x-input name="quantity" id="compound-quantity" type="number" label="Jumlah bungkus" :value="old('quantity', 1)" required /></div>
                         </div>
                         @foreach ([0, 1] as $index)
-                            <div class="row">
-                                <div class="col-md-4"><x-input name="ingredients[{{ $index }}][name]" id="compound-name-{{ $index }}" label="Bahan {{ $index + 1 }}" /></div>
-                                <div class="col-md-4">
-                                    <label class="form-label" for="compound-medicine-{{ $index }}">Obat stok</label>
-                                    <select class="form-select mb-3" name="ingredients[{{ $index }}][medicine_id]" id="compound-medicine-{{ $index }}">
+                            <div class="row align-items-end">
+                                <div class="col-md-3"><x-input name="ingredients[{{ $index }}][name]" id="compound-name-{{ $index }}" label="Bahan {{ $index + 1 }}" /></div>
+                                <div class="col-md-3">
+                                    <label class="form-label" for="compound-medicine-{{ $index }}">Obat stok (KFA)</label>
+                                    <select class="form-select mb-3" name="ingredients[{{ $index }}][medicine_id]" id="compound-medicine-{{ $index }}" data-compound-medicine="{{ $index }}">
                                         <option value="">Tidak dipotong stok</option>
                                         @foreach ($medicines as $medicine)
-                                            <option value="{{ $medicine->id }}">{{ $medicine->name }}</option>
+                                            <option
+                                                value="{{ $medicine->id }}"
+                                                data-strength-value="{{ $medicine->strength_value }}"
+                                                data-strength-unit="{{ $medicine->strength_unit }}"
+                                                data-unit="{{ $medicine->unit }}"
+                                            >{{ $medicine->catalogLabel() }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                                 <div class="col-md-2"><x-input name="ingredients[{{ $index }}][quantity]" id="compound-qty-{{ $index }}" type="number" label="Qty" value="1" /></div>
-                                <div class="col-md-2"><x-input name="ingredients[{{ $index }}][unit]" id="compound-unit-{{ $index }}" label="Satuan" /></div>
+                                <div class="col-md-1"><x-input name="ingredients[{{ $index }}][unit]" id="compound-unit-{{ $index }}" label="Satuan" placeholder="TAB" /></div>
+                                <div class="col-md-2" data-compound-strength>
+                                    <x-input name="ingredients[{{ $index }}][strength_value]" id="compound-strength-{{ $index }}" type="number" step="0.0001" label="Kekuatan/dosis" :value="old('ingredients.'.$index.'.strength_value')" placeholder="125" />
+                                </div>
+                                <div class="col-md-1" data-compound-strength>
+                                    <x-input name="ingredients[{{ $index }}][strength_unit]" id="compound-strength-unit-{{ $index }}" label="Unit" :value="old('ingredients.'.$index.'.strength_unit')" placeholder="mg" />
+                                </div>
                             </div>
                         @endforeach
                         <div class="text-end">
@@ -162,6 +193,41 @@
                         </div>
                     </form>
                 </x-modal>
+                <script>
+                (function () {
+                    var modal = document.getElementById('rx-compound-modal');
+                    if (!modal) return;
+                    var typeSelect = modal.querySelector('[data-compound-type]');
+                    var strengthFields = modal.querySelectorAll('[data-compound-strength]');
+                    function syncStrength() {
+                        var dtd = typeSelect && typeSelect.value === 'SD';
+                        strengthFields.forEach(function (el) {
+                            el.hidden = !dtd;
+                            el.querySelectorAll('input').forEach(function (input) {
+                                if (dtd) input.setAttribute('required', 'required');
+                                else input.removeAttribute('required');
+                            });
+                        });
+                    }
+                    if (typeSelect) {
+                        typeSelect.addEventListener('change', syncStrength);
+                        syncStrength();
+                    }
+                    modal.querySelectorAll('[data-compound-medicine]').forEach(function (select) {
+                        select.addEventListener('change', function () {
+                            var idx = select.getAttribute('data-compound-medicine');
+                            var opt = select.options[select.selectedIndex];
+                            if (!opt || !opt.value) return;
+                            var strength = modal.querySelector('#compound-strength-' + idx);
+                            var strengthUnit = modal.querySelector('#compound-strength-unit-' + idx);
+                            var unit = modal.querySelector('#compound-unit-' + idx);
+                            if (strength && opt.dataset.strengthValue) strength.value = opt.dataset.strengthValue;
+                            if (strengthUnit && opt.dataset.strengthUnit) strengthUnit.value = opt.dataset.strengthUnit;
+                            if (unit && opt.dataset.unit && !unit.value) unit.value = opt.dataset.unit;
+                        });
+                    });
+                })();
+                </script>
             @endif
         @endcan
     </div>

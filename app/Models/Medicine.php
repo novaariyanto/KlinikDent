@@ -52,6 +52,8 @@ class Medicine extends Model
         'tenant_id',
         'name',
         'kfa_code',
+        'strength_value',
+        'strength_unit',
         'unit',
         'category',
         'base_price',
@@ -67,6 +69,7 @@ class Medicine extends Model
     {
         return [
             'tenant_id' => 'integer',
+            'strength_value' => 'float',
             'base_price' => 'decimal:2',
             'margin_value' => 'decimal:2',
             'sell_price' => 'decimal:2',
@@ -81,6 +84,14 @@ class Medicine extends Model
                 $medicine->kfa_code = null;
             }
 
+            if ($medicine->strength_unit === '') {
+                $medicine->strength_unit = null;
+            }
+
+            if ($medicine->strength_value === '' || $medicine->strength_value === null) {
+                $medicine->strength_value = null;
+            }
+
             $type = $medicine->margin_type === 'percent' ? 'percent' : 'fixed';
             $base = number_format((float) $medicine->base_price, 2, '.', '');
             $margin = number_format((float) $medicine->margin_value, 2, '.', '');
@@ -90,6 +101,39 @@ class Medicine extends Model
             $medicine->margin_value = $margin;
             $medicine->sell_price = self::calculateSellPrice($base, $type, $margin);
         });
+    }
+
+    public function strengthLabel(): ?string
+    {
+        if ($this->strength_value === null || ! filled($this->strength_unit)) {
+            return null;
+        }
+
+        $value = rtrim(rtrim(number_format((float) $this->strength_value, 4, '.', ''), '0'), '.');
+
+        return $value.' '.$this->strength_unit;
+    }
+
+    /**
+     * Label katalog untuk select / daftar farmasi (nama + unit + KFA + kekuatan).
+     */
+    public function catalogLabel(bool $withUnit = true): string
+    {
+        $label = (string) $this->name;
+
+        if ($withUnit) {
+            $label .= ' ('.$this->unitLabel().')';
+        }
+
+        if (filled($this->kfa_code)) {
+            $label .= ' · KFA '.$this->kfa_code;
+        }
+
+        if ($strength = $this->strengthLabel()) {
+            $label .= ' · '.$strength;
+        }
+
+        return $label;
     }
 
     public static function calculateSellPrice(string $base, string $type, string $margin): string

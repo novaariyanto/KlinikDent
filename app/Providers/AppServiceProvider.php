@@ -29,6 +29,8 @@ use App\Models\SaasInvoice;
 use App\Models\SaasPackage;
 use App\Models\Service;
 use App\Models\Setting;
+use App\Models\SharingFeeRule;
+use App\Models\SharingFeeSettlement;
 use App\Models\Supplier;
 use App\Models\Tariff;
 use App\Models\User;
@@ -89,6 +91,8 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('cashierShift', fn (string $value) => CashierShift::withoutGlobalScopes()->findOrFail($value));
         Route::bind('expense', fn (string $value) => Expense::withoutGlobalScopes()->findOrFail($value));
         Route::bind('expenseCategory', fn (string $value) => ExpenseCategory::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('sharingFeeRule', fn (string $value) => SharingFeeRule::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('sharingFeeSettlement', fn (string $value) => SharingFeeSettlement::withoutGlobalScopes()->findOrFail($value));
         Route::bind('cashAccount', fn (string $value) => CashAccount::withoutGlobalScopes()->findOrFail($value));
         Route::bind('medicine', fn (string $value) => Medicine::withoutGlobalScopes()->findOrFail($value));
         Route::bind('medicineStock', fn (string $value) => MedicineStock::withoutGlobalScopes()->findOrFail($value));

@@ -37,7 +37,7 @@
                                                     data-price="{{ $medicine->base_price }}"
                                                     @selected((string) old("items.$i.medicine_id") === (string) $medicine->id)
                                                 >
-                                                    {{ $medicine->name }} ({{ $medicine->unit }})
+                                                    {{ $medicine->catalogLabel() }}
                                                 </option>
                                             @endforeach
                                         </select>

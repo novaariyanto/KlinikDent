@@ -13,7 +13,7 @@
                 <label class="form-label" for="medicine_stock_id">Batch</label>
                 <select class="form-select" name="medicine_stock_id" id="medicine_stock_id" required>
                     @foreach ($stocks as $stock)
-                        <option value="{{ $stock->id }}">{{ $stock->medicine?->name }} · {{ $stock->batch_number }} · qty {{ $stock->quantity }}</option>
+                        <option value="{{ $stock->id }}">{{ $stock->medicine?->catalogLabel(withUnit: false) ?? 'Obat' }} · {{ $stock->batch_number }} · qty {{ $stock->quantity }}</option>
                     @endforeach
                 </select>
             </div>

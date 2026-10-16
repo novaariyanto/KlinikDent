@@ -1839,7 +1839,12 @@ class SatuSehatSync
                     continue;
                 }
 
-                $unit = (string) ($item->medicine?->unit ?: ($item->isCompound() ? 'bungkus' : 'unit'));
+                $localUnit = (string) ($item->medicine?->unit ?: ($item->isCompound() ? 'bungkus' : 'tablet'));
+                $dispenseQuantity = SatuSehatFhirPayload::simpleQuantity(
+                    (float) ($item->quantity ?: 1),
+                    $localUnit,
+                    $item->isCompound(),
+                );
                 $requestId = $this->trySend(
                     $client,
                     'MedicationRequest',
@@ -1873,10 +1878,7 @@ class SatuSehatSync
                             ]))) ?: 'Sesuai instruksi dokter',
                         ]],
                         'dispenseRequest' => [
-                            'quantity' => [
-                                'value' => (float) ($item->quantity ?: 1),
-                                'unit' => $unit,
-                            ],
+                            'quantity' => $dispenseQuantity,
                         ],
                     ],
                     $item,
@@ -1912,10 +1914,7 @@ class SatuSehatSync
                         'authorizingPrescription' => [[
                             'reference' => 'MedicationRequest/'.$requestId,
                         ]],
-                        'quantity' => [
-                            'value' => (float) ($item->quantity ?: 1),
-                            'unit' => $unit,
-                        ],
+                        'quantity' => $dispenseQuantity,
                         'whenHandedOver' => $this->fhirTime($end),
                     ],
                     $item,

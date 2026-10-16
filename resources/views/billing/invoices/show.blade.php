@@ -79,7 +79,7 @@
                                     @endphp
                                     <tr>
                                         <td>
-                                            {{ $item->medicine?->name ?? 'Obat' }}
+                                            <x-medicine-meta :medicine="$item->medicine" :name="$item->medicine?->name ?? 'Obat'" />
                                             @if ($item->dosage || $item->frequency)
                                                 <span class="text-muted">({{ collect([$item->dosage, $item->frequency])->filter()->implode(' / ') }})</span>
                                             @endif

@@ -30,6 +30,10 @@
         <li class="mb-2">
             Tempel kode ke kolom <strong>Kode KFA</strong> di form (hanya angka, tanpa spasi).
         </li>
+        <li class="mb-2">
+            Isi <strong>Kekuatan zat aktif</strong> (mis. 500 mg) jika obat dipakai sebagai bahan racikan d.t.d (SD).
+            Nilai ini terisi otomatis saat memilih obat stok di form racikan.
+        </li>
         <li class="mb-0">
             Simpan obat. Saat resep berstatus terkirim/dipenuhi, item dengan KFA ikut disinkronkan.
         </li>

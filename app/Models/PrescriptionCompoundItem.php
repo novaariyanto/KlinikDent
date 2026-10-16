@@ -13,6 +13,8 @@ class PrescriptionCompoundItem extends Model
         'name',
         'unit',
         'quantity',
+        'strength_value',
+        'strength_unit',
     ];
 
     protected function casts(): array
@@ -21,6 +23,7 @@ class PrescriptionCompoundItem extends Model
             'prescription_item_id' => 'integer',
             'medicine_id' => 'integer',
             'quantity' => 'integer',
+            'strength_value' => 'float',
         ];
     }
 

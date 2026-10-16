@@ -20,6 +20,8 @@ class SaveMedicinesRequest extends FormRequest
             'medicines' => ['nullable', 'array'],
             'medicines.*.name' => ['nullable', 'string', 'max:255'],
             'medicines.*.kfa_code' => ['nullable', 'string', 'max:40'],
+            'medicines.*.strength_value' => ['nullable', 'numeric', 'min:0.0001', 'max:999999'],
+            'medicines.*.strength_unit' => ['nullable', 'string', 'max:30', 'required_with:medicines.*.strength_value'],
             'medicines.*.unit' => ['nullable', Rule::in(array_keys(Medicine::UNITS))],
             'medicines.*.category' => ['nullable', Rule::in(array_keys(Medicine::CATEGORIES))],
             'medicines.*.base_price' => ['nullable', 'numeric', 'min:0'],

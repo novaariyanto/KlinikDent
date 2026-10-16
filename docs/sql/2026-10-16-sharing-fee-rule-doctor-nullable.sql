@@ -1,0 +1,7 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_140000_make_sharing_fee_rule_doctor_nullable.php
+--
+-- Izinkan doctor_user_id NULL = aturan "Semua dokter".
+--
+-- ALTER TABLE sharing_fee_rules MODIFY doctor_user_id BIGINT UNSIGNED NULL;

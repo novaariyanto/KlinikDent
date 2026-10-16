@@ -2,6 +2,7 @@
 
 namespace App\Support\Integrations;
 
+use App\Enums\MedicationTypeCode;
 use App\Enums\PrescriptionItemKind;
 use App\Models\Medicine;
 use App\Models\PrescriptionItem;
@@ -14,22 +15,72 @@ final class SatuSehatFhirPayload
 {
     public const MEDICATION_TYPE_URL = 'https://fhir.kemkes.go.id/r4/StructureDefinition/MedicationType';
 
-    public const MEDICATION_TYPE_SYSTEM = 'https://terminology.kemkes.go.id/CodeSystem/medication-type';
+    /** Canonical system yang diterima server SATUSEHAT (http, bukan https). */
+    public const MEDICATION_TYPE_SYSTEM = 'http://terminology.kemkes.go.id/CodeSystem/medication-type';
 
     public const KFA_SYSTEM = 'http://sys-ids.kemkes.go.id/kfa';
+
+    public const ORDERABLE_DRUG_FORM = 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm';
+
+    /**
+     * Mapping satuan lokal → kode OrderableDrugForm (MedicationRequest.dispenseRequest.quantity, dll).
+     */
+    public static function orderableDrugFormCode(?string $localUnit, bool $compoundPack = false): string
+    {
+        if ($compoundPack) {
+            return 'PKG';
+        }
+
+        $normalized = strtolower(trim((string) $localUnit));
+
+        return match ($normalized) {
+            'tablet', 'tab' => 'TAB',
+            'kapsul', 'capsule', 'cap', 'kap' => 'CAP',
+            'botol', 'bottle', 'bot' => 'BOT',
+            'tube' => 'TUBE',
+            'ampul', 'ampule', 'amp' => 'AMP',
+            'sachet', 'bungkus', 'pkg', 'pack', 'pcs' => 'PKG',
+            'mg' => 'TAB',
+            default => filled($normalized) && preg_match('/^[A-Z0-9]{2,12}$/', strtoupper($normalized)) === 1
+                ? strtoupper($normalized)
+                : 'TAB',
+        };
+    }
+
+    /**
+     * SimpleQuantity dengan system+code wajib (RuleNumber 10348 jika system kosong).
+     *
+     * @return array{value: float, unit: string, system: string, code: string}
+     */
+    public static function simpleQuantity(float $value, ?string $localUnit, bool $compoundPack = false): array
+    {
+        $code = self::orderableDrugFormCode($localUnit, $compoundPack);
+
+        return [
+            'value' => $value,
+            'unit' => $code,
+            'system' => self::ORDERABLE_DRUG_FORM,
+            'code' => $code,
+        ];
+    }
 
     /**
      * @return array{code: string, display: string}
      */
     public static function medicationTypeForItem(PrescriptionItem $item): array
     {
-        if (! $item->isCompound()) {
-            return ['code' => 'NC', 'display' => 'Non-compound'];
+        $stored = $item->medication_type;
+
+        if ($stored instanceof MedicationTypeCode) {
+            return ['code' => $stored->value, 'display' => $stored->display()];
         }
 
-        // Form racikan lokal = "dibuat N bungkus/puyer" (bagi sama rata), bukan d.t.d per dosis.
-        // Tanpa flag klinis SD vs EP, hanya EP yang dapat dibuktikan dari data sumber.
-        return ['code' => 'EP', 'display' => 'Divide into equal parts'];
+        if (! $item->isCompound()) {
+            return ['code' => MedicationTypeCode::NonCompound->value, 'display' => MedicationTypeCode::NonCompound->display()];
+        }
+
+        // Fallback racikan lama tanpa kolom: EP (jumlah bungkus).
+        return ['code' => MedicationTypeCode::EqualParts->value, 'display' => MedicationTypeCode::EqualParts->display()];
     }
 
     /**
@@ -118,9 +169,45 @@ final class SatuSehatFhirPayload
                 return null;
             }
 
-            $unit = trim((string) ($ingredient->unit ?: $medicine?->unit ?: 'TAB'));
+            $formCode = self::orderableDrugFormCode((string) ($ingredient->unit ?: $medicine?->unit ?: 'tablet'));
             $qty = (float) ($ingredient->quantity ?: 1);
             $pack = (float) ($item->quantity ?: 1);
+            $isDtd = ($type['code'] ?? '') === MedicationTypeCode::GiveSuchDoses->value;
+
+            if ($isDtd) {
+                $strengthValue = $ingredient->strength_value;
+                $strengthUnit = strtolower(trim((string) ($ingredient->strength_unit ?: '')));
+
+                if ($strengthValue === null || $strengthUnit === '') {
+                    return null;
+                }
+
+                $strength = [
+                    'numerator' => [
+                        'value' => (float) $strengthValue,
+                        'system' => 'http://unitsofmeasure.org',
+                        'code' => $strengthUnit,
+                    ],
+                    'denominator' => [
+                        'value' => 1,
+                        'system' => self::ORDERABLE_DRUG_FORM,
+                        'code' => $formCode,
+                    ],
+                ];
+            } else {
+                $strength = [
+                    'numerator' => [
+                        'value' => $qty,
+                        'system' => self::ORDERABLE_DRUG_FORM,
+                        'code' => $formCode,
+                    ],
+                    'denominator' => [
+                        'value' => $pack,
+                        'system' => self::ORDERABLE_DRUG_FORM,
+                        'code' => 'PKG',
+                    ],
+                ];
+            }
 
             $ingredients[] = [
                 'itemCodeableConcept' => [
@@ -132,18 +219,7 @@ final class SatuSehatFhirPayload
                     'text' => (string) ($ingredient->name ?: $medicine?->name),
                 ],
                 'isActive' => true,
-                'strength' => [
-                    'numerator' => [
-                        'value' => $qty,
-                        'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
-                        'code' => strtoupper($unit) === 'MG' ? 'TAB' : strtoupper($unit),
-                    ],
-                    'denominator' => [
-                        'value' => $pack,
-                        'system' => 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm',
-                        'code' => 'PKG',
-                    ],
-                ],
+                'strength' => $strength,
             ];
         }
 

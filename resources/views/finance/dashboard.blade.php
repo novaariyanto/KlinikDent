@@ -41,4 +41,15 @@
             <a href="{{ route('finance.reports.profit-loss') }}">Laporan laba rugi</a>
         @endcan
     </x-card>
+
+    @can('sharing_fee.view')
+        <x-card title="Sharing Fee">
+            <p class="text-muted mb-3">Hitung, setujui, dan bayar jasa pelayanan dokter berdasarkan tindakan pada invoice lunas.</p>
+            <div class="d-flex flex-wrap gap-2">
+                <a href="{{ route('finance.sharing-fees.rules.index') }}" class="btn btn-soft-primary btn-sm">Aturan Fee</a>
+                <a href="{{ route('finance.sharing-fees.settlements.index') }}" class="btn btn-soft-primary btn-sm">Settlement</a>
+                <a href="{{ route('finance.sharing-fees.reports.doctors') }}" class="btn btn-soft-primary btn-sm">Laporan Fee</a>
+            </div>
+        </x-card>
+    @endcan
 @endsection

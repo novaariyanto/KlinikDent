@@ -36,12 +36,12 @@
                     @endphp
                     <tr class="{{ $ready && ($ready['tracked'] ?? false) && ! $ready['enough'] ? 'table-danger' : '' }}">
                         <td>
-                            {{ $item->label() }}
+                            <x-medicine-meta :medicine="$item->medicine" :name="$item->label()" :show-missing-kfa="! $item->isCompound()" />
                             @if ($item->isCompound())
                                 <span class="badge bg-light text-dark">Racikan</span>
-                            @endif
-                            @if ($item->medicine?->kfa_code)
-                                <div class="text-muted font-size-13">KFA {{ $item->medicine->kfa_code }}</div>
+                                @if ($item->medication_type)
+                                    <div class="text-muted font-size-12">Tipe {{ $item->medication_type->value }}</div>
+                                @endif
                             @endif
                         </td>
                         <td>{{ $item->dosage ?: '-' }}</td>
@@ -61,12 +61,9 @@
                             @php($line = $lines[$index] ?? null)
                             <tr class="{{ $line && ($line['tracked'] ?? false) && ! $line['enough'] ? 'table-danger' : '' }}">
                                 <td class="ps-4">
-                                    {{ $ingredient->name }}
-                                    @if ($ingredient->medicine && $ingredient->medicine->name !== $ingredient->name)
-                                        <span class="text-muted">· {{ $ingredient->medicine->name }}</span>
-                                    @endif
-                                    @if ($ingredient->medicine?->kfa_code)
-                                        <div class="text-muted font-size-13">KFA {{ $ingredient->medicine->kfa_code }}</div>
+                                    <x-medicine-meta :medicine="$ingredient->medicine" :name="$ingredient->name" show-missing-kfa />
+                                    @if ($ingredient->strength_value && $ingredient->strength_unit)
+                                        <div class="text-muted font-size-12">d.t.d {{ rtrim(rtrim(number_format((float) $ingredient->strength_value, 4, '.', ''), '0'), '.') }} {{ $ingredient->strength_unit }}</div>
                                     @endif
                                 </td>
                                 <td colspan="3" class="text-muted">{{ $ingredient->unit ?: 'Bahan racikan' }}</td>

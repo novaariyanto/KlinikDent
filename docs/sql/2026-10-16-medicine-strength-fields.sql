@@ -1,0 +1,9 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_114000_add_medicine_strength_fields.php
+--
+-- Kekuatan zat aktif default pada master obat (untuk racikan d.t.d / SD).
+--
+-- ALTER TABLE medicines
+--   ADD COLUMN strength_value DECIMAL(12,4) NULL AFTER kfa_code,
+--   ADD COLUMN strength_unit VARCHAR(30) NULL AFTER strength_value;

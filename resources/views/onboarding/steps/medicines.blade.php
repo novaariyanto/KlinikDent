@@ -27,17 +27,23 @@
                     <div class="col-md-2">
                         <x-input name="medicines[0][kfa_code]" label="Kode KFA" placeholder="Opsional" />
                     </div>
+                    <div class="col-md-1">
+                        <x-input name="medicines[0][strength_value]" type="number" step="0.0001" label="Kekuatan" placeholder="500" />
+                    </div>
+                    <div class="col-md-1">
+                        <x-input name="medicines[0][strength_unit]" label="Unit" placeholder="mg" />
+                    </div>
                     <div class="col-md-2">
                         <x-select name="medicines[0][unit]" label="Satuan" :options="\App\Models\Medicine::UNITS" />
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <x-select name="medicines[0][category]" label="Kategori" :options="\App\Models\Medicine::CATEGORIES" />
                     </div>
-                    <div class="col-md-2">
+                    <div class="col-md-1">
                         <x-input name="medicines[0][base_price]" type="number" label="Harga" value="0" />
                     </div>
                 </div>
-                <p class="text-muted small">Kode KFA diperlukan nanti jika resep akan dikirim ke SATUSEHAT.</p>
+                <p class="text-muted small">KFA wajib nanti untuk sync resep ke SATUSEHAT. Kekuatan dipakai otomatis pada racikan d.t.d (SD).</p>
             </div>
         </div>
 

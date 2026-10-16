@@ -1,0 +1,17 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_113000_add_prescription_medication_type_fields.php
+--
+-- Kolom untuk MedicationType SATUSEHAT (NC/SD/EP) dan kekuatan bahan racikan d.t.d.
+--
+-- Alternatif manual (review DBA):
+--
+-- ALTER TABLE prescription_items
+--   ADD COLUMN medication_type VARCHAR(2) NULL AFTER kind;
+--
+-- ALTER TABLE prescription_compound_items
+--   ADD COLUMN strength_value DECIMAL(12,4) NULL AFTER quantity,
+--   ADD COLUMN strength_unit VARCHAR(30) NULL AFTER strength_value;
+--
+-- UPDATE prescription_items SET medication_type = 'NC' WHERE kind = 'ready' AND medication_type IS NULL;
+-- UPDATE prescription_items SET medication_type = 'EP' WHERE kind = 'racikan' AND medication_type IS NULL;

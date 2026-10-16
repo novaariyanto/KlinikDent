@@ -1,0 +1,12 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_130000_create_sharing_fee_tables.php
+--
+-- Modul Sharing Fee: aturan, settlement, item snapshot, pembayaran, adjustment.
+--
+-- Tabel:
+--   sharing_fee_rules
+--   sharing_fee_settlements
+--   sharing_fee_settlement_items  (unique tenant_id + invoice_item_id)
+--   sharing_fee_payments
+--   sharing_fee_adjustments

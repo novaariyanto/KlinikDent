@@ -77,6 +77,7 @@ class IntegrationLogger
             'method' => $call['method'] ?? null,
             'url' => $call['url'] ?? null,
             'body' => $call['request'] ?? null,
+            'local_key' => $call['local_key'] ?? null,
         ], $exchanges);
 
         $response['calls'] = array_map(fn (array $call) => [
@@ -84,6 +85,7 @@ class IntegrationLogger
             'url' => $call['url'] ?? null,
             'status' => $call['status'] ?? null,
             'body' => $call['response'] ?? null,
+            'local_key' => $call['local_key'] ?? null,
         ], $exchanges);
 
         $log->update([
