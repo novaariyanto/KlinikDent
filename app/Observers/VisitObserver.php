@@ -17,6 +17,10 @@ class VisitObserver
 
     public function created(Visit $visit): void
     {
+        if ($visit->arrived_at === null) {
+            $visit->forceFill(['arrived_at' => $visit->created_at ?? now()])->saveQuietly();
+        }
+
         $this->whatsapp->queueVisit(WhatsAppEvent::AppointmentCreated, $visit);
         $this->whatsapp->queueVisit(WhatsAppEvent::AppointmentConfirmation, $visit);
     }
@@ -32,6 +36,14 @@ class VisitObserver
         }
 
         if ($visit->wasChanged('status') && $visit->status === VisitStatus::Done) {
+            if ($visit->completed_at === null) {
+                $visit->forceFill(['completed_at' => now()])->saveQuietly();
+            }
+
+            if ($visit->arrived_at === null) {
+                $visit->forceFill(['arrived_at' => $visit->created_at ?? now()])->saveQuietly();
+            }
+
             $this->whatsapp->syncControlDates($visit->loadMissing('medicalRecord'));
             $this->whatsapp->queueVisit(WhatsAppEvent::TreatmentCompleted, $visit);
             $this->integrations->queueIfReady($visit);

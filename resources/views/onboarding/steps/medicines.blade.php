@@ -23,8 +23,11 @@
         <div id="manual-medicines" class="{{ $mode === 'manual' ? '' : 'd-none' }}">
             <div id="medicine-list">
                 <div class="row g-2 medicine-row mb-2">
-                    <div class="col-md-4"><x-input name="medicines[0][name]" label="Nama obat" /></div>
-                    <div class="col-md-3">
+                    <div class="col-md-3"><x-input name="medicines[0][name]" label="Nama obat" /></div>
+                    <div class="col-md-2">
+                        <x-input name="medicines[0][kfa_code]" label="Kode KFA" placeholder="Opsional" />
+                    </div>
+                    <div class="col-md-2">
                         <x-select name="medicines[0][unit]" label="Satuan" :options="\App\Models\Medicine::UNITS" />
                     </div>
                     <div class="col-md-3">
@@ -34,6 +37,7 @@
                         <x-input name="medicines[0][base_price]" type="number" label="Harga" value="0" />
                     </div>
                 </div>
+                <p class="text-muted small">Kode KFA diperlukan nanti jika resep akan dikirim ke SATUSEHAT.</p>
             </div>
         </div>
 

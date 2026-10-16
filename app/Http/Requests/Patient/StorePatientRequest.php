@@ -2,14 +2,19 @@
 
 namespace App\Http\Requests\Patient;
 
+use App\Enums\Citizenship;
 use App\Enums\Gender;
+use App\Enums\MaritalStatus;
+use App\Http\Requests\Concerns\NormalizesWilayahCodes;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\Patient;
+use App\Rules\WilayahCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StorePatientRequest extends FormRequest
 {
+    use NormalizesWilayahCodes;
     use ResolvesActorTenant;
 
     public function authorize(): bool
@@ -33,9 +38,21 @@ class StorePatientRequest extends FormRequest
             ],
             'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
+            'birth_place' => ['nullable', 'string', 'max:100'],
+            'marital_status' => ['nullable', Rule::enum(MaritalStatus::class)],
+            'citizenship' => ['nullable', Rule::enum(Citizenship::class)],
+            'family_card_number' => ['nullable', 'digits:16'],
             'phone' => ['nullable', 'string', 'max:30'],
             'marketing_consent' => ['sometimes', 'boolean'],
             'address' => ['nullable', 'string', 'max:1000'],
+            'address_city' => ['nullable', 'string', 'max:100'],
+            'address_postal_code' => ['nullable', 'string', 'max:10'],
+            'province_code' => ['nullable', 'string', 'max:10', new WilayahCode('province')],
+            'city_code' => ['nullable', 'string', 'max:10', new WilayahCode('city', 'province_code')],
+            'district_code' => ['nullable', 'string', 'max:10', new WilayahCode('district', 'city_code')],
+            'village_code' => ['nullable', 'string', 'max:20', new WilayahCode('village', 'district_code')],
+            'rt' => ['nullable', 'string', 'max:5'],
+            'rw' => ['nullable', 'string', 'max:5'],
             'default_payer_id' => [
                 'nullable',
                 'integer',
@@ -53,11 +70,22 @@ class StorePatientRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'nik' => $this->filled('nik') ? $this->input('nik') : null,
-            'default_payer_id' => $this->filled('default_payer_id') ? $this->input('default_payer_id') : null,
+        $nullable = [
+            'nik', 'default_payer_id', 'birth_place', 'marital_status', 'family_card_number',
+            'address', 'address_city', 'address_postal_code',
+            'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
+        ];
+
+        $merge = [
             'branch_id' => $this->input('branch_id') ?: $this->user()?->branch_id,
             'marketing_consent' => $this->boolean('marketing_consent'),
-        ]);
+            'citizenship' => $this->input('citizenship') ?: Citizenship::Wni->value,
+        ];
+
+        foreach ($nullable as $field) {
+            $merge[$field] = $this->filled($field) ? $this->input($field) : null;
+        }
+
+        $this->merge($this->normalizeWilayahInto($merge));
     }
 }

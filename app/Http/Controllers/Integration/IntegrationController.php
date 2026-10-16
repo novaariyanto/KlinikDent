@@ -26,6 +26,7 @@ use App\Support\Integrations\IntegrationException;
 use App\Support\Integrations\IntegrationService;
 use App\Support\Integrations\SatuSehatClient;
 use App\Support\Integrations\SatuSehatLogView;
+use App\Support\Integrations\SatuSehatReadiness;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -86,9 +87,7 @@ class IntegrationController extends Controller
             'branches' => $branches,
             'branch' => $branch,
             'branchSetting' => $branchSetting,
-            'locationChoices' => $branch
-                ? session('satusehat.locations.'.$branch->id, [])
-                : [],
+            'locationChoices' => $this->satusehatLocationChoices($settings, $branch, $branchSetting),
             'visits' => $visits,
             'visitErrors' => $visitErrors,
             'stats' => [
@@ -97,6 +96,7 @@ class IntegrationController extends Controller
                         ->orWhere('satusehat_status', SatuSehatStatus::Pending);
                 })->count(),
                 'queued' => (clone $done)->where('satusehat_status', SatuSehatStatus::Queued)->count(),
+                'partial' => (clone $done)->where('satusehat_status', SatuSehatStatus::Partial)->count(),
                 'synced' => (clone $done)->where('satusehat_status', SatuSehatStatus::Synced)->count(),
                 'failed' => (clone $done)->where('satusehat_status', SatuSehatStatus::Failed)->count(),
                 'last_synced_at' => (clone $done)->max('satusehat_synced_at'),
@@ -111,6 +111,7 @@ class IntegrationController extends Controller
                     })->count()
                     : 0,
             ],
+            'checklist' => (new SatuSehatReadiness)->forBranch($settings, $branch, $branchSetting),
             'logColumns' => [
                 ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Waktu'],
                 ['data' => 'action', 'name' => 'action', 'title' => 'Aksi'],
@@ -259,9 +260,19 @@ class IntegrationController extends Controller
             'fake' => $fake,
         ], 'Pengaturan SATUSEHAT cabang diubah.', 'integrations');
 
-        return redirect()
-            ->route('integrations.satusehat', ['branch_id' => $branch->id])
-            ->with('success', 'Pengaturan SATUSEHAT cabang disimpan. Uji koneksi sebelum mengaktifkan sinkronisasi.');
+        $redirect = redirect()->route('integrations.satusehat', ['branch_id' => $branch->id]);
+
+        if ($enabled && ! $setting->readyToSync()) {
+            return $redirect->with(
+                'warning',
+                'Modul SATUSEHAT diaktifkan, tetapi konfigurasi cabang belum lengkap. Lengkapi checklist di panel kanan, lalu uji koneksi sebelum sinkronisasi.',
+            );
+        }
+
+        return $redirect->with(
+            'success',
+            'Pengaturan SATUSEHAT cabang disimpan. Uji koneksi sebelum mengaktifkan sinkronisasi.',
+        );
     }
 
     public function testSatuSehat(TestSatuSehatConnectionRequest $request): RedirectResponse
@@ -326,40 +337,27 @@ class IntegrationController extends Controller
         }
 
         $tenant = TenantIntegration::forTenant((int) $branch->tenant_id, IntegrationProvider::SatuSehat);
+        $locationId = (string) $request->validated('location_id');
 
         try {
-            $locations = collect((new SatuSehatClient($tenant, $setting))->locations())->keyBy('id');
+            $location = (new SatuSehatClient($tenant, $setting))->resolveLocation($locationId);
         } catch (IntegrationException $exception) {
-            $setting->forceFill([
-                'connection_ok' => false,
-                'sync_enabled' => false,
-                'last_error' => $exception->getMessage(),
-            ])->save();
-
             return redirect()
                 ->route('integrations.satusehat', ['branch_id' => $branch->id])
                 ->with('error', $exception->getMessage());
         }
 
-        $locationId = (string) $request->validated('location_id');
-
-        if (! $locations->has($locationId)) {
-            return redirect()
-                ->route('integrations.satusehat', ['branch_id' => $branch->id])
-                ->with('error', 'Lokasi itu tidak termasuk dalam organisasi SATUSEHAT cabang ini.');
-        }
-
         $enable = $request->boolean('sync_enabled');
         $setting->forceFill([
-            'location_id' => $locationId,
-            'location_name' => $locations[$locationId]['name'],
+            'location_id' => $location['id'],
+            'location_name' => $location['name'],
             'sync_enabled' => $enable,
             'last_error' => null,
         ])->save();
 
         activity_log('updated', $setting, [
             'branch_id' => $branch->id,
-            'location_id' => $locationId,
+            'location_id' => $location['id'],
             'sync_enabled' => $enable,
         ], 'Lokasi SATUSEHAT cabang diperbarui.', 'integrations');
 
@@ -437,9 +435,16 @@ class IntegrationController extends Controller
 
         activity_log('updated', $visit, [], 'Kunjungan dikirim ke SATUSEHAT.', 'integrations');
 
-        return back()->with('success', $visit->satusehat_status === SatuSehatStatus::Synced
-            ? 'Kunjungan berhasil dikirim ke SATUSEHAT.'
-            : 'Pengiriman SATUSEHAT masuk antrian.');
+        $message = match ($visit->satusehat_status) {
+            SatuSehatStatus::Synced => 'Kunjungan berhasil dikirim lengkap ke SATUSEHAT.',
+            SatuSehatStatus::Partial => 'Sinkronisasi sebagian berhasil. Perbaiki resource yang gagal, lalu kirim ulang.',
+            default => 'Pengiriman SATUSEHAT masuk antrian.',
+        };
+
+        return back()->with(
+            $visit->satusehat_status === SatuSehatStatus::Partial ? 'warning' : 'success',
+            $message,
+        );
     }
 
     public function checkBpjs(Request $request, IntegrationService $integrations, ?Patient $patient = null): RedirectResponse
@@ -502,6 +507,49 @@ class IntegrationController extends Controller
         abort_unless($insuranceClaim->document_path && Storage::disk('local')->exists($insuranceClaim->document_path), 404);
 
         return Storage::disk('local')->download($insuranceClaim->document_path);
+    }
+
+    /**
+     * Daftar lokasi dari session (hasil uji koneksi) atau di-fetch ulang jika koneksi sudah OK.
+     *
+     * @return array<string, string>
+     */
+    protected function satusehatLocationChoices(
+        TenantIntegration $settings,
+        ?Branch $branch,
+        ?BranchSatuSehatSetting $branchSetting,
+    ): array {
+        if (! $branch || ! $branchSetting) {
+            return [];
+        }
+
+        $sessionKey = 'satusehat.locations.'.$branch->id;
+        $cached = session($sessionKey, []);
+
+        if ($cached !== []) {
+            return $cached;
+        }
+
+        if (! $branchSetting->connection_ok
+            || ! filled($branchSetting->organization_id)
+            || ! filled($branchSetting->client_id)
+            || ! $branchSetting->hasSecret()) {
+            return [];
+        }
+
+        try {
+            $choices = collect((new SatuSehatClient($settings, $branchSetting))->locations())
+                ->mapWithKeys(fn (array $location) => [$location['id'] => $location['name']])
+                ->all();
+        } catch (IntegrationException) {
+            return [];
+        }
+
+        if ($choices !== []) {
+            session([$sessionKey => $choices]);
+        }
+
+        return $choices;
     }
 
     /**

@@ -20,6 +20,7 @@ class MedicineController extends Controller
         $columns = [
             ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Obat'],
+            ['data' => 'kfa_code', 'name' => 'kfa_code', 'title' => 'KFA'],
             ['data' => 'unit', 'name' => 'unit', 'title' => 'Satuan'],
             ['data' => 'category', 'name' => 'category', 'title' => 'Kategori'],
             ['data' => 'base_price', 'name' => 'base_price', 'title' => 'Harga Dasar', 'className' => 'text-end'],
@@ -38,6 +39,11 @@ class MedicineController extends Controller
 
         return DataTables::eloquent(Medicine::query())
             ->addIndexColumn()
+            ->editColumn('kfa_code', function (Medicine $medicine) {
+                return filled($medicine->kfa_code)
+                    ? e($medicine->kfa_code)
+                    : '<span class="text-muted">—</span>';
+            })
             ->editColumn('unit', fn (Medicine $medicine) => e($medicine->unitLabel()))
             ->editColumn('category', fn (Medicine $medicine) => e($medicine->categoryLabel()))
             ->editColumn('base_price', fn (Medicine $medicine) => number_format((float) $medicine->base_price, 0, ',', '.'))
@@ -49,7 +55,7 @@ class MedicineController extends Controller
             })
             ->editColumn('created_at', fn (Medicine $medicine) => $medicine->created_at?->format('d M Y H:i'))
             ->addColumn('action', fn (Medicine $medicine) => view('management.medicines.partials.actions', compact('medicine'))->render())
-            ->rawColumns(['is_active', 'action'])
+            ->rawColumns(['kfa_code', 'is_active', 'action'])
             ->toJson();
     }
 

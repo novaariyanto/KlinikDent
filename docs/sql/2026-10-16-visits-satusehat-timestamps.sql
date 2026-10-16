@@ -1,0 +1,14 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_093600_add_visit_satusehat_timestamps.php
+--
+-- Menambah visits.arrived_at dan visits.completed_at + backfill.
+-- Skrip ALTER di bawah ini hanya referensi/manual DBA jika migrate tidak dipakai.
+
+-- ALTER TABLE visits
+--     ADD COLUMN arrived_at TIMESTAMP NULL DEFAULT NULL AFTER visit_date,
+--     ADD COLUMN completed_at TIMESTAMP NULL DEFAULT NULL AFTER arrived_at;
+--
+-- UPDATE visits SET arrived_at = COALESCE(arrived_at, created_at) WHERE arrived_at IS NULL;
+-- UPDATE visits SET completed_at = COALESCE(completed_at, updated_at)
+-- WHERE status = 'done' AND completed_at IS NULL;

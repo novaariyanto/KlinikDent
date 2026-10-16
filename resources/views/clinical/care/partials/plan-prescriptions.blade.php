@@ -36,7 +36,14 @@
                     <tbody>
                         @foreach ($prescription->items as $item)
                             <tr>
-                                <td>{{ $item->label() }}</td>
+                                <td>
+                                    {{ $item->label() }}
+                                    @if ($item->medicine && ! filled($item->medicine->kfa_code))
+                                        <div class="text-warning font-size-12">Belum ada kode KFA — tidak terkirim ke SATUSEHAT</div>
+                                    @elseif ($item->medicine?->kfa_code)
+                                        <div class="text-muted font-size-12">KFA {{ $item->medicine->kfa_code }}</div>
+                                    @endif
+                                </td>
                                 <td>{{ $item->dosage ?: '-' }}</td>
                                 <td>{{ $item->frequency ?: '-' }}</td>
                                 <td>{{ $item->duration ?: '-' }}</td>

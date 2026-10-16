@@ -135,6 +135,7 @@
                             <ul class="list-unstyled text-muted mb-3 flex-grow-1">
                                 <li class="mb-1"><i class="bx bx-briefcase me-1"></i>{{ $doctor->specialization ?: 'Belum ada spesialisasi' }}</li>
                                 <li class="mb-1"><i class="bx bx-id-card me-1"></i>SIP {{ $doctor->sip ?: '-' }}</li>
+                                <li class="mb-1"><i class="bx bx-fingerprint me-1"></i>IHS {{ $doctor->satusehat_id ?: '-' }}</li>
                                 <li class="mb-1"><i class="bx bx-buildings me-1"></i>{{ $branchNames->implode(', ') ?: 'Belum ada cabang' }}</li>
                                 <li>
                                     <i class="bx bx-time-five me-1"></i>{{ $today->label() }}:
@@ -170,6 +171,7 @@
                 <tr><th>SIP</th><td id="doctor-view-sip">-</td></tr>
                 <tr><th>STR</th><td id="doctor-view-str">-</td></tr>
                 <tr><th>NIK</th><td id="doctor-view-nik">-</td></tr>
+                <tr><th>IHS</th><td id="doctor-view-ihs">-</td></tr>
                 <tr><th>Telepon</th><td id="doctor-view-phone">-</td></tr>
                 <tr><th>Cabang</th><td id="doctor-view-branch">-</td></tr>
                 <tr>
@@ -200,7 +202,7 @@
                 return;
             }
 
-            const textFields = ['name', 'email', 'specialization', 'sip', 'str', 'nik', 'phone', 'branch'];
+            const textFields = ['name', 'email', 'specialization', 'sip', 'str', 'nik', 'ihs', 'phone', 'branch'];
 
             viewModal.addEventListener('show.bs.modal', function (event) {
                 const trigger = event.relatedTarget;

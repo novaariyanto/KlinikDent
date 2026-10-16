@@ -301,6 +301,7 @@ class OnboardingService
                     Medicine::query()->updateOrCreate(
                         ['tenant_id' => $tenant->id, 'name' => $item['name']],
                         [
+                            'kfa_code' => filled($item['kfa_code'] ?? null) ? $item['kfa_code'] : null,
                             'unit' => $item['unit'] ?? 'tablet',
                             'category' => $item['category'] ?? 'lainnya',
                             'base_price' => $item['base_price'] ?? 0,

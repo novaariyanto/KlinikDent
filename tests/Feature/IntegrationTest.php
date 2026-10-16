@@ -117,7 +117,8 @@ class IntegrationTest extends TestCase
         $encoded = json_encode([$log->request_payload, $log->response_payload]);
         $this->assertNotEmpty($log->request_payload['calls'] ?? null);
         $this->assertNotEmpty($log->response_payload['calls'] ?? null);
-        $this->assertStringContainsString('1234567890123456', (string) $encoded);
+        $this->assertStringNotContainsString('1234567890123456', (string) $encoded);
+        $this->assertStringContainsString('********', (string) $encoded);
         $this->assertStringNotContainsString('secret-', (string) $encoded);
     }
 
@@ -360,9 +361,202 @@ class IntegrationTest extends TestCase
         $encoded = json_encode([$log?->request_payload, $log?->response_payload]);
         $this->assertNotEmpty($log?->request_payload['calls'] ?? null);
         $this->assertNotEmpty($log?->response_payload['calls'] ?? null);
-        $this->assertStringContainsString('1234567890123456', (string) $encoded);
+        $this->assertStringNotContainsString('1234567890123456', (string) $encoded);
+        $this->assertStringContainsString('********', (string) $encoded);
         $this->assertStringContainsString('encounter-1', (string) $encoded);
         $this->assertStringNotContainsString('secret-', (string) $encoded);
+        $this->assertStringNotContainsString('token-1', (string) $encoded);
+    }
+
+    public function test_satusehat_partial_when_observation_rejected(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1/accesstoken*' => Http::response([
+                'access_token' => 'token-1',
+                'expires_in' => 3600,
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Patient*' => Http::response([
+                'resourceType' => 'Bundle',
+                'entry' => [['resource' => ['resourceType' => 'Patient', 'id' => 'patient-ihs']]],
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Practitioner*' => Http::response([
+                'resourceType' => 'Bundle',
+                'entry' => [['resource' => ['resourceType' => 'Practitioner', 'id' => 'practitioner-ihs']]],
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Location/*' => Http::response([
+                'resourceType' => 'Location',
+                'id' => 'loc-x',
+                'status' => 'active',
+                'name' => 'Poli Gigi',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Condition' => Http::response([
+                'resourceType' => 'Condition',
+                'id' => 'condition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Observation' => Http::response([
+                'resourceType' => 'OperationOutcome',
+                'issue' => [['severity' => 'error', 'details' => ['text' => 'Element not found: Observation.issued']]],
+            ], 400),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
+                'resourceType' => 'Encounter',
+                'id' => 'encounter-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter/*' => Http::response([
+                'resourceType' => 'Encounter',
+                'id' => 'encounter-1',
+            ]),
+        ]);
+
+        $owner = $this->tenantUser(RoleName::Owner, $this->tenantA, $this->branchA);
+        $this->readyBranch($this->branchA, false);
+        $doctorUser = User::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'branch_id' => $this->branchA->id,
+        ]);
+        Doctor::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'user_id' => $doctorUser->id,
+            'nik' => '3174010101010003',
+        ]);
+        $patient = Patient::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'nik' => '1234567890123457',
+        ]);
+        $visit = Visit::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'branch_id' => $this->branchA->id,
+            'patient_id' => $patient->id,
+            'doctor_id' => $doctorUser->id,
+            'payer_id' => Payer::factory()->create(['tenant_id' => $this->tenantA->id])->id,
+            'status' => VisitStatus::Done,
+            'arrived_at' => now()->subHours(2),
+            'completed_at' => now()->subHour(),
+        ]);
+        Diagnosis::factory()->create([
+            'visit_id' => $visit->id,
+            'code' => 'K02.1',
+            'description' => 'Karies dentin',
+        ]);
+
+        $this->actingAs($owner)
+            ->post(route('integrations.satusehat.send'), ['visit_id' => $visit->id])
+            ->assertRedirect();
+
+        $this->assertSame(SatuSehatStatus::Partial, $visit->fresh()->satusehat_status);
+        Http::assertNotSent(fn ($request) => $request->method() === 'PUT'
+            && str_contains($request->url(), '/Encounter/')
+            && ($request['status'] ?? null) === 'finished');
+    }
+
+    public function test_satusehat_encounter_uses_arrived_and_completed_timestamps(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake([
+            'https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1/accesstoken*' => Http::response([
+                'access_token' => 'token-1',
+                'expires_in' => 3600,
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Patient*' => Http::response([
+                'resourceType' => 'Bundle',
+                'entry' => [['resource' => ['resourceType' => 'Patient', 'id' => 'patient-ihs']]],
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Practitioner*' => Http::response([
+                'resourceType' => 'Bundle',
+                'entry' => [['resource' => ['resourceType' => 'Practitioner', 'id' => 'practitioner-ihs']]],
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Location/*' => Http::response([
+                'resourceType' => 'Location',
+                'id' => 'loc-y',
+                'status' => 'active',
+                'name' => 'Poli Gigi',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Condition' => Http::response([
+                'resourceType' => 'Condition',
+                'id' => 'condition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Observation' => Http::response([
+                'resourceType' => 'Observation',
+                'id' => 'observation-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
+                'resourceType' => 'Encounter',
+                'id' => 'encounter-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter/*' => Http::response([
+                'resourceType' => 'Encounter',
+                'id' => 'encounter-1',
+            ]),
+        ]);
+
+        $owner = $this->tenantUser(RoleName::Owner, $this->tenantA, $this->branchA);
+        $this->readyBranch($this->branchA, false);
+        $doctorUser = User::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'branch_id' => $this->branchA->id,
+        ]);
+        Doctor::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'user_id' => $doctorUser->id,
+            'nik' => '3174010101010004',
+        ]);
+        $arrived = now('Asia/Jakarta')->setTime(10, 15, 0);
+        $completed = now('Asia/Jakarta')->setTime(11, 45, 0);
+        $patient = Patient::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'nik' => '1234567890123458',
+        ]);
+        $visit = Visit::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'branch_id' => $this->branchA->id,
+            'patient_id' => $patient->id,
+            'doctor_id' => $doctorUser->id,
+            'payer_id' => Payer::factory()->create(['tenant_id' => $this->tenantA->id])->id,
+            'status' => VisitStatus::Done,
+            'arrived_at' => $arrived,
+            'completed_at' => $completed,
+        ]);
+        Diagnosis::factory()->create([
+            'visit_id' => $visit->id,
+            'code' => 'K02.1',
+            'description' => 'Karies dentin',
+        ]);
+
+        $this->actingAs($owner)
+            ->post(route('integrations.satusehat.send'), ['visit_id' => $visit->id])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $visit = $visit->fresh();
+        $expectedPrefix = $visit->arrived_at->copy()->utc()->format('Y-m-d\TH:i');
+        Http::assertSent(function ($request) use ($expectedPrefix) {
+            $start = (string) ($request['period']['start'] ?? '');
+
+            return str_contains($request->url(), '/Encounter')
+                && str_starts_with($start, $expectedPrefix)
+                && ! str_contains($start, 'T01:00'); // bukan hardcode 08:00 WIB
+        });
+        $this->assertSame(SatuSehatStatus::Synced, $visit->satusehat_status);
+    }
+
+    public function test_payload_redactor_masks_nik_and_secrets(): void
+    {
+        $payload = [
+            'identifier' => [['system' => 'https://fhir.kemkes.go.id/id/nik', 'value' => '1234567890123456']],
+            'name' => [['text' => 'Budi']],
+            'access_token' => 'token-secret',
+            'client_secret' => 'super-secret',
+            'nested' => ['nik' => '1234567890123456', 'ok' => true],
+        ];
+
+        $redacted = \App\Support\Integrations\PayloadRedactor::redact($payload);
+
+        $this->assertSame('********', $redacted['identifier'][0]['value']);
+        $this->assertSame('********', $redacted['name']);
+        $this->assertSame('********', $redacted['access_token']);
+        $this->assertSame('********', $redacted['client_secret']);
+        $this->assertSame('********', $redacted['nested']['nik']);
+        $this->assertTrue($redacted['nested']['ok']);
     }
 
     public function test_connection_test_stores_locations_from_the_api(): void

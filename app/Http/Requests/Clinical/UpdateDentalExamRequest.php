@@ -43,6 +43,11 @@ class UpdateDentalExamRequest extends FormRequest
             'anomaly' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::presence()))],
             'anomaly_description' => ['nullable', 'string', 'max:255'],
             'habits' => ['nullable', 'string', 'max:2000'],
+            'ohis' => ['nullable', 'array'],
+            'ohis.debris_index' => ['nullable', 'numeric', 'min:0', 'max:3'],
+            'ohis.calculus_index' => ['nullable', 'numeric', 'min:0', 'max:3'],
+            'ohis.total' => ['nullable', 'numeric', 'min:0', 'max:6'],
+            'ohis.interpretation' => ['nullable', 'string', Rule::in(['baik', 'sedang', 'buruk'])],
         ];
     }
 }

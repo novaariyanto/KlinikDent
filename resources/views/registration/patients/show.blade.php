@@ -13,11 +13,39 @@
                         <tr><th width="160">No. RM</th><td>{{ $patient->medical_record_number }}</td></tr>
                         <tr><th>Nama</th><td>{{ $patient->name }}</td></tr>
                         <tr><th>NIK</th><td>{{ $patient->nik ?: '-' }}</td></tr>
-                        <tr><th>IHS</th><td>{{ $patient->satusehat_id ?: '-' }}</td></tr>
+                        <tr>
+                            <th>IHS</th>
+                            <td>
+                                @if (filled($patient->satusehat_id))
+                                    <code>{{ $patient->satusehat_id }}</code>
+                                @else
+                                    <span class="text-muted">Belum ada</span>
+                                @endif
+                            </td>
+                        </tr>
                         <tr><th>Tanggal Lahir</th><td>{{ $patient->dob?->format('d M Y') ?: '-' }}</td></tr>
+                        <tr><th>Tempat Lahir</th><td>{{ $patient->birth_place ?: '-' }}</td></tr>
                         <tr><th>Jenis Kelamin</th><td>{{ $patient->gender?->label() ?: '-' }}</td></tr>
+                        <tr><th>Status Perkawinan</th><td>{{ $patient->marital_status?->label() ?: '-' }}</td></tr>
+                        <tr><th>Kewarganegaraan</th><td>{{ $patient->citizenship?->label() ?: '-' }}</td></tr>
+                        <tr><th>No. KK</th><td>{{ $patient->family_card_number ?: '-' }}</td></tr>
                         <tr><th>Telepon</th><td>{{ $patient->phone ?: '-' }}</td></tr>
                         <tr><th>Alamat</th><td>{{ $patient->address ?: '-' }}</td></tr>
+                        <tr><th>Kota</th><td>{{ $patient->address_city ?: ($wilayahLabels['city'] ?? '-') }}{{ $patient->address_postal_code ? ' '.$patient->address_postal_code : '' }}</td></tr>
+                        <tr>
+                            <th>Wilayah</th>
+                            <td class="small">
+                                @if ($patient->hasSatuSehatAddress())
+                                    {{ $wilayahLabels['province'] ?? $patient->province_code }}
+                                    · {{ $wilayahLabels['city'] ?? $patient->city_code }}
+                                    · {{ $wilayahLabels['district'] ?? $patient->district_code }}
+                                    · {{ $wilayahLabels['village'] ?? $patient->village_code }}
+                                    · RT/RW {{ $patient->rt }}/{{ $patient->rw }}
+                                @else
+                                    <span class="text-muted">Belum lengkap untuk SATUSEHAT</span>
+                                @endif
+                            </td>
+                        </tr>
                         <tr><th>Penjamin</th><td>{{ $patient->defaultPayer?->name ?: '-' }}</td></tr>
                         <tr>
                             <th>BPJS</th>
@@ -36,6 +64,20 @@
                 <div class="mt-3 d-flex flex-wrap gap-2">
                     @can('update', $patient)
                         <x-button href="{{ route('registration.patients.edit', $patient) }}" icon="bx bx-edit">Edit</x-button>
+                        @if (filled($patient->nik) && ! filled($patient->satusehat_id))
+                            @if ($patient->hasSatuSehatAddress())
+                                <form action="{{ route('registration.patients.satusehat', $patient) }}" method="POST">
+                                    @csrf
+                                    <x-button type="submit" variant="secondary" icon="bx bx-cloud-download">Ambil IHS</x-button>
+                                </form>
+                            @else
+                                <x-button
+                                    href="{{ route('registration.patients.edit', ['patient' => $patient, 'ihs' => 1]) }}"
+                                    variant="secondary"
+                                    icon="bx bx-cloud-download"
+                                >Lengkapi & Ambil IHS</x-button>
+                            @endif
+                        @endif
                     @endcan
                     @can('bpjs.view')
                         <form action="{{ route('registration.patients.bpjs', $patient) }}" method="POST">

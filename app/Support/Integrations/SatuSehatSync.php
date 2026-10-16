@@ -5,6 +5,7 @@ namespace App\Support\Integrations;
 use App\Enums\RoomType;
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
+use App\Models\Branch;
 use App\Models\Room;
 use App\Support\Clinical\CareExamOptions;
 use App\Models\BranchSatuSehatSetting;
@@ -17,6 +18,7 @@ use App\Models\ProcedureRecord;
 use App\Models\SatuSehatResource;
 use App\Models\TenantIntegration;
 use App\Models\Visit;
+use App\Support\Indonesia\WilayahService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
@@ -25,6 +27,18 @@ class SatuSehatSync
 {
     /** @var list<string> */
     protected array $notes = [];
+
+    /**
+     * @var list<array{type: string, local_key: string, error: string, stage: string, element: ?string, http_status: ?int}>
+     */
+    protected array $failures = [];
+
+    /**
+     * Resource yang diwajibkan untuk skenario kunjungan ini dan gagal dikirim.
+     *
+     * @var list<string>
+     */
+    protected array $requiredFailures = [];
 
     /**
      * Panggilan FHIR pada pencarian IHS terakhir.
@@ -39,11 +53,13 @@ class SatuSehatSync
     ) {}
 
     /**
-     * @return array{ok: bool, id?: string, response: array<string, mixed>, error?: string}
+     * @return array{ok: bool, partial?: bool, retryable?: bool, id?: string, response: array<string, mixed>, error?: string}
      */
     public function run(Visit $visit): array
     {
         $this->notes = [];
+        $this->failures = [];
+        $this->requiredFailures = [];
         $visit->loadMissing([
             'patient',
             'doctor.doctorProfile',
@@ -52,6 +68,8 @@ class SatuSehatSync
             'medicalRecord',
             'odontogramLogs',
             'referrals',
+            'prescriptions.items.medicine',
+            'prescriptions.items.ingredients.medicine',
             'room',
             'branch',
         ]);
@@ -61,12 +79,15 @@ class SatuSehatSync
         if ($blocked !== null) {
             return [
                 'ok' => false,
+                'partial' => false,
                 'response' => ['skipped' => $this->notes],
                 'error' => $blocked,
             ];
         }
 
         $client = new SatuSehatClient($this->tenant, $this->branch);
+        $encounterId = null;
+        $locationId = null;
 
         try {
             $patientIhs = $this->patientIhs($client, $visit->patient);
@@ -74,7 +95,12 @@ class SatuSehatSync
             $start = $this->periodStart($visit);
             $end = $this->periodEnd($visit, $start);
 
+            if ($start->greaterThan($end)) {
+                throw IntegrationException::permanent('Waktu mulai kunjungan lebih besar dari waktu selesai. Periksa arrived_at dan completed_at.');
+            }
+
             $location = $this->encounterLocation($client, $visit);
+            $locationId = $location['id'];
             $encounterId = $this->send(
                 $client,
                 'Encounter',
@@ -85,15 +111,19 @@ class SatuSehatSync
 
             $conditionIds = [];
 
-            foreach ($visit->diagnoses as $index => $diagnosis) {
-                $conditionIds[] = $this->send(
+            foreach ($visit->diagnoses as $diagnosis) {
+                $id = $this->trySend(
                     $client,
                     'Condition',
                     'condition:'.$diagnosis->id,
                     $this->conditionPayload($diagnosis, $patientIhs, $encounterId, $start),
                     $diagnosis,
+                    required: true,
                 );
-                unset($index);
+
+                if ($id !== null) {
+                    $conditionIds[] = $id;
+                }
             }
 
             foreach ($visit->procedureRecords as $record) {
@@ -103,16 +133,33 @@ class SatuSehatSync
                     continue;
                 }
 
-                $this->send(
+                $this->trySend(
                     $client,
                     'Procedure',
                     'procedure:'.$record->id,
                     $this->procedurePayload($record, $patientIhs, $practitionerIhs, $encounterId, $start, $end),
                     $record,
+                    required: true,
                 );
             }
 
             $this->sendObservations($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $start);
+            $this->sendAnamnesisObservations($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $start);
+            $this->sendOhisObservations($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $start);
+            $this->sendAllergyAndMedicationHistory($client, $visit, $patientIhs, $encounterId, $start);
+            $this->sendPharmacy($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $start, $end);
+            $this->sendReferrals($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $start);
+            $this->sendEducationAndPrognosis($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $start, $end);
+
+            if ($this->requiredFailures !== []) {
+                return [
+                    'ok' => false,
+                    'partial' => true,
+                    'id' => $encounterId,
+                    'response' => $this->resultPayload($client, $encounterId, $locationId),
+                    'error' => 'Sinkronisasi sebagian: '.implode('; ', $this->requiredFailures).'. Encounter belum ditutup (finished).',
+                ];
+            }
 
             $encounterId = $this->send(
                 $client,
@@ -124,25 +171,38 @@ class SatuSehatSync
 
             return [
                 'ok' => true,
+                'partial' => false,
                 'id' => $encounterId,
-                'response' => [
-                    'encounter_id' => $encounterId,
-                    'organization_id' => (string) $this->branch->organization_id,
-                    'location_id' => $location['id'],
-                    'skipped' => $this->notes,
-                    'exchanges' => $client->exchanges,
-                ],
+                'response' => $this->resultPayload($client, $encounterId, $locationId),
             ];
         } catch (IntegrationException $exception) {
+            $partial = $encounterId !== null || $this->failures !== [];
+
             return [
                 'ok' => false,
-                'response' => [
-                    'skipped' => $this->notes,
-                    'exchanges' => $client->exchanges,
-                ],
+                'partial' => $partial,
+                'retryable' => $exception->retryable,
+                'id' => $encounterId ?? null,
+                'response' => $this->resultPayload($client, $encounterId, $locationId),
                 'error' => $exception->getMessage(),
             ];
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function resultPayload(SatuSehatClient $client, ?string $encounterId, ?string $locationId): array
+    {
+        return [
+            'encounter_id' => $encounterId,
+            'organization_id' => (string) $this->branch->organization_id,
+            'location_id' => $locationId,
+            'skipped' => $this->notes,
+            'failures' => $this->failures,
+            'required_failures' => $this->requiredFailures,
+            'exchanges' => $client->exchanges,
+        ];
     }
 
     protected function blockedReason(Visit $visit): ?string
@@ -172,18 +232,54 @@ class SatuSehatSync
         return null;
     }
 
-    public function ensurePatientIhs(Patient $patient): string
+    public function ensurePatientIhs(Patient $patient, bool $persist = true): string
     {
         $client = new SatuSehatClient($this->tenant, $this->branch);
 
         try {
-            return $this->patientIhs($client, $patient);
+            return $this->patientIhs($client, $patient, $persist);
         } finally {
             $this->exchanges = $client->exchanges;
         }
     }
 
-    protected function patientIhs(SatuSehatClient $client, Patient $patient): string
+    public function findPatientIhsByNik(string $nik): string
+    {
+        $client = new SatuSehatClient($this->tenant, $this->branch);
+
+        try {
+            $id = $client->findByNik('Patient', $nik);
+
+            if ($id === null) {
+                throw new IntegrationException('NIK pasien tidak ditemukan di MPI SATUSEHAT.');
+            }
+
+            return $id;
+        } finally {
+            $this->exchanges = $client->exchanges;
+        }
+    }
+
+    /**
+     * Kode administratif Kemendagri tanpa titik (format SATUSEHAT).
+     *
+     * @return list<array{url: string, valueCode: string}>
+     */
+    protected function patientAdministrativeCodes(Patient $patient): array
+    {
+        $wilayah = app(WilayahService::class);
+
+        return [
+            ['url' => 'province', 'valueCode' => (string) ($wilayah->toAdministrativeCode($patient->province_code) ?: $patient->province_code)],
+            ['url' => 'city', 'valueCode' => (string) ($wilayah->toAdministrativeCode($patient->city_code) ?: $patient->city_code)],
+            ['url' => 'district', 'valueCode' => (string) ($wilayah->toAdministrativeCode($patient->district_code) ?: $patient->district_code)],
+            ['url' => 'village', 'valueCode' => (string) ($wilayah->toAdministrativeCode($patient->village_code) ?: $patient->village_code)],
+            ['url' => 'rt', 'valueCode' => (string) $patient->rt],
+            ['url' => 'rw', 'valueCode' => (string) $patient->rw],
+        ];
+    }
+
+    protected function patientIhs(SatuSehatClient $client, Patient $patient, bool $persist = true): string
     {
         if (filled($patient->satusehat_id)) {
             return (string) $patient->satusehat_id;
@@ -195,7 +291,11 @@ class SatuSehatSync
             $id = $this->registerMissingPatient($client, $patient);
         }
 
-        $patient->forceFill(['satusehat_id' => $id])->save();
+        if ($persist && $patient->exists) {
+            $patient->forceFill(['satusehat_id' => $id])->save();
+        } else {
+            $patient->satusehat_id = $id;
+        }
 
         return $id;
     }
@@ -216,10 +316,72 @@ class SatuSehatSync
             $missing[] = 'jenis kelamin';
         }
 
+        $addressGaps = $patient->missingSatuSehatAddressFields();
+        if ($addressGaps !== []) {
+            $missing = array_merge($missing, $addressGaps);
+        }
+
         if ($missing !== []) {
             throw new IntegrationException(
-                'NIK pasien tidak ditemukan di MPI SATUSEHAT. Pendaftaran IHS membutuhkan '.implode(', ', $missing).' sesuai KTP.'
+                'NIK pasien tidak ditemukan di MPI SATUSEHAT. Pendaftaran IHS membutuhkan '.implode(', ', $missing)
+                .' sesuai KTP (kode wilayah = Master Wilayah SATUSEHAT / Kemendagri).'
             );
+        }
+
+        $client->assertMasterWilayahCodes(
+            (string) $patient->province_code,
+            (string) $patient->city_code,
+            (string) $patient->district_code,
+            (string) $patient->village_code,
+        );
+
+        $extensions = [
+            [
+                'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/citizenshipStatus',
+                'valueCode' => ($patient->citizenship?->value ?: 'WNI'),
+            ],
+        ];
+
+        if (filled($patient->birth_place)) {
+            $extensions[] = [
+                'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/birthPlace',
+                'valueAddress' => [
+                    'city' => (string) $patient->birth_place,
+                    'country' => 'ID',
+                ],
+            ];
+        }
+
+        $identifiers = [[
+            'use' => 'official',
+            'system' => SatuSehatCodes::NIK_SYSTEM,
+            'value' => (string) $patient->nik,
+        ]];
+
+        if (filled($patient->family_card_number)) {
+            $identifiers[] = [
+                'use' => 'official',
+                'system' => 'https://fhir.kemkes.go.id/id/kk',
+                'value' => (string) $patient->family_card_number,
+            ];
+        }
+
+        $address = [
+            'use' => 'home',
+            'line' => [(string) $patient->address],
+            'country' => 'ID',
+            'extension' => [[
+                'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/administrativeCode',
+                'extension' => $this->patientAdministrativeCodes($patient),
+            ]],
+        ];
+
+        if (filled($patient->address_city)) {
+            $address['city'] = (string) $patient->address_city;
+        }
+
+        if (filled($patient->address_postal_code)) {
+            $address['postalCode'] = (string) $patient->address_postal_code;
         }
 
         $payload = [
@@ -227,11 +389,7 @@ class SatuSehatSync
             'meta' => [
                 'profile' => ['https://fhir.kemkes.go.id/r4/StructureDefinition/Patient'],
             ],
-            'identifier' => [[
-                'use' => 'official',
-                'system' => SatuSehatCodes::NIK_SYSTEM,
-                'value' => (string) $patient->nik,
-            ]],
+            'identifier' => $identifiers,
             'active' => true,
             'name' => [[
                 'use' => 'official',
@@ -241,7 +399,25 @@ class SatuSehatSync
             'birthDate' => $patient->dob->format('Y-m-d'),
             'deceasedBoolean' => false,
             'multipleBirthInteger' => 0,
+            'address' => [$address],
+            'extension' => $extensions,
+            'communication' => [[
+                'language' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                    'urn:ietf:bcp:47',
+                    'id-ID',
+                    'Indonesian',
+                )),
+                'preferred' => true,
+            ]],
         ];
+
+        if ($patient->marital_status) {
+            $payload['maritalStatus'] = SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                'http://terminology.hl7.org/CodeSystem/v3-MaritalStatus',
+                $patient->marital_status->value,
+                $patient->marital_status->label(),
+            ));
+        }
 
         if (filled($patient->phone)) {
             $payload['telecom'] = [[
@@ -251,21 +427,28 @@ class SatuSehatSync
             ]];
         }
 
-        if (filled($patient->address)) {
-            $payload['address'] = [[
-                'use' => 'home',
-                'line' => [(string) $patient->address],
-                'country' => 'ID',
-            ]];
-        }
-
         return $this->send($client, 'Patient', 'patient:'.$patient->id, $payload, $patient);
+    }
+
+    public function ensurePractitionerIhs(Doctor $doctor): string
+    {
+        $client = new SatuSehatClient($this->tenant, $this->branch);
+
+        try {
+            return $this->practitionerIhs($client, $doctor);
+        } finally {
+            $this->exchanges = $client->exchanges;
+        }
     }
 
     protected function practitionerIhs(SatuSehatClient $client, Doctor $doctor): string
     {
         if (filled($doctor->satusehat_id)) {
             return (string) $doctor->satusehat_id;
+        }
+
+        if (! filled($doctor->nik)) {
+            throw new IntegrationException('NIK dokter belum diisi, sehingga nomor IHS tidak dapat dicari.');
         }
 
         $id = $client->findByNik('Practitioner', (string) $doctor->nik);
@@ -277,6 +460,51 @@ class SatuSehatSync
         $doctor->forceFill(['satusehat_id' => $id])->save();
 
         return $id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    protected function trySend(
+        SatuSehatClient $client,
+        string $type,
+        string $localKey,
+        array $payload,
+        ?Model $internal = null,
+        bool $required = false,
+        ?string $knownId = null,
+    ): ?string {
+        try {
+            return $this->send($client, $type, $localKey, $payload, $internal, $knownId);
+        } catch (IntegrationException $exception) {
+            $message = $exception->getMessage();
+            $stage = str_contains($message, 'Validasi lokal gagal') ? 'local_validation' : 'remote';
+            $httpStatus = null;
+
+            foreach (array_reverse($client->exchanges) as $exchange) {
+                if (($exchange['local_key'] ?? null) === $localKey && isset($exchange['status'])) {
+                    $httpStatus = is_numeric($exchange['status']) ? (int) $exchange['status'] : null;
+                    break;
+                }
+            }
+
+            $this->failures[] = [
+                'type' => $type,
+                'local_key' => $localKey,
+                'error' => $message,
+                'stage' => $stage,
+                'element' => SatuSehatPayloadValidator::fhirElementFromMessage($message),
+                'http_status' => $httpStatus,
+            ];
+
+            if ($required) {
+                $this->requiredFailures[] = $type.': '.$message;
+            } else {
+                $this->notes[] = $type.' tidak terkirim: '.$message;
+            }
+
+            return null;
+        }
     }
 
     /**
@@ -300,15 +528,31 @@ class SatuSehatSync
             ? (string) $knownId
             : (filled($existing?->satusehat_id) ? (string) $existing->satusehat_id : $knownId);
 
-        if ($remoteId && $existing?->sync_status === SatuSehatStatus::Synced && ! in_array($type, ['Encounter', 'Location'], true)) {
+        // Resume: resource yang sudah synced tidak di-POST ulang (kecuali Encounter yang perlu PUT status).
+        if ($remoteId
+            && $existing?->sync_status === SatuSehatStatus::Synced
+            && $type !== 'Encounter'
+        ) {
             return (string) $remoteId;
         }
+
+        SatuSehatPayloadValidator::assert($type, $payload, $localKey);
 
         $result = $client->submit($type, $payload, $remoteId, $localKey);
         $this->remember($type, $localKey, $internal, $result['id'] ?? $remoteId, $result['ok'], $result['error'] ?? null);
 
         if (! $result['ok']) {
-            throw new IntegrationException($result['error'] ?? 'Pengiriman '.$type.' gagal.');
+            $retryable = (bool) ($result['retryable'] ?? false);
+            $message = $result['error'] ?? 'Pengiriman '.$type.' gagal.';
+            $element = SatuSehatPayloadValidator::fhirElementFromMessage($message);
+
+            if ($element !== null && ! str_contains($message, $element)) {
+                $message .= ' (elemen: '.$element.')';
+            }
+
+            throw $retryable
+                ? IntegrationException::temporary($message)
+                : IntegrationException::permanent($message);
         }
 
         return (string) $result['id'];
@@ -453,7 +697,7 @@ class SatuSehatSync
             filled($exam['anomaly_description'] ?? null) ? (string) $exam['anomaly_description'] : null,
         );
 
-        $this->send(
+        $this->trySend(
             $client,
             'Observation',
             'observation:other-oral:'.$visit->id,
@@ -467,6 +711,7 @@ class SatuSehatSync
                 SatuSehatCodes::coding(SatuSehatCodes::CLINICAL, 'OC000060', 'Kondisi Gigi dan Mulut Lainnya'),
             ) + ['valueString' => $this->otherOralCondition($exam)],
             $visit->medicalRecord,
+            required: true,
         );
 
         $this->sendOdontogram($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $at);
@@ -490,7 +735,7 @@ class SatuSehatSync
             return;
         }
 
-        $this->send(
+        $this->trySend(
             $client,
             'Observation',
             'observation:vital:'.$visit->id.':'.$code,
@@ -503,6 +748,7 @@ class SatuSehatSync
                 ],
             ],
             $visit->medicalRecord,
+            required: true,
         );
     }
 
@@ -545,7 +791,7 @@ class SatuSehatSync
             $concept['text'] = $text;
         }
 
-        $this->send(
+        $this->trySend(
             $client,
             'Observation',
             'observation:'.$key.':'.$visit->id,
@@ -553,6 +799,7 @@ class SatuSehatSync
                 'valueCodeableConcept' => $concept,
             ],
             $visit->medicalRecord,
+            required: true,
         );
     }
 
@@ -660,7 +907,7 @@ class SatuSehatSync
                 }
             }
 
-            $this->send(
+            $this->trySend(
                 $client,
                 'Observation',
                 'observation:tooth:'.$log->id,
@@ -678,6 +925,7 @@ class SatuSehatSync
                     'component' => $components,
                 ],
                 $log,
+                required: true,
             );
         }
     }
@@ -707,7 +955,7 @@ class SatuSehatSync
         ];
 
         foreach ($counts as $key => [$count, $code, $display]) {
-            $this->send(
+            $this->trySend(
                 $client,
                 'Observation',
                 'observation:'.$key.':'.$visit->id,
@@ -721,6 +969,7 @@ class SatuSehatSync
                     SatuSehatCodes::coding(SatuSehatCodes::SNOMED, $code, $display),
                 ) + ['valueInteger' => $count],
                 $visit->medicalRecord,
+                required: true,
             );
         }
     }
@@ -760,6 +1009,7 @@ class SatuSehatSync
             'subject' => ['reference' => 'Patient/'.$patientIhs],
             'encounter' => ['reference' => 'Encounter/'.$encounterId],
             'effectiveDateTime' => $this->fhirTime($at),
+            'issued' => $this->fhirTime($at),
             'performer' => [['reference' => 'Practitioner/'.$practitionerIhs]],
         ];
     }
@@ -880,6 +1130,95 @@ class SatuSehatSync
             $locationId,
             true,
         );
+    }
+
+    /**
+     * Buat atau perbarui Location induk cabang di SATUSEHAT dari data modul Cabang.
+     */
+    public function ensureBranchLocation(Branch $clinicBranch): string
+    {
+        if ((int) $clinicBranch->id !== (int) $this->branch->branch_id) {
+            throw new IntegrationException('Cabang tidak sesuai dengan pengaturan SATUSEHAT.');
+        }
+
+        if ($clinicBranch->latitude === null || $clinicBranch->longitude === null) {
+            throw new IntegrationException('Lintang dan bujur cabang wajib diisi sebelum sync lokasi SATUSEHAT.');
+        }
+
+        $client = new SatuSehatClient($this->tenant, $this->branch);
+
+        try {
+            $localKey = 'location:branch:'.$clinicBranch->id;
+            $organizationId = (string) $this->branch->organization_id;
+            $identifier = 'BRANCH-'.$clinicBranch->id;
+            $storedId = filled($this->branch->location_id)
+                ? (string) $this->branch->location_id
+                : SatuSehatResource::withoutGlobalScopes()
+                    ->where('tenant_id', $this->branch->tenant_id)
+                    ->where('local_key', $localKey)
+                    ->value('satusehat_id');
+            $knownId = filled($storedId)
+                ? (string) $storedId
+                : $client->findByIdentifier(
+                    'Location',
+                    'http://sys-ids.kemkes.go.id/location/'.$organizationId,
+                    $identifier,
+                );
+
+            $id = $this->send(
+                $client,
+                'Location',
+                $localKey,
+                $this->branchLocationPayload($clinicBranch),
+                $clinicBranch,
+                $knownId ?: null,
+                filled($knownId),
+            );
+
+            $this->branch->forceFill([
+                'location_id' => $id,
+                'location_name' => (string) $clinicBranch->name,
+                'last_error' => null,
+            ])->save();
+
+            return $id;
+        } finally {
+            $this->exchanges = $client->exchanges;
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function branchLocationPayload(Branch $clinicBranch): array
+    {
+        $organizationId = (string) $this->branch->organization_id;
+        $name = (string) $clinicBranch->name;
+        $managing = ['reference' => 'Organization/'.$organizationId];
+
+        if (filled($this->branch->organization_name)) {
+            $managing['display'] = (string) $this->branch->organization_name;
+        }
+
+        $payload = [
+            'resourceType' => 'Location',
+            'identifier' => [[
+                'system' => 'http://sys-ids.kemkes.go.id/location/'.$organizationId,
+                'value' => 'BRANCH-'.$clinicBranch->id,
+            ]],
+            'status' => $clinicBranch->is_active ? 'active' : 'inactive',
+            'name' => $name,
+            'description' => trim($name.(filled($clinicBranch->address) ? ', '.$clinicBranch->address : '')),
+            'mode' => 'instance',
+            'physicalType' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                'http://terminology.hl7.org/CodeSystem/location-physical-type',
+                'si',
+                'Site',
+            )),
+            'managingOrganization' => $managing,
+        ];
+
+        return array_replace($payload, $this->placeDetails($clinicBranch));
     }
 
     /**
@@ -1037,7 +1376,8 @@ class SatuSehatSync
                 $address['postalCode'] = (string) $branch->postal_code;
             }
 
-            $details['address'] = [$address];
+            // Location.address di FHIR R4 / SATUSEHAT adalah Address tunggal (0..1), bukan array.
+            $details['address'] = $address;
         }
 
         if ($branch?->longitude !== null && $branch?->latitude !== null) {
@@ -1168,25 +1508,529 @@ class SatuSehatSync
 
     protected function periodStart(Visit $visit): CarbonInterface
     {
-        $date = $visit->visit_date?->toDateString() ?: now()->toDateString();
+        $tz = config('app.timezone', 'Asia/Jakarta');
 
-        return Carbon::parse($date.' 08:00:00', 'Asia/Jakarta');
+        if ($visit->arrived_at !== null) {
+            return $visit->arrived_at->copy()->timezone($tz);
+        }
+
+        if ($visit->created_at !== null) {
+            return $visit->created_at->copy()->timezone($tz);
+        }
+
+        $date = $visit->visit_date?->toDateString() ?: now($tz)->toDateString();
+
+        return Carbon::parse($date.' '.now($tz)->format('H:i:s'), $tz);
     }
 
     protected function periodEnd(Visit $visit, CarbonInterface $start): CarbonInterface
     {
-        $close = $start->copy()->addHour();
-        $now = now('Asia/Jakarta');
+        $tz = config('app.timezone', 'Asia/Jakarta');
 
-        if ($visit->visit_date?->isSameDay($now) && $now->greaterThan($close)) {
-            return $now;
+        if ($visit->completed_at !== null) {
+            $end = $visit->completed_at->copy()->timezone($tz);
+
+            return $end->lessThan($start) ? $start->copy()->addMinute() : $end;
         }
 
-        return $close;
+        $end = now($tz);
+
+        return $end->lessThan($start) ? $start->copy()->addMinute() : $end;
     }
 
     protected function fhirTime(CarbonInterface $time): string
     {
         return $time->copy()->utc()->format('Y-m-d\TH:i:s\Z');
+    }
+
+    protected function sendAnamnesisObservations(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $practitionerIhs,
+        string $encounterId,
+        CarbonInterface $at,
+    ): void {
+        $exam = $visit->medicalRecord?->dental_exam ?? [];
+        $sys = $visit->medicalRecord?->systemic_history ?? [];
+        $anamnesis = array_merge($exam, $sys);
+
+        $maps = [
+            'blood_type' => [
+                'code' => '883-9',
+                'display' => 'ABO group [Type] in Blood',
+                'values' => [
+                    'A' => ['LA19710-5', 'Group A'],
+                    'B' => ['LA19709-7', 'Group B'],
+                    'AB' => ['LA28449-9', 'Group AB'],
+                    'O' => ['LA19708-9', 'Group O'],
+                ],
+            ],
+            'rhesus' => [
+                'code' => '10331-7',
+                'display' => 'Rh [Type] in Blood',
+                'values' => [
+                    'positive' => ['LA6576-8', 'Positive'],
+                    '+' => ['LA6576-8', 'Positive'],
+                    'negative' => ['LA6577-6', 'Negative'],
+                    '-' => ['LA6577-6', 'Negative'],
+                ],
+            ],
+            'pregnancy_status' => [
+                'code' => '82810-3',
+                'display' => 'Pregnancy status',
+                'system' => SatuSehatCodes::SNOMED,
+                'values' => [
+                    'pregnant' => ['77386006', 'Pregnancy'],
+                    'hamil' => ['77386006', 'Pregnancy'],
+                    'not_pregnant' => ['60001007', 'Not pregnant'],
+                    'tidak_hamil' => ['60001007', 'Not pregnant'],
+                ],
+            ],
+        ];
+
+        foreach ($maps as $field => $meta) {
+            $raw = $anamnesis[$field] ?? null;
+
+            if (! filled($raw)) {
+                continue;
+            }
+
+            $key = (string) $raw;
+            $mapped = $meta['values'][$key] ?? null;
+
+            if ($mapped === null) {
+                $this->notes[] = 'Anamnesis '.$field.' "'.$key.'" tidak dikirim karena nilai tidak dikenal.';
+
+                continue;
+            }
+
+            $valueSystem = $meta['system'] ?? SatuSehatCodes::LOINC;
+            $this->trySend(
+                $client,
+                'Observation',
+                'observation:anamnesis:'.$visit->id.':'.$field,
+                $this->observationBase(
+                    $patientIhs,
+                    $practitionerIhs,
+                    $encounterId,
+                    $at,
+                    'survey',
+                    'Survey',
+                    SatuSehatCodes::coding(SatuSehatCodes::LOINC, $meta['code'], $meta['display']),
+                ) + [
+                    'valueCodeableConcept' => SatuSehatCodes::codeable(
+                        SatuSehatCodes::coding($valueSystem, $mapped[0], $mapped[1])
+                    ),
+                ],
+                $visit->medicalRecord,
+            );
+        }
+    }
+
+    protected function sendOhisObservations(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $practitionerIhs,
+        string $encounterId,
+        CarbonInterface $at,
+    ): void {
+        $ohis = $visit->medicalRecord?->dental_exam['ohis'] ?? null;
+
+        if (! is_array($ohis)) {
+            return;
+        }
+
+        $di = $ohis['debris_index'] ?? null;
+        $ci = $ohis['calculus_index'] ?? null;
+        $total = $ohis['total'] ?? null;
+        $interpretation = $ohis['interpretation'] ?? null;
+
+        if (! is_numeric($di) || ! is_numeric($ci) || ! is_numeric($total)) {
+            if ($di !== null || $ci !== null || $total !== null) {
+                $this->notes[] = 'OHIS tidak dikirim karena skor DI/CI/total belum lengkap.';
+            }
+
+            return;
+        }
+
+        $score = function (float $value, string $code, string $display, ?array $interp = null) use ($client, $visit, $patientIhs, $practitionerIhs, $encounterId, $at): void {
+            $this->trySend(
+                $client,
+                'Observation',
+                'observation:ohis:'.$visit->id.':'.$code,
+                $this->observationBase(
+                    $patientIhs,
+                    $practitionerIhs,
+                    $encounterId,
+                    $at,
+                    'exam',
+                    'Exam',
+                    SatuSehatCodes::coding(SatuSehatCodes::CLINICAL, $code, $display),
+                ) + array_filter([
+                    'valueQuantity' => [
+                        'value' => $value,
+                        'unit' => 'score',
+                        'system' => 'http://unitsofmeasure.org',
+                        'code' => '{score}',
+                    ],
+                    'interpretation' => $interp,
+                ]),
+                $visit->medicalRecord,
+            );
+        };
+
+        $score((float) $di, 'OC000056', 'Skor Total Debris Indeks');
+        $score((float) $ci, 'OC000057', 'Skor Total Kalkulus Indeks');
+
+        $interpCoding = match ((string) $interpretation) {
+            'baik', 'good' => ['OI000029', 'Kondisi Gigi Baik'],
+            'sedang', 'fair' => ['OI000030', 'Kondisi Gigi Cukup Baik'],
+            'buruk', 'poor' => ['OI000031', 'Kondisi Gigi Buruk'],
+            default => null,
+        };
+
+        $score(
+            (float) $total,
+            'OC000058',
+            'Skor Total Oral Hygiene Index Simplified (OHIS)',
+            $interpCoding
+                ? [SatuSehatCodes::codeable(SatuSehatCodes::coding(SatuSehatCodes::CLINICAL, $interpCoding[0], $interpCoding[1]))]
+                : null,
+        );
+    }
+
+    protected function sendAllergyAndMedicationHistory(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $encounterId,
+        CarbonInterface $at,
+    ): void {
+        $sys = $visit->medicalRecord?->systemic_history ?? [];
+        $allergyStatus = (string) ($sys['allergy_status'] ?? '');
+        $allergyDetail = trim((string) ($sys['allergy_detail'] ?? ''));
+        $medStatus = (string) ($sys['medication_status'] ?? '');
+        $medDetail = trim((string) ($sys['medication_detail'] ?? ''));
+
+        if ($allergyStatus === 'present' && $allergyDetail !== '') {
+            $this->trySend(
+                $client,
+                'AllergyIntolerance',
+                'allergy:'.$visit->id,
+                [
+                    'resourceType' => 'AllergyIntolerance',
+                    'clinicalStatus' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical',
+                        'active',
+                        'Active',
+                    )),
+                    'verificationStatus' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification',
+                        'confirmed',
+                        'Confirmed',
+                    )),
+                    'category' => ['medication'],
+                    'code' => ['text' => $allergyDetail],
+                    'patient' => ['reference' => 'Patient/'.$patientIhs],
+                    'encounter' => ['reference' => 'Encounter/'.$encounterId],
+                    'recordedDate' => $this->fhirTime($at),
+                ],
+                $visit->medicalRecord,
+            );
+        } elseif ($allergyStatus === 'none_confirmed') {
+            $this->trySend(
+                $client,
+                'AllergyIntolerance',
+                'allergy:none:'.$visit->id,
+                [
+                    'resourceType' => 'AllergyIntolerance',
+                    'clinicalStatus' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.hl7.org/CodeSystem/allergyintolerance-clinical',
+                        'active',
+                        'Active',
+                    )),
+                    'verificationStatus' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.hl7.org/CodeSystem/allergyintolerance-verification',
+                        'confirmed',
+                        'Confirmed',
+                    )),
+                    'code' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        SatuSehatCodes::SNOMED,
+                        '716186003',
+                        'No known allergy',
+                    )),
+                    'patient' => ['reference' => 'Patient/'.$patientIhs],
+                    'encounter' => ['reference' => 'Encounter/'.$encounterId],
+                    'recordedDate' => $this->fhirTime($at),
+                ],
+                $visit->medicalRecord,
+            );
+        }
+
+        if ($medStatus === 'present' && $medDetail !== '') {
+            $this->trySend(
+                $client,
+                'MedicationStatement',
+                'medstatement:'.$visit->id,
+                [
+                    'resourceType' => 'MedicationStatement',
+                    'status' => 'active',
+                    'category' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.hl7.org/CodeSystem/medication-statement-category',
+                        'patientspecified',
+                        'Patient Specified',
+                    )),
+                    'medicationCodeableConcept' => ['text' => $medDetail],
+                    'subject' => ['reference' => 'Patient/'.$patientIhs],
+                    'context' => ['reference' => 'Encounter/'.$encounterId],
+                    'effectiveDateTime' => $this->fhirTime($at),
+                    'dateAsserted' => $this->fhirTime($at),
+                ],
+                $visit->medicalRecord,
+            );
+        } elseif ($medDetail !== '' && $medStatus !== 'present') {
+            $this->notes[] = 'Riwayat obat rutin tidak dikirim karena status belum dikonfirmasi (pilih "Sedang memakai obat").';
+        }
+    }
+
+    protected function sendPharmacy(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $practitionerIhs,
+        string $encounterId,
+        CarbonInterface $start,
+        CarbonInterface $end,
+    ): void {
+        $orgId = (string) $this->branch->organization_id;
+
+        foreach ($visit->prescriptions as $prescription) {
+            if (! $prescription->isSent() && ! $prescription->isFulfilled()) {
+                $this->notes[] = 'Resep #'.$prescription->id.' dilewati (status draft; kirim ke farmasi dulu).';
+
+                continue;
+            }
+
+            foreach ($prescription->items as $item) {
+                $built = SatuSehatFhirPayload::medicationFromItem($item, $orgId);
+
+                if ($built === null) {
+                    $hint = $item->isCompound()
+                        ? 'racikan membutuhkan bahan dengan kode KFA pada obat stok'
+                        : 'kode KFA kosong';
+                    $this->notes[] = 'Obat "'.$item->label().'" tidak dikirim karena '.$hint.'.';
+
+                    continue;
+                }
+
+                [$medicationPayload, $medicationKey] = $built;
+
+                $medicationId = $this->trySend(
+                    $client,
+                    'Medication',
+                    $medicationKey,
+                    $medicationPayload,
+                    $item->isCompound() ? $item : $item->medicine,
+                );
+
+                if ($medicationId === null) {
+                    continue;
+                }
+
+                $unit = (string) ($item->medicine?->unit ?: ($item->isCompound() ? 'bungkus' : 'unit'));
+                $requestId = $this->trySend(
+                    $client,
+                    'MedicationRequest',
+                    'medrequest:'.$item->id,
+                    [
+                        'resourceType' => 'MedicationRequest',
+                        'identifier' => [[
+                            'system' => 'http://sys-ids.kemkes.go.id/prescription/'.$orgId,
+                            'use' => 'official',
+                            'value' => (string) $item->id,
+                        ]],
+                        'status' => $prescription->isFulfilled() ? 'completed' : 'active',
+                        'intent' => 'order',
+                        'category' => [[
+                            'coding' => [SatuSehatCodes::coding(
+                                'http://terminology.hl7.org/CodeSystem/medicationrequest-category',
+                                'outpatient',
+                                'Outpatient',
+                            )],
+                        ]],
+                        'medicationReference' => ['reference' => 'Medication/'.$medicationId],
+                        'subject' => ['reference' => 'Patient/'.$patientIhs],
+                        'encounter' => ['reference' => 'Encounter/'.$encounterId],
+                        'authoredOn' => $this->fhirTime($start),
+                        'requester' => ['reference' => 'Practitioner/'.$practitionerIhs],
+                        'dosageInstruction' => [[
+                            'text' => trim(implode(' · ', array_filter([
+                                $item->dosage,
+                                $item->frequency,
+                                $item->duration,
+                            ]))) ?: 'Sesuai instruksi dokter',
+                        ]],
+                        'dispenseRequest' => [
+                            'quantity' => [
+                                'value' => (float) ($item->quantity ?: 1),
+                                'unit' => $unit,
+                            ],
+                        ],
+                    ],
+                    $item,
+                );
+
+                if ($requestId === null || ! $prescription->isFulfilled()) {
+                    continue;
+                }
+
+                $this->trySend(
+                    $client,
+                    'MedicationDispense',
+                    'meddispense:'.$item->id,
+                    [
+                        'resourceType' => 'MedicationDispense',
+                        'identifier' => [[
+                            'system' => 'http://sys-ids.kemkes.go.id/medicationdispense/'.$orgId,
+                            'use' => 'official',
+                            'value' => (string) $item->id,
+                        ]],
+                        'status' => 'completed',
+                        'category' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                            'http://terminology.hl7.org/fhir/CodeSystem/medicationdispense-category',
+                            'outpatient',
+                            'Outpatient',
+                        )),
+                        'medicationReference' => ['reference' => 'Medication/'.$medicationId],
+                        'subject' => ['reference' => 'Patient/'.$patientIhs],
+                        'context' => ['reference' => 'Encounter/'.$encounterId],
+                        'performer' => [[
+                            'actor' => ['reference' => 'Practitioner/'.$practitionerIhs],
+                        ]],
+                        'authorizingPrescription' => [[
+                            'reference' => 'MedicationRequest/'.$requestId,
+                        ]],
+                        'quantity' => [
+                            'value' => (float) ($item->quantity ?: 1),
+                            'unit' => $unit,
+                        ],
+                        'whenHandedOver' => $this->fhirTime($end),
+                    ],
+                    $item,
+                );
+            }
+        }
+    }
+
+    protected function sendReferrals(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $practitionerIhs,
+        string $encounterId,
+        CarbonInterface $at,
+    ): void {
+        $orgId = (string) $this->branch->organization_id;
+
+        foreach ($visit->referrals as $referral) {
+            if (! filled($referral->referred_to) && ! filled($referral->reason)) {
+                $this->notes[] = 'Rujukan #'.$referral->id.' tidak dikirim karena tujuan/alasan kosong.';
+
+                continue;
+            }
+
+            $this->trySend(
+                $client,
+                'ServiceRequest',
+                'servicerequest:referral:'.$referral->id,
+                SatuSehatFhirPayload::serviceRequestReferral(
+                    $referral,
+                    $orgId,
+                    $patientIhs,
+                    $practitionerIhs,
+                    $encounterId,
+                    $this->fhirTime($at),
+                ),
+                $referral,
+            );
+        }
+    }
+
+    protected function sendEducationAndPrognosis(
+        SatuSehatClient $client,
+        Visit $visit,
+        string $patientIhs,
+        string $practitionerIhs,
+        string $encounterId,
+        CarbonInterface $start,
+        CarbonInterface $end,
+    ): void {
+        $plan = $visit->medicalRecord?->plan_instructions ?? [];
+        $education = [];
+
+        if (is_array($plan['items'] ?? null)) {
+            $education = array_values(array_filter($plan['items']));
+        } elseif (is_array($plan['education'] ?? null)) {
+            $education = array_values(array_filter($plan['education']));
+        }
+
+        $educationNote = trim((string) ($plan['education_note'] ?? $plan['extra'] ?? $plan['lainnya'] ?? ''));
+
+        if ($education !== [] || $educationNote !== '') {
+            $this->trySend(
+                $client,
+                'Procedure',
+                'procedure:education:'.$visit->id,
+                [
+                    'resourceType' => 'Procedure',
+                    'status' => 'completed',
+                    'code' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        SatuSehatCodes::SNOMED,
+                        '84635008',
+                        'Disease process or condition education',
+                    )),
+                    'subject' => ['reference' => 'Patient/'.$patientIhs],
+                    'encounter' => ['reference' => 'Encounter/'.$encounterId],
+                    'performedPeriod' => [
+                        'start' => $this->fhirTime($start),
+                        'end' => $this->fhirTime($end),
+                    ],
+                    'performer' => [[
+                        'actor' => ['reference' => 'Practitioner/'.$practitionerIhs],
+                    ]],
+                    'note' => [[
+                        'text' => $educationNote !== ''
+                            ? $educationNote
+                            : implode('; ', $education),
+                    ]],
+                ],
+                $visit->medicalRecord,
+            );
+        }
+
+        $prognosis = trim((string) ($plan['prognosis'] ?? $visit->medicalRecord?->clinical_notes ?? ''));
+        $hasExplicitPrognosis = filled($plan['prognosis'] ?? null);
+
+        if ($hasExplicitPrognosis && $prognosis !== '') {
+            $this->trySend(
+                $client,
+                'ClinicalImpression',
+                'clinicalimpression:'.$visit->id,
+                [
+                    'resourceType' => 'ClinicalImpression',
+                    'status' => 'completed',
+                    'description' => $prognosis,
+                    'subject' => ['reference' => 'Patient/'.$patientIhs],
+                    'encounter' => ['reference' => 'Encounter/'.$encounterId],
+                    'effectiveDateTime' => $this->fhirTime($end),
+                    'date' => $this->fhirTime($end),
+                    'assessor' => ['reference' => 'Practitioner/'.$practitionerIhs],
+                    'summary' => $prognosis,
+                ],
+                $visit->medicalRecord,
+            );
+        }
     }
 }

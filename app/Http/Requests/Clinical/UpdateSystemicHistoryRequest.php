@@ -33,7 +33,12 @@ class UpdateSystemicHistoryRequest extends FormRequest
             'blood_pressure_sys' => ['nullable', 'string', 'max:10'],
             'blood_pressure_dia' => ['nullable', 'string', 'max:10'],
             'allergy_detail' => ['nullable', 'string', 'max:255'],
+            'allergy_status' => ['nullable', 'string', Rule::in(['not_asked', 'none_confirmed', 'present'])],
             'medication_detail' => ['nullable', 'string', 'max:255'],
+            'medication_status' => ['nullable', 'string', Rule::in(['not_asked', 'none_confirmed', 'present'])],
+            'blood_type' => ['nullable', 'string', Rule::in(['A', 'B', 'AB', 'O'])],
+            'rhesus' => ['nullable', 'string', Rule::in(['positive', 'negative'])],
+            'pregnancy_status' => ['nullable', 'string', Rule::in(['pregnant', 'not_pregnant'])],
             'other_detail' => ['nullable', 'string', 'max:255'],
             'none' => ['nullable', 'boolean'],
         ];

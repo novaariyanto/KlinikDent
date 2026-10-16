@@ -56,6 +56,30 @@
                             <label class="form-label" for="habits">Kebiasaan buruk / temuan lainnya</label>
                             <textarea name="habits" id="habits" rows="2" class="form-control">{{ $exam['habits'] ?? '' }}</textarea>
                         </div>
+
+                        @php($ohis = $exam['ohis'] ?? [])
+                        <div class="exam-field exam-field--full border rounded p-3 mt-2">
+                            <div class="fw-semibold mb-1">OHIS (Oral Hygiene Index Simplified)</div>
+                            <p class="text-muted small mb-2">Isi skor Debris Index (DI) dan Calculus Index (CI) 0–3. Total dan interpretasi dihitung otomatis. Jangan isi sebagian jika belum lengkap.</p>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label" for="ohis_di">Debris Index</label>
+                                    <input type="number" step="0.01" min="0" max="3" class="form-control" name="ohis[debris_index]" id="ohis_di" value="{{ $ohis['debris_index'] ?? '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label" for="ohis_ci">Calculus Index</label>
+                                    <input type="number" step="0.01" min="0" max="3" class="form-control" name="ohis[calculus_index]" id="ohis_ci" value="{{ $ohis['calculus_index'] ?? '' }}">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Total OHIS</label>
+                                    <input type="text" class="form-control" value="{{ $ohis['total'] ?? '' }}" readonly>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Interpretasi</label>
+                                    <input type="text" class="form-control" value="{{ $ohis['interpretation'] ?? '' }}" readonly>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </form>
             @else

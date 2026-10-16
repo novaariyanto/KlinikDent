@@ -34,6 +34,8 @@ class Visit extends Model
         'payer_id',
         'status',
         'visit_date',
+        'arrived_at',
+        'completed_at',
         'satusehat_status',
         'satusehat_id',
         'satusehat_synced_at',
@@ -53,6 +55,8 @@ class Visit extends Model
             'payer_id' => 'integer',
             'status' => VisitStatus::class,
             'visit_date' => 'date',
+            'arrived_at' => 'datetime',
+            'completed_at' => 'datetime',
             'satusehat_status' => SatuSehatStatus::class,
             'satusehat_synced_at' => 'datetime',
         ];

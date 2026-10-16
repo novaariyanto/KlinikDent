@@ -58,12 +58,103 @@
         </div>
 
         @if ($visit->status->isOpen() && auth()->user()?->can('queue.manage'))
+            @php
+                $finishProcedures = $visit->procedureRecords;
+                $finishPrescriptions = $visit->prescriptions;
+                $finishRxItems = $finishPrescriptions->flatMap(fn ($rx) => $rx->items);
+                $finishDraftRx = $finishPrescriptions->filter(fn ($rx) => $rx->isDraft());
+            @endphp
             <div class="care-finish">
-                <form action="{{ route('care.complete', $visit) }}" method="POST" onsubmit="return confirm('Selesaikan pelayanan kunjungan ini?')">
-                    @csrf
-                    <x-button type="submit" variant="success" icon="bx bx-check">Simpan &amp; Selesaikan Kunjungan</x-button>
-                </form>
+                <x-button type="button" variant="success" icon="bx bx-check" data-bs-toggle="modal" data-bs-target="#care-complete-modal">
+                    Simpan &amp; Selesaikan Kunjungan
+                </x-button>
             </div>
+
+            <x-modal id="care-complete-modal" title="Verifikasi &amp; selesaikan kunjungan" size="modal-lg" class="care-modal">
+                <p class="text-muted mb-3">Periksa kembali tindakan dan obat yang diberikan sebelum menyelesaikan pelayanan.</p>
+
+                <div class="care-finish-review mb-3">
+                    <h6 class="mb-2">Tindakan ({{ $finishProcedures->count() }})</h6>
+                    @if ($finishProcedures->isEmpty())
+                        <p class="text-muted small mb-0">Tidak ada tindakan dicatat.</p>
+                    @else
+                        <x-table>
+                            <thead>
+                                <tr>
+                                    <th>Tindakan</th>
+                                    <th>Gigi</th>
+                                    <th>Qty</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($finishProcedures as $item)
+                                    <tr>
+                                        <td>{{ $item->procedure?->name ?: '-' }}@if ($item->icd9_code) <span class="text-muted">({{ $item->icd9_code }})</span>@endif</td>
+                                        <td>{{ $item->tooth_number ?: '-' }}</td>
+                                        <td>{{ $item->quantity }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </x-table>
+                    @endif
+                </div>
+
+                <div class="care-finish-review mb-3">
+                    <h6 class="mb-2">Obat / resep ({{ $finishRxItems->count() }})</h6>
+                    @if ($finishRxItems->isEmpty())
+                        <p class="text-muted small mb-0">Tidak ada obat dicatat.</p>
+                    @else
+                        <x-table>
+                            <thead>
+                                <tr>
+                                    <th>Obat</th>
+                                    <th>Dosis</th>
+                                    <th>Frekuensi</th>
+                                    <th>Aturan pakai</th>
+                                    <th>Qty</th>
+                                    <th>Status resep</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($finishPrescriptions as $prescription)
+                                    @foreach ($prescription->items as $item)
+                                        <tr>
+                                            <td>{{ $item->label() }}</td>
+                                            <td>{{ $item->dosage ?: '-' }}</td>
+                                            <td>{{ $item->frequency ?: '-' }}</td>
+                                            <td>{{ $item->duration ?: '-' }}</td>
+                                            <td>{{ $item->quantity }}</td>
+                                            <td><span class="{{ $prescription->status->badgeClass() }}">{{ $prescription->status->label() }}</span></td>
+                                        </tr>
+                                    @endforeach
+                                @endforeach
+                            </tbody>
+                        </x-table>
+                    @endif
+                    @if ($finishDraftRx->isNotEmpty())
+                        <div class="alert alert-warning mt-2 mb-0 py-2">
+                            Ada {{ $finishDraftRx->count() }} resep masih <strong>draft</strong> (belum dikirim ke farmasi).
+                        </div>
+                    @endif
+                </div>
+
+                <form action="{{ route('care.complete', $visit) }}" method="POST" id="care-complete-form">
+                    @csrf
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="1" id="care-complete-confirm" required>
+                        <label class="form-check-label" for="care-complete-confirm">
+                            Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan ini.
+                        </label>
+                    </div>
+                </form>
+
+                <x-slot:footer>
+                    <x-button variant="secondary" data-bs-dismiss="modal">Batal</x-button>
+                    <x-button type="submit" variant="success" icon="bx bx-check" form="care-complete-form" id="care-complete-submit" disabled>
+                        Ya, Selesaikan Kunjungan
+                    </x-button>
+                </x-slot:footer>
+            </x-modal>
         @endif
     </div>
 @endsection
@@ -139,6 +230,7 @@
             link.classList.toggle('active', on);
             link.setAttribute('aria-selected', on ? 'true' : 'false');
         });
+
         var url = new URL(window.location.href);
         url.searchParams.set('tab', key);
         history.replaceState({ tab: key }, '', url);
@@ -269,25 +361,6 @@
             }
         });
     });
-
-    var queueSearch = document.getElementById('care-queue-search');
-    var queueList = document.querySelector('[data-queue-list]');
-    if (queueSearch && queueList) {
-        var queueItems = queueList.querySelectorAll('[data-queue-item]');
-        var queueMiss = queueList.querySelector('[data-queue-miss]');
-        var queueEmpty = queueList.querySelector('[data-queue-empty]');
-        queueSearch.addEventListener('input', function () {
-            var q = queueSearch.value.trim().toLowerCase();
-            var shown = 0;
-            queueItems.forEach(function (item) {
-                var on = !q || (item.dataset.search || '').indexOf(q) !== -1;
-                item.hidden = !on;
-                if (on) shown += 1;
-            });
-            if (queueMiss) queueMiss.hidden = !(q && shown === 0);
-            if (queueEmpty) queueEmpty.hidden = q !== '' || queueItems.length > 0;
-        });
-    }
 
     document.querySelectorAll('.care-modal').forEach(function (modal) {
         document.body.appendChild(modal);
@@ -437,6 +510,29 @@
     document.addEventListener('care:tab', function () {
         if ($) $('.care-workspace .select2-container').css('width', '100%');
     });
+
+    (function initCareCompleteConfirm() {
+        var modal = document.getElementById('care-complete-modal');
+        var confirmCb = document.getElementById('care-complete-confirm');
+        var submitBtn = document.getElementById('care-complete-submit');
+        var form = document.getElementById('care-complete-form');
+        if (!modal || !confirmCb || !submitBtn || !form) return;
+
+        function syncSubmit() {
+            submitBtn.disabled = !confirmCb.checked;
+        }
+
+        confirmCb.addEventListener('change', syncSubmit);
+        modal.addEventListener('hidden.bs.modal', function () {
+            confirmCb.checked = false;
+            syncSubmit();
+        });
+        form.addEventListener('submit', function () {
+            submitBtn.disabled = true;
+            submitBtn.setAttribute('aria-busy', '1');
+        });
+        syncSubmit();
+    })();
 })();
 </script>
 @endpush

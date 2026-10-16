@@ -33,16 +33,27 @@ class IntegrationLogger
     /**
      * @param  array<string, mixed>|null  $response
      */
-    public function finish(IntegrationLog $log, bool $ok, ?array $response = null, ?string $error = null): IntegrationLog
-    {
+    public function finish(
+        IntegrationLog $log,
+        bool $ok,
+        ?array $response = null,
+        ?string $error = null,
+        bool $partial = false,
+    ): IntegrationLog {
         $exchanges = [];
         if (is_array($response) && isset($response['exchanges']) && is_array($response['exchanges'])) {
             $exchanges = $response['exchanges'];
             unset($response['exchanges']);
         }
 
+        $status = match (true) {
+            $ok && ! $partial => IntegrationLogStatus::Success,
+            $partial => IntegrationLogStatus::Partial,
+            default => IntegrationLogStatus::Failed,
+        };
+
         $log->update([
-            'status' => $ok ? IntegrationLogStatus::Success : IntegrationLogStatus::Failed,
+            'status' => $status,
             'response_payload' => PayloadRedactor::redact($response),
             'error_message' => $error,
         ]);
@@ -76,8 +87,8 @@ class IntegrationLogger
         ], $exchanges);
 
         $log->update([
-            'request_payload' => PayloadRedactor::redactSecrets($request),
-            'response_payload' => PayloadRedactor::redactSecrets($response),
+            'request_payload' => PayloadRedactor::redact($request),
+            'response_payload' => PayloadRedactor::redact($response),
         ]);
     }
 }

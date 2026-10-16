@@ -18,6 +18,7 @@ class EnforceRoutePermission
         'integrations.satusehat.location' => 'integration.manage',
         'integrations.satusehat.send' => 'satusehat.view',
         'care.satusehat.send' => 'satusehat.view',
+        'branches.satusehat' => 'integration.manage',
         'integrations.bpjs' => 'bpjs.view',
         'integrations.bpjs.update' => 'integration.manage',
         'integrations.bpjs.check' => 'bpjs.view',

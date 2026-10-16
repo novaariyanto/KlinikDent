@@ -6,6 +6,7 @@ enum SatuSehatStatus: string
 {
     case Pending = 'pending';
     case Queued = 'queued';
+    case Partial = 'partial';
     case Synced = 'synced';
     case Failed = 'failed';
 
@@ -14,7 +15,8 @@ enum SatuSehatStatus: string
         return match ($this) {
             self::Pending => 'Belum dikirim',
             self::Queued => 'Dalam antrian',
-            self::Synced => 'Terkirim',
+            self::Partial => 'Sebagian terkirim',
+            self::Synced => 'Terkirim lengkap',
             self::Failed => 'Gagal',
         };
     }
@@ -24,6 +26,7 @@ enum SatuSehatStatus: string
         return match ($this) {
             self::Pending => 'badge bg-secondary',
             self::Queued => 'badge bg-info',
+            self::Partial => 'badge bg-warning text-dark',
             self::Synced => 'badge bg-success',
             self::Failed => 'badge bg-danger',
         };

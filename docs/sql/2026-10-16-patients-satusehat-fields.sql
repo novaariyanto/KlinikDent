@@ -1,0 +1,5 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_094000_add_patient_satusehat_demographics.php
+--
+-- Kolom demografi/alamat pasien untuk profil FHIR Patient SATUSEHAT.

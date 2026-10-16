@@ -17,6 +17,6 @@
                 <x-button href="{{ route('management.medicines.create') }}" icon="bx bx-plus">Tambah Obat</x-button>
             @endcan
         </x-slot:header-actions>
-        <x-data-table id="medicines-table" :ajax="route('management.medicines.data')" :columns="$columns" :order="[[7, 'desc']]" />
+        <x-data-table id="medicines-table" :ajax="route('management.medicines.data')" :columns="$columns" :order="[[8, 'desc']]" />
     </x-card>
 @endsection

@@ -5,6 +5,8 @@ namespace App\Support\Integrations;
 class PayloadRedactor
 {
     /**
+     * Kunci yang selalu disamarkan (secret + PHI).
+     *
      * @var list<string>
      */
     protected static array $keys = [
@@ -15,6 +17,21 @@ class PayloadRedactor
         'name',
         'nama',
         'namapeserta',
+        'family',
+        'given',
+        'text',
+        'phone',
+        'telecom',
+        'address',
+        'line',
+        'city',
+        'birthdate',
+        'birth_date',
+        'birthDate',
+        'dob',
+        'medical_record_number',
+        'mrn',
+        'nomor_rm',
         'access_token',
         'client_secret',
         'client_id',
@@ -27,6 +44,7 @@ class PayloadRedactor
         'x-signature',
         'x-api-key',
         'api_key',
+        'value',
     ];
 
     /**
@@ -44,20 +62,27 @@ class PayloadRedactor
         foreach ($payload as $key => $value) {
             $normalized = strtolower((string) $key);
 
-            if (in_array($normalized, self::$keys, true) || str_contains($normalized, 'secret') || str_contains($normalized, 'token')) {
+            if (self::shouldRedactKey($normalized)) {
                 $redacted[$key] = '********';
 
                 continue;
             }
 
             if (is_array($value)) {
+                // identifier[].value sering berisi NIK — redaksi penuh pada cabang identifier.
+                if ($normalized === 'identifier' || $normalized === 'name') {
+                    $redacted[$key] = self::redact($value);
+
+                    continue;
+                }
+
                 $redacted[$key] = self::redact($value);
 
                 continue;
             }
 
-            if (is_string($value) && preg_match('/^\d{16}$/', $value)) {
-                $redacted[$key] = '********';
+            if (is_string($value)) {
+                $redacted[$key] = self::maskSensitiveString($value);
 
                 continue;
             }
@@ -68,34 +93,51 @@ class PayloadRedactor
         return $redacted;
     }
 
+    protected static function maskSensitiveString(string $value): string
+    {
+        if (self::looksLikeNik($value)) {
+            return '********';
+        }
+
+        $masked = preg_replace('/\b\d{16}\b/', '********', $value) ?? $value;
+        $masked = preg_replace('#(nik[|/])\d{16}#i', '$1********', $masked) ?? $masked;
+
+        return $masked;
+    }
+
     /**
-     * Hanya kredensial yang disamarkan. Isi FHIR (NIK, nama, resource) tetap utuh.
+     * Alias: secret dan PHI disamarkan (jangan menyimpan body FHIR mentah).
      *
      * @param  array<string, mixed>|null  $payload
      * @return array<string, mixed>|null
      */
     public static function redactSecrets(?array $payload): ?array
     {
-        if ($payload === null) {
-            return null;
+        return self::redact($payload);
+    }
+
+    protected static function shouldRedactKey(string $normalized): bool
+    {
+        if (in_array($normalized, self::$keys, true)) {
+            return true;
         }
 
-        $redacted = [];
-
-        foreach ($payload as $key => $value) {
-            $normalized = strtolower((string) $key);
-
-            if (in_array($normalized, ['access_token', 'client_secret', 'client_id', 'secret', 'secret_key', 'password', 'authorization', 'user_key', 'cons_id', 'x-signature', 'x-api-key', 'api_key'], true)
-                || str_contains($normalized, 'secret')
-                || str_contains($normalized, 'token')) {
-                $redacted[$key] = '********';
-
-                continue;
-            }
-
-            $redacted[$key] = is_array($value) ? self::redactSecrets($value) : $value;
+        if (str_contains($normalized, 'secret') || str_contains($normalized, 'token')) {
+            return true;
         }
 
-        return $redacted;
+        if (str_contains($normalized, 'password') || str_contains($normalized, 'authorization')) {
+            return true;
+        }
+
+        return str_contains($normalized, 'nik')
+            || str_contains($normalized, 'phone')
+            || str_contains($normalized, 'alamat')
+            || str_contains($normalized, 'address');
+    }
+
+    protected static function looksLikeNik(string $value): bool
+    {
+        return (bool) preg_match('/^\d{16}$/', $value);
     }
 }

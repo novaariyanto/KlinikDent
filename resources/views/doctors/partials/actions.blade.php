@@ -22,6 +22,7 @@
                 'sip' => $doctor->sip ?: '-',
                 'str' => $doctor->str ?: '-',
                 'nik' => $doctor->nik ?: '-',
+                'ihs' => $doctor->satusehat_id ?: '-',
                 'phone' => $doctor->phone ?: '-',
                 'branch' => $branchNames->implode(', ') ?: '-',
                 'is_active' => (bool) $doctor->is_active,
@@ -32,6 +33,14 @@
         ><i class="bx bx-show-alt me-1"></i> Detail</button>
     @endcan
     @can('update', $doctor)
+        @if (filled($doctor->nik) && ! filled($doctor->satusehat_id))
+            <form action="{{ route('doctors.satusehat', $doctor) }}" method="POST" class="d-inline">
+                @csrf
+                <button type="submit" class="btn btn-sm btn-soft-info">
+                    <i class="bx bx-cloud-download me-1"></i> Ambil IHS
+                </button>
+            </form>
+        @endif
         <a href="{{ route('doctors.edit', $doctor) }}" class="btn btn-sm btn-soft-primary">
             <i class="bx bx-edit me-1"></i> Edit
         </a>

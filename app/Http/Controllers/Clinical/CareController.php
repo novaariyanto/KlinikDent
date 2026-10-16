@@ -186,6 +186,7 @@ class CareController extends Controller
         if (isset($data['plan_instructions'])) {
             $items = $data['plan_instructions']['items'] ?? [];
             $extra = trim((string) ($data['plan_instructions']['extra'] ?? ''));
+            $prognosis = trim((string) ($data['plan_instructions']['prognosis'] ?? ''));
             $labels = CareExamOptions::instructions();
             $lines = collect($items)
                 ->map(fn ($key) => $labels[$key] ?? $key)
@@ -200,6 +201,7 @@ class CareController extends Controller
             $data['plan_instructions'] = [
                 'items' => array_values($items),
                 'extra' => $extra,
+                'prognosis' => $prognosis,
             ];
         }
 
@@ -311,10 +313,31 @@ class CareController extends Controller
 
     public function updateDentalExam(UpdateDentalExamRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
-        $record = $this->care->ensureRecord($visit);
-        $record->update(['dental_exam' => $request->validated()]);
+        $data = $request->validated();
+        $ohis = $data['ohis'] ?? null;
 
-        activity_log('updated', $record, $request->validated(), 'Updated dental examination', 'medical_records');
+        if (is_array($ohis) && is_numeric($ohis['debris_index'] ?? null) && is_numeric($ohis['calculus_index'] ?? null)) {
+            $di = round((float) $ohis['debris_index'], 2);
+            $ci = round((float) $ohis['calculus_index'], 2);
+            $total = round($di + $ci, 2);
+            $data['ohis'] = [
+                'debris_index' => $di,
+                'calculus_index' => $ci,
+                'total' => $total,
+                'interpretation' => match (true) {
+                    $total <= 1.2 => 'baik',
+                    $total <= 3.0 => 'sedang',
+                    default => 'buruk',
+                },
+            ];
+        } elseif (is_array($ohis) && ! is_numeric($ohis['debris_index'] ?? null) && ! is_numeric($ohis['calculus_index'] ?? null)) {
+            unset($data['ohis']);
+        }
+
+        $record = $this->care->ensureRecord($visit);
+        $record->update(['dental_exam' => $data]);
+
+        activity_log('updated', $record, $data, 'Updated dental examination', 'medical_records');
 
         return $this->respondCare($visit, 'pemeriksaan', 'Pemeriksaan gigi & mulut disimpan.');
     }

@@ -3,8 +3,9 @@
 @section('title', $title)
 
 @section('content')
-    <x-page-header :title="$title" :breadcrumb="['Farmasi' => route('pharmacy.transactions'), $title => null]" />
+    <x-page-header :title="$title" :breadcrumb="['Farmasi' => route('pharmacy.index'), 'Laporan' => route('pharmacy.reports'), $title => null]" />
     <x-alert />
+    @include('pharmacy.partials.reports-nav')
     <x-card :title="$title">
         <form method="GET" class="row g-2 align-items-end mb-3">
             <div class="col-md-3">

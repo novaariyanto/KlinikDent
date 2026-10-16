@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -70,6 +71,18 @@ class WhatsAppSetting extends Model
         $model->default_language = 'id';
 
         return $model;
+    }
+
+    /**
+     * API key lama yang tidak bisa dibuka dianggap kosong.
+     */
+    public function fromEncryptedString($value)
+    {
+        try {
+            return parent::fromEncryptedString($value);
+        } catch (DecryptException) {
+            return null;
+        }
     }
 
     public function isReady(): bool

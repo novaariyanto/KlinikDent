@@ -11,6 +11,17 @@
                 <x-table>
                     <tbody>
                         <tr><th width="180">Nama</th><td>{{ $medicine->name }}</td></tr>
+                        <tr>
+                            <th>Kode KFA</th>
+                            <td>
+                                @if (filled($medicine->kfa_code))
+                                    {{ $medicine->kfa_code }}
+                                @else
+                                    <span class="text-muted">Belum diisi</span>
+                                    <span class="badge bg-soft-warning text-warning font-size-11 ms-1">Wajib untuk kirim resep ke SATUSEHAT</span>
+                                @endif
+                            </td>
+                        </tr>
                         <tr><th>Satuan</th><td>{{ $medicine->unitLabel() }}</td></tr>
                         <tr><th>Kategori</th><td>{{ $medicine->categoryLabel() }}</td></tr>
                         <tr><th>Harga Dasar</th><td>Rp {{ number_format((float) $medicine->base_price, 0, ',', '.') }}</td></tr>

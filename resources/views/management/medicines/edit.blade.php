@@ -19,5 +19,8 @@
                 </form>
             </x-card>
         </div>
+        <div class="col-lg-4">
+            @include('management.medicines.partials.kfa-playbook')
+        </div>
     </div>
 @endsection

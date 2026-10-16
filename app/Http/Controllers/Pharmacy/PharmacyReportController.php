@@ -18,7 +18,12 @@ class PharmacyReportController extends Controller
 
     public function landing(Request $request): View
     {
-        abort_unless($request->user()?->can('report.view'), 403);
+        abort_unless(
+            $request->user()?->can('report.view')
+            || $request->user()?->can('pharmacy.view')
+            || $request->user()?->can('stock.view'),
+            403,
+        );
 
         return view('pharmacy.reports.landing');
     }
@@ -34,7 +39,7 @@ class PharmacyReportController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        return view('pharmacy.stock.index', [
+        return view('pharmacy.reports.stock', [
             'stocks' => $stocks,
             'title' => 'Laporan Stok',
             'hint' => 'Stok usable (belum kedaluwarsa, qty > 0) per batch dan cabang.',
@@ -74,7 +79,7 @@ class PharmacyReportController extends Controller
             ->paginate(30)
             ->withQueryString();
 
-        return view('pharmacy.stock.expired', [
+        return view('pharmacy.reports.expired', [
             'stocks' => $stocks,
             'days' => $days,
             'title' => 'Laporan Expired',
@@ -106,6 +111,14 @@ class PharmacyReportController extends Controller
     {
         $query = MedicineStock::query();
         $this->constrainBranch($query, $request->user());
+
+        if ($request->filled('q')) {
+            $term = '%'.$request->string('q').'%';
+            $query->where(function ($inner) use ($term) {
+                $inner->where('batch_number', 'like', $term)
+                    ->orWhereHas('medicine', fn ($medicine) => $medicine->where('name', 'like', $term));
+            });
+        }
 
         return $query;
     }

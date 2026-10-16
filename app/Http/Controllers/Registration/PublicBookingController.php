@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Registration;
 
+use App\Enums\Gender;
 use App\Enums\PayerType;
 use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
@@ -9,11 +10,13 @@ use App\Models\Branch;
 use App\Models\DoctorSchedule;
 use App\Models\Payer;
 use App\Models\Tenant;
+use App\Support\Indonesia\WilayahService;
 use App\Support\Registration\AppointmentSlots;
 use App\Support\Registration\VisitRegistrar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -22,6 +25,7 @@ class PublicBookingController extends Controller
     public function __construct(
         protected VisitRegistrar $registrar,
         protected AppointmentSlots $slots,
+        protected WilayahService $wilayah,
     ) {}
 
     public function show(string $slug): View
@@ -31,7 +35,17 @@ class PublicBookingController extends Controller
         return view('registration.booking.form', [
             'tenant' => $tenant,
             'branches' => Branch::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('is_active', true)->orderBy('name')->get(),
+            'genders' => Gender::options(),
         ]);
+    }
+
+    public function fromNik(Request $request, string $slug): JsonResponse
+    {
+        $this->tenant($slug);
+
+        $result = $this->wilayah->fromNik((string) $request->query('nik', $request->input('nik', '')));
+
+        return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
     }
 
     public function sessions(Request $request, string $slug): JsonResponse
@@ -92,6 +106,7 @@ class PublicBookingController extends Controller
             'phone' => ['required', 'string', 'max:30'],
             'nik' => ['nullable', 'digits:16'],
             'dob' => ['nullable', 'date'],
+            'gender' => ['nullable', Rule::enum(Gender::class)],
             'company_website' => ['nullable', 'string', 'max:0'],
         ]);
 

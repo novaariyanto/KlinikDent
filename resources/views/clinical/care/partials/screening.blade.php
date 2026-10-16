@@ -37,10 +37,49 @@
                     </div>
                 </div>
                 <div class="exam-reveal mt-2" data-sys-panel="allergy" hidden>
+                    <label class="form-label">Status alergi (SATUSEHAT)</label>
+                    <select name="allergy_status" class="form-select mb-2">
+                        <option value="not_asked" @selected(($sys['allergy_status'] ?? 'not_asked') === 'not_asked')>Belum ditanyakan</option>
+                        <option value="none_confirmed" @selected(($sys['allergy_status'] ?? '') === 'none_confirmed')>Dikonfirmasi: tidak ada alergi</option>
+                        <option value="present" @selected(($sys['allergy_status'] ?? '') === 'present')>Ada alergi</option>
+                    </select>
                     <x-input name="allergy_detail" label="Alergi terhadap" :value="$sys['allergy_detail'] ?? null" />
                 </div>
                 <div class="exam-reveal mt-2" data-sys-panel="medication" hidden>
+                    <label class="form-label">Status obat rutin (SATUSEHAT)</label>
+                    <select name="medication_status" class="form-select mb-2">
+                        <option value="not_asked" @selected(($sys['medication_status'] ?? 'not_asked') === 'not_asked')>Belum ditanyakan</option>
+                        <option value="none_confirmed" @selected(($sys['medication_status'] ?? '') === 'none_confirmed')>Tidak memakai obat rutin</option>
+                        <option value="present" @selected(($sys['medication_status'] ?? '') === 'present')>Sedang memakai obat</option>
+                    </select>
                     <x-input name="medication_detail" label="Obat rutin" :value="$sys['medication_detail'] ?? null" />
+                </div>
+                <div class="row g-2 mt-2">
+                    <div class="col-md-4">
+                        <label class="form-label" for="blood_type">Golongan darah</label>
+                        <select name="blood_type" id="blood_type" class="form-select">
+                            <option value="">—</option>
+                            @foreach (['A','B','AB','O'] as $abo)
+                                <option value="{{ $abo }}" @selected(($sys['blood_type'] ?? '') === $abo)>{{ $abo }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="rhesus">Rhesus</label>
+                        <select name="rhesus" id="rhesus" class="form-select">
+                            <option value="">—</option>
+                            <option value="positive" @selected(($sys['rhesus'] ?? '') === 'positive')>Positif</option>
+                            <option value="negative" @selected(($sys['rhesus'] ?? '') === 'negative')>Negatif</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label" for="pregnancy_status">Status kehamilan</label>
+                        <select name="pregnancy_status" id="pregnancy_status" class="form-select">
+                            <option value="">—</option>
+                            <option value="pregnant" @selected(($sys['pregnancy_status'] ?? '') === 'pregnant')>Hamil</option>
+                            <option value="not_pregnant" @selected(($sys['pregnancy_status'] ?? '') === 'not_pregnant')>Tidak hamil</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="exam-reveal mt-2" data-sys-panel="other" hidden>
                     <x-input name="other_detail" label="Keterangan" :value="$sys['other_detail'] ?? null" />

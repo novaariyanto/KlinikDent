@@ -56,12 +56,24 @@
                     </div>
                     <div class="col-md-6 mb-3">
                         <label class="form-label" for="nik">NIK</label>
-                        <input class="form-control" name="nik" id="nik" maxlength="16" value="{{ old('nik') }}">
+                        <input class="form-control" name="nik" id="nik" maxlength="16" inputmode="numeric" autocomplete="off" value="{{ old('nik') }}">
+                        <div id="nik-wilayah-hint" class="form-text"></div>
                     </div>
                 </div>
-                <div class="mb-3">
-                    <label class="form-label" for="dob">Tanggal lahir</label>
-                    <input class="form-control" type="date" name="dob" id="dob" value="{{ old('dob') }}">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="dob">Tanggal lahir</label>
+                        <input class="form-control" type="date" name="dob" id="dob" value="{{ old('dob') }}">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label" for="gender">Jenis kelamin</label>
+                        <select class="form-select" name="gender" id="gender">
+                            <option value="">Pilih</option>
+                            @foreach ($genders ?? [] as $value => $label)
+                                <option value="{{ $value }}" @selected(old('gender') === $value)>{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
                 <button class="btn btn-primary" type="submit">Ambil nomor</button>
             </form>
@@ -69,9 +81,58 @@
     </div>
     <script>
         const sessionsUrl = @json(route('booking.public.sessions', $tenant->subdomain));
+        const fromNikUrl = @json(route('booking.public.from-nik', $tenant->subdomain));
         const branch = document.getElementById('branch_id');
         const date = document.getElementById('visit_date');
         const select = document.getElementById('doctor_schedule_id');
+        const nikInput = document.getElementById('nik');
+        const nikHint = document.getElementById('nik-wilayah-hint');
+        const dobInput = document.getElementById('dob');
+        const genderInput = document.getElementById('gender');
+        let lastNikSynced = '';
+
+        function setNikHint(text, isError) {
+            if (! nikHint) return;
+            nikHint.textContent = text || '';
+            nikHint.className = 'form-text' + (isError ? ' text-danger' : (text ? ' text-success' : ''));
+        }
+
+        function syncNik() {
+            if (! nikInput) return;
+            const nik = String(nikInput.value || '').replace(/\D+/g, '');
+            if (nik.length !== 16) {
+                if (nik.length > 0) setNikHint('NIK harus 16 digit.', true);
+                else setNikHint('', false);
+                return;
+            }
+            if (nik === lastNikSynced) return;
+
+            setNikHint('Memetakan NIK…', false);
+            fetch(fromNikUrl + '?nik=' + encodeURIComponent(nik), { headers: { 'Accept': 'application/json' } })
+                .then(function (response) {
+                    return response.json().then(function (data) {
+                        return { ok: response.ok, data: data };
+                    });
+                })
+                .then(function (result) {
+                    if (! result.ok) {
+                        lastNikSynced = '';
+                        setNikHint(result.data.message || 'NIK tidak valid.', true);
+                        return;
+                    }
+                    lastNikSynced = nik;
+                    const data = result.data;
+                    if (dobInput && data.dob && ! dobInput.value) dobInput.value = data.dob;
+                    if (genderInput && data.gender && ! genderInput.value) genderInput.value = data.gender;
+                    const bits = [data.province_name, data.city_name, data.district_name].filter(Boolean);
+                    setNikHint(bits.length ? ('Wilayah dari NIK: ' + bits.join(' · ')) : 'Data dari NIK terisi.', false);
+                })
+                .catch(function () {
+                    lastNikSynced = '';
+                    setNikHint('Gagal memetakan NIK.', true);
+                });
+        }
+
         function loadSessions() {
             const params = new URLSearchParams({ branch_id: branch.value, date: date.value });
             fetch(sessionsUrl + '?' + params.toString(), { headers: { 'Accept': 'application/json' } })
@@ -93,5 +154,20 @@
         branch.addEventListener('change', loadSessions);
         date.addEventListener('change', loadSessions);
         loadSessions();
+
+        if (nikInput) {
+            nikInput.addEventListener('input', function () {
+                const digits = String(nikInput.value || '').replace(/\D+/g, '');
+                if (digits !== nikInput.value) nikInput.value = digits;
+                if (digits.length < 16) {
+                    lastNikSynced = '';
+                    if (digits.length > 0) setNikHint('NIK harus 16 digit.', false);
+                    else setNikHint('', false);
+                    return;
+                }
+                syncNik();
+            });
+            nikInput.addEventListener('blur', syncNik);
+        }
     </script>
 @endsection

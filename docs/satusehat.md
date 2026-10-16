@@ -1,206 +1,63 @@
-# SPESIFIKASI INTEGRASI SATUSEHAT MULTICABANG
-## KlinikDent.id — Multi-Branch Dental Clinic
+# Integrasi SATUSEHAT — KlinikDent.id
 
-### 1. TUJUAN
+## Arsitektur
 
-Mendukung klinik gigi dengan banyak cabang agar seluruh cabang dapat menggunakan satu platform KlinikDent.id, dengan pengelolaan data terpusat dan integrasi SATUSEHAT sesuai identitas masing-masing fasilitas kesehatan.
+1. Kunjungan berstatus `Done` memicu `VisitObserver` → `IntegrationService::queueSatuSehat`.
+2. Job `SyncSatuSehatEncounter` (unique per visit, retry/backoff) menjalankan `SatuSehatSync::run`.
+3. Alur: resolve Patient/Practitioner/Location → Encounter `in-progress` → Condition/Procedure/Observation (+ resource kondisional) → gate → Encounter `finished` hanya jika resource wajib sukses.
+4. Mapping ID lokal↔remote di tabel `satusehat_resources` (`tenant_id` + `local_key` unik).
+5. Kredensial per cabang di `branch_satusehat_settings` (`client_secret` terenkripsi).
 
-Prinsip utama:
-- Satu akun perusahaan atau grup klinik dapat memiliki banyak cabang.
-- Setiap cabang memiliki identitas fasilitas kesehatan sendiri sesuai registrasi resminya.
-- Data pelayanan dikirim menggunakan identitas fasilitas dan lokasi yang benar.
-- Kantor pusat dapat memantau status integrasi seluruh cabang.
-- Data pasien dapat dikelola lintas cabang sesuai kewenangan akses, kebijakan rekam medis, dan ketentuan perlindungan data.
+## Status kunjungan (`visits.satusehat_status`)
 
-### 2. STRUKTUR ORGANISASI KLINIKDENT
-
-Struktur internal yang disarankan:
-
-Perusahaan / Grup Klinik
-- Cabang A
-  - Dokter gigi
-  - Perawat gigi
-  - Admin
-  - Pasien dan kunjungan
-- Cabang B
-  - Dokter gigi
-  - Perawat gigi
-  - Admin
-  - Pasien dan kunjungan
-- Cabang C
-  - Dokter gigi
-  - Perawat gigi
-  - Admin
-  - Pasien dan kunjungan
-
-Struktur tersebut adalah struktur organisasi internal KlinikDent. Struktur ini tidak otomatis berarti setiap grup perusahaan memiliki satu identitas SATUSEHAT untuk seluruh cabang.
-
-### 3. IDENTITAS SATUSEHAT PER CABANG
-
-Untuk setiap cabang, KlinikDent harus menyediakan konfigurasi berikut:
-
-- [ ] Nama resmi fasilitas kesehatan.
-- [ ] Alamat lengkap cabang.
-- [ ] Identitas dan nomor perizinan fasilitas.
-- [ ] ID `Organization` SATUSEHAT yang sesuai.
-- [ ] ID `Location` SATUSEHAT untuk lokasi pelayanan.
-- [ ] Status registrasi dan kesiapan integrasi.
-- [ ] Data penanggung jawab fasilitas sesuai kebutuhan.
-- [ ] Data tenaga kesehatan yang memberikan pelayanan.
-- [ ] Konfigurasi akses dan pemetaan resource sesuai fasilitas.
-
-**Catatan:** Jangan membuat `Organization` baru secara otomatis hanya karena pengguna menambahkan cabang di KlinikDent. Identitas SATUSEHAT harus mengikuti registrasi dan struktur resmi fasilitas kesehatan. Jika satu organisasi memiliki beberapa lokasi, pemetaannya harus mengikuti data resmi SATUSEHAT.
-
-### 4. PEMETAAN RESOURCE FHIR
-
-KlinikDent perlu mengelola hubungan antara cabang dan resource SATUSEHAT berikut:
-
-| Resource | Pengelolaan |
+| Status | Arti |
 |---|---|
-| `Organization` | Identitas organisasi atau fasilitas sesuai registrasi |
-| `Location` | Lokasi pelayanan yang sesuai dengan cabang |
-| `Practitioner` | Identitas tenaga kesehatan |
-| `PractitionerRole` | Peran tenaga kesehatan pada organisasi/lokasi, jika diperlukan |
-| `Patient` | Identitas pasien |
-| `Encounter` | Kunjungan pasien pada cabang yang memberikan pelayanan |
-| `Condition` | Diagnosis atau kondisi klinis |
-| `Observation` | Pemeriksaan dan odontogram sesuai spesifikasi |
-| `Procedure` | Tindakan medis |
+| `pending` | Belum dikirim |
+| `queued` | Dalam antrian / sedang diproses / menunggu retry sementara |
+| `partial` | Sebagian resource berhasil; Encounter belum `finished` atau resource wajib gagal |
+| `synced` | Encounter `finished` + seluruh resource wajib skenario sukses |
+| `failed` | Gagal keras (konfigurasi, auth, validasi permanen, atau retry habis) |
 
-Seluruh referensi resource harus mengikuti ID resmi yang diperoleh dari SATUSEHAT dan hubungan resource yang ditetapkan dalam profil FHIR terkait.
+HTTP 2xx saja tidak otomatis berarti playbook lengkap.
 
-### 5. ATURAN PENGIRIMAN DATA PER CABANG
+## Waktu Encounter
 
-Setiap kali kunjungan dibuat:
+- `visits.arrived_at` — awal pelayanan (diisi saat visit dibuat; fallback `created_at`).
+- `visits.completed_at` — saat status menjadi `Done`.
+- SQL DBA: `docs/sql/2026-10-16-visits-satusehat-timestamps.sql`.
 
-1. Sistem mengambil cabang tempat pasien benar-benar menerima pelayanan.
-2. Sistem menentukan identitas organisasi dan lokasi SATUSEHAT yang sesuai.
-3. Sistem menentukan tenaga kesehatan yang memberikan pelayanan.
-4. Sistem membuat atau memperbarui `Encounter` sesuai playbook.
-5. Resource klinis dikaitkan dengan pasien dan kunjungan yang benar.
-6. Sistem menyimpan ID resource SATUSEHAT beserta referensi cabang internal.
-7. Sistem mencatat hasil pengiriman, waktu pengiriman, dan pesan error jika terjadi kegagalan.
+## Resource yang dikirim (kondisional)
 
-Jangan menggunakan identitas cabang pusat secara otomatis untuk seluruh kunjungan apabila identitas fasilitas atau lokasi pelayanan seharusnya berbeda.
+| Resource | Syarat |
+|---|---|
+| Patient / Practitioner | NIK + lookup/register MPI |
+| Organization | Konfigurasi cabang (tidak auto-create) |
+| Location | Pemetaan cabang/ruang |
+| Encounter | Selalu untuk kunjungan Done yang siap sync |
+| Condition | Ada diagnosis ICD-10 |
+| Procedure | Ada tindakan + ICD-9; edukasi jika instruksi tercatat |
+| Observation | Vital, exam gigi, odontogram, DMF; OHIS jika DI+CI lengkap; ABO/Rh/hamil jika terisi |
+| AllergyIntolerance | `allergy_status=present` (+detail) atau `none_confirmed` |
+| MedicationStatement | `medication_status=present` + detail teks |
+| Medication / MedicationRequest | Resep sent/fulfilled + item punya `kfa_code` |
+| MedicationDispense | Hanya prescription `fulfilled` |
+| ServiceRequest | Ada Referral dengan tujuan/alasan |
+| ClinicalImpression | Hanya jika `plan_instructions.prognosis` terisi |
 
-### 6. PASIEN YANG BERKUNJUNG KE CABANG BERBEDA
+Tidak dikirim: Composition, Specimen, ImagingStudy, DiagnosticReport (tidak relevan / tidak ada sumber lokal klinis).
 
-Contoh:
+## Logging & privasi
 
-Pasien terdaftar pertama kali di Cabang A, kemudian melakukan perawatan lanjutan di Cabang B.
+`PayloadRedactor` menyamarkan NIK, nama, alamat, telepon, token, dan secret. Body exchange di `integration_logs` selalu di-redaksi.
 
-Sistem harus mendukung:
-- [ ] Pencarian pasien yang sudah terdaftar tanpa membuat duplikasi identitas.
-- [ ] Penggunaan identitas pasien SATUSEHAT yang sesuai.
-- [ ] Pembuatan kunjungan baru untuk pelayanan di Cabang B.
-- [ ] Pencatatan dokter dan lokasi pelayanan Cabang B.
-- [ ] Akses riwayat medis lintas cabang berdasarkan hak akses.
-- [ ] Audit akses terhadap rekam medis pasien.
-- [ ] Pencatatan asal cabang dan cabang tempat pelayanan dilakukan.
+## Troubleshooting
 
-Riwayat kunjungan lama tidak boleh dipindahkan begitu saja ke cabang baru. Kunjungan baru harus mencerminkan tempat pelayanan yang sebenarnya.
+1. Restart `php artisan queue:work` setelah deploy.
+2. Status partial → buka log detail, perbaiki data, kirim ulang manual.
+3. Practitioner tidak ditemukan → lengkapi NIK dokter yang terdaftar di SATUSEHAT.
+4. Obat tidak terkirim → isi `medicines.kfa_code`.
+5. OHIS tidak terkirim → isi DI dan CI sekaligus di pemeriksaan.
 
-### 7. DASHBOARD MONITORING MULTICABANG
+## Batasan
 
-Dashboard kantor pusat perlu menampilkan:
-
-- [ ] Daftar seluruh cabang.
-- [ ] Status konfigurasi SATUSEHAT setiap cabang.
-- [ ] Identitas `Organization` dan `Location` yang telah dipetakan.
-- [ ] Jumlah kunjungan yang menunggu pengiriman.
-- [ ] Jumlah pengiriman berhasil dan gagal.
-- [ ] Pesan error yang dapat ditindaklanjuti.
-- [ ] Waktu sinkronisasi terakhir.
-- [ ] Riwayat percobaan ulang pengiriman.
-- [ ] Filter monitoring berdasarkan cabang dan periode.
-
-Dashboard harus membedakan antara status integrasi cabang, status pengiriman resource, dan status kelengkapan data klinis.
-
-### 8. HAK AKSES MULTICABANG
-
-Peran pengguna yang disarankan:
-
-**Super Admin Grup**
-- Mengelola perusahaan dan seluruh cabang.
-- Mengatur konfigurasi integrasi sesuai kewenangan.
-- Memantau status pengiriman semua cabang.
-
-**Admin Cabang**
-- Mengelola operasional cabang yang menjadi tanggung jawabnya.
-- Melihat status integrasi cabang.
-- Menindaklanjuti kesalahan data sesuai hak akses.
-
-**Dokter**
-- Mengakses pasien dan rekam medis sesuai kewenangan.
-- Membuat dan memvalidasi catatan klinis.
-- Melakukan pelayanan dan dokumentasi medis.
-
-**Petugas Integrasi**
-- Memantau log dan error integrasi sesuai penugasan.
-- Tidak otomatis memperoleh akses penuh ke isi rekam medis.
-
-Pembatasan akses harus diterapkan di backend, bukan hanya dengan menyembunyikan menu di frontend.
-
-### 9. DESAIN DATABASE INTERNAL KLINIKDENT
-
-Setiap data yang berkaitan dengan cabang sebaiknya memiliki relasi tenant dan cabang yang jelas.
-
-Tabel atau entitas yang disarankan:
-- `organizations` — perusahaan atau grup klinik internal.
-- `branches` — daftar cabang.
-- `branch_satusehat_mappings` — pemetaan identitas SATUSEHAT per cabang.
-- `practitioners` — data tenaga kesehatan.
-- `patients` — data pasien.
-- `encounters` — data kunjungan.
-- `clinical_records` — catatan klinis.
-- `satusehat_sync_logs` — log pengiriman.
-- `satusehat_resource_mappings` — pemetaan ID internal dan ID resource SATUSEHAT.
-
-Kolom pemetaan yang perlu dipertimbangkan:
-- `organization_id` internal KlinikDent.
-- `branch_id` internal KlinikDent.
-- `satusehat_organization_id`.
-- `satusehat_location_id`.
-- `resource_type`.
-- `internal_resource_id`.
-- `satusehat_resource_id`.
-- `sync_status`.
-- `last_synced_at`.
-- `last_error`.
-
-Nama tabel dan kolom tersebut adalah rekomendasi desain internal, bukan nama tabel atau field resmi SATUSEHAT.
-
-### 10. KEAMANAN DAN PEMISAHAN DATA
-
-- [ ] Setiap pengguna dibatasi pada tenant dan cabang yang diizinkan.
-- [ ] Permintaan API memvalidasi akses tenant dan cabang di backend.
-- [ ] Data pasien tidak boleh bocor antarklinik yang berbeda tenant.
-- [ ] Akses lintas cabang dalam satu grup diberikan sesuai kewenangan.
-- [ ] Kredensial dan token integrasi disimpan dengan aman.
-- [ ] Log tidak menyimpan data pribadi berlebihan.
-- [ ] Perubahan identitas cabang dan pemetaan SATUSEHAT diaudit.
-- [ ] Tersedia pencadangan dan prosedur pemulihan data.
-
-### 11. KRITERIA SELESAI IMPLEMENTASI
-
-- [ ] Grup klinik dapat memiliki banyak cabang.
-- [ ] Setiap cabang dapat dikonfigurasi dengan identitas SATUSEHAT yang benar.
-- [ ] Kunjungan dikirim menggunakan identitas fasilitas dan lokasi yang sesuai.
-- [ ] Pasien dapat dilayani di cabang berbeda tanpa duplikasi identitas yang tidak perlu.
-- [ ] Resource klinis terhubung dengan kunjungan yang benar.
-- [ ] Dashboard pusat dapat memonitor seluruh cabang.
-- [ ] Admin cabang hanya dapat mengelola data sesuai kewenangannya.
-- [ ] Error pengiriman dapat dilacak dan ditangani.
-- [ ] Pengujian dilakukan pada sandbox dengan skenario beberapa cabang.
-- [ ] Seluruh konfigurasi telah divalidasi berdasarkan ketentuan SATUSEHAT terbaru.
-
-### 12. REFERENSI RESMI
-
-- SATUSEHAT Platform: https://satusehat.kemkes.go.id/platform
-- Playbook Rawat Jalan Gigi: https://satusehat.kemkes.go.id/platform/docs/id/interoperability/rawat-jalan-gigi/
-- Dokumentasi FHIR: https://satusehat.kemkes.go.id/platform/docs/id/fhir/
-- Dokumentasi Interoperabilitas: https://satusehat.kemkes.go.id/platform/docs/id/interoperability/
-
-**Status dokumen:** Draft spesifikasi teknis multi-cabang untuk pengembangan KlinikDent.id.
-
-**Catatan implementasi:** Model organisasi dan lokasi SATUSEHAT harus ditentukan berdasarkan identitas serta registrasi fasilitas yang sebenarnya. Validasi struktur `Organization`, `Location`, `PractitionerRole`, dan referensi resource lain terhadap playbook resmi sebelum digunakan pada production.
+Integrasi mengikuti Playbook Rawat Jalan Gigi SATUSEHAT. Klaim compliance penuh hanya setelah verifikasi sandbox dan review klinis/terminologi.

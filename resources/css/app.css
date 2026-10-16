@@ -900,6 +900,17 @@
     margin: 0.5rem 0 1.5rem;
 }
 
+.care-finish-review {
+    border: 1px solid var(--care-border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    background: #fafbfc;
+}
+
+.care-finish-review .table {
+    margin-bottom: 0;
+}
+
 .care-section .select2-container {
     width: 100% !important;
 }
@@ -1287,22 +1298,73 @@ body.care-mode.vertical-collapsed .main-content {
     min-height: 0;
 }
 
-.doctor-sidebar__queue-head {
+/* Spesifisitas tinggi agar tidak tertimpa tema Skote di .vertical-menu */
+body.care-mode .doctor-sidebar__filters {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0 0.85rem 0.5rem;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: #8b95b3;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    flex: 0 0 auto;
+    padding: 0 0.75rem 0.75rem;
 }
 
-.doctor-sidebar__queue-head .badge {
-    font-size: 0.65rem;
+body.care-mode .doctor-sidebar__filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.32rem 0.65rem;
+    border: 1px solid #32394e;
+    border-radius: 999px;
+    background: #2a3042;
+    color: #a6b0cf;
+    font-size: 0.72rem;
     font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    box-shadow: none;
+    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+body.care-mode .doctor-sidebar__filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.28rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.28);
+    color: inherit;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+body.care-mode .doctor-sidebar__filter:hover {
+    color: #eff2f7;
+    border-color: #3d4559;
+    background: #32394e;
+}
+
+body.care-mode .doctor-sidebar__filter:focus,
+body.care-mode .doctor-sidebar__filter:focus-visible {
+    outline: 2px solid rgba(85, 110, 230, 0.7);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+body.care-mode .doctor-sidebar__filter.is-active {
+    color: #fff;
+    border-color: #556ee6;
+    background: #556ee6;
+}
+
+body.care-mode .doctor-sidebar__filter.is-active .doctor-sidebar__filter-count {
+    background: rgba(255, 255, 255, 0.22);
+    color: #fff;
 }
 
 .doctor-sidebar__list {

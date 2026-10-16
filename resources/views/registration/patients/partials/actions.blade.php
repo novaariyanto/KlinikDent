@@ -6,6 +6,22 @@
         @endcan
         @can('update', $patient)
             <li><a class="dropdown-item" href="{{ route('registration.patients.edit', $patient) }}"><i class="bx bx-edit me-1"></i> Edit</a></li>
+            @if (filled($patient->nik) && ! filled($patient->satusehat_id))
+                @if ($patient->hasSatuSehatAddress())
+                    <li>
+                        <form action="{{ route('registration.patients.satusehat', $patient) }}" method="POST">
+                            @csrf
+                            <button type="submit" class="dropdown-item"><i class="bx bx-cloud-download me-1"></i> Ambil IHS</button>
+                        </form>
+                    </li>
+                @else
+                    <li>
+                        <a class="dropdown-item" href="{{ route('registration.patients.edit', ['patient' => $patient, 'ihs' => 1]) }}">
+                            <i class="bx bx-cloud-download me-1"></i> Lengkapi & Ambil IHS
+                        </a>
+                    </li>
+                @endif
+            @endif
         @endcan
         @can('create', App\Models\Visit::class)
             <li><a class="dropdown-item" href="{{ route('registration.new', ['patient_id' => $patient->id]) }}"><i class="bx bx-plus me-1"></i> Daftarkan</a></li>

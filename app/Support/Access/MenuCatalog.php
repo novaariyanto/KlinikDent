@@ -100,6 +100,7 @@ final class MenuCatalog
             'pharmacy.purchases.suppliers',
             'pharmacy.purchases.orders',
             'pharmacy.purchases.receipts',
+            'pharmacy.reports',
             'pharmacy.reports.stock',
             'pharmacy.reports.outgoing',
             'pharmacy.reports.incoming',
@@ -339,7 +340,7 @@ final class MenuCatalog
                 self::item('manager.reports.revenue', 'Pendapatan', 'bx bx-dollar', 'reports.revenue', 'report.view', 'Laporan pendapatan.'),
                 self::item('manager.reports.procedures', 'Tindakan', 'bx bx-first-aid', 'reports.procedures', 'report.view', 'Laporan tindakan.'),
                 self::item('manager.reports.patients', 'Pasien', 'bx bx-user', 'reports.patients', 'report.view', 'Laporan pasien.'),
-                self::item('manager.reports.pharmacy', 'Farmasi', 'bx bx-package', 'reports.pharmacy', 'report.view', 'Laporan farmasi.'),
+                self::item('manager.reports.pharmacy', 'Farmasi', 'bx bx-package', 'pharmacy.reports', 'report.view', 'Laporan farmasi.'),
             ]),
             self::item('manager.branches', 'Cabang', 'bx bx-git-branch', 'branches.index', 'branch.view', 'Cabang klinik.'),
             self::item('manager.master', 'Master Data', 'bx bx-data', null, 'clinic.view', 'Master data klinik.', [
@@ -488,11 +489,13 @@ final class MenuCatalog
                 self::item('pharmacy.purchases.orders', 'Purchase Order', 'bx bx-file', 'pharmacy.purchases.orders', 'purchase.view', 'Purchase order obat.'),
                 self::item('pharmacy.purchases.receipts', 'Penerimaan', 'bx bx-package', 'pharmacy.purchases.receipts', 'purchase.manage', 'Penerimaan barang farmasi.'),
             ]),
-            self::item('pharmacy.reports', 'Laporan', 'bx bx-bar-chart-alt-2', null, 'report.view', 'Laporan farmasi.', [
+            self::item('pharmacy.reports', 'Laporan', 'bx bx-bar-chart-alt-2', 'pharmacy.reports', 'report.view', 'Laporan farmasi.', [
+                self::item('pharmacy.reports.overview', 'Ringkasan', 'bx bx-home-circle', 'pharmacy.reports', 'report.view', 'Ringkasan laporan farmasi.'),
                 self::item('pharmacy.reports.stock', 'Stok', 'bx bx-package', 'pharmacy.reports.stock', 'report.view', 'Laporan stok obat.'),
                 self::item('pharmacy.reports.outgoing', 'Obat Keluar', 'bx bx-log-out-circle', 'pharmacy.reports.outgoing', 'report.view', 'Laporan obat keluar.'),
                 self::item('pharmacy.reports.incoming', 'Obat Masuk', 'bx bx-log-in-circle', 'pharmacy.reports.incoming', 'report.view', 'Laporan obat masuk.'),
                 self::item('pharmacy.reports.expired', 'Expired', 'bx bx-error-circle', 'pharmacy.reports.expired', 'report.view', 'Laporan obat kedaluwarsa.'),
+                self::item('pharmacy.reports.transactions', 'Transaksi', 'bx bx-transfer', 'pharmacy.transactions', 'pharmacy.view', 'Semua mutasi stok.'),
             ]),
         ];
     }

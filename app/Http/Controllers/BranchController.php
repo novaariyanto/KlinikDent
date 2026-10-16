@@ -2,10 +2,15 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\IntegrationProvider;
 use App\Http\Requests\Branch\StoreBranchRequest;
 use App\Http\Requests\Branch\UpdateBranchRequest;
 use App\Models\Branch;
+use App\Models\BranchSatuSehatSetting;
 use App\Models\Tenant;
+use App\Models\TenantIntegration;
+use App\Support\Integrations\IntegrationException;
+use App\Support\Integrations\IntegrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
@@ -68,7 +73,7 @@ class BranchController extends Controller
         return view('branches.create', $this->formData());
     }
 
-    public function store(StoreBranchRequest $request): RedirectResponse
+    public function store(StoreBranchRequest $request, IntegrationService $integrations): RedirectResponse
     {
         $data = $request->validated();
         $data['tenant_id'] = auth()->user()?->isPlatformAdmin()
@@ -79,9 +84,26 @@ class BranchController extends Controller
 
         activity_log('created', $branch, $data, 'Created branch '.$branch->name, 'branches');
 
-        return redirect()
-            ->route('branches.index')
-            ->with('success', 'Cabang created successfully.');
+        $sync = $integrations->syncBranchLocationAfterCreate($branch);
+        $redirect = redirect()->route('branches.show', $branch);
+
+        if ($sync['synced'] ?? false) {
+            return $redirect->with('success', 'Cabang berhasil dibuat. Lokasi SATUSEHAT tersimpan: '.$sync['id']);
+        }
+
+        if (filled($sync['error'] ?? null)) {
+            return $redirect
+                ->with('success', 'Cabang berhasil dibuat.')
+                ->with('warning', 'Sync lokasi SATUSEHAT gagal: '.$sync['error']);
+        }
+
+        if (filled($sync['skipped'] ?? null)) {
+            return $redirect
+                ->with('success', 'Cabang berhasil dibuat.')
+                ->with('info', $sync['skipped']);
+        }
+
+        return $redirect->with('success', 'Cabang berhasil dibuat.');
     }
 
     public function show(Branch $branch): View
@@ -90,7 +112,33 @@ class BranchController extends Controller
 
         $branch->load('tenant');
 
-        return view('branches.show', compact('branch'));
+        $satusehatSetting = BranchSatuSehatSetting::query()
+            ->where('branch_id', $branch->id)
+            ->first();
+        $satusehatEnabled = TenantIntegration::forTenant((int) $branch->tenant_id, IntegrationProvider::SatuSehat)->enabled;
+        $canSyncSatusehat = (bool) auth()->user()?->can('integration.manage')
+            && $satusehatEnabled
+            && $satusehatSetting?->readyToPushLocation();
+
+        return view('branches.show', compact('branch', 'satusehatSetting', 'satusehatEnabled', 'canSyncSatusehat'));
+    }
+
+    public function syncSatuSehat(Branch $branch, IntegrationService $integrations): RedirectResponse
+    {
+        $this->authorize('update', $branch);
+        abort_unless(auth()->user()?->can('integration.manage'), 403);
+
+        try {
+            $ihs = $integrations->syncBranchLocation($branch);
+        } catch (IntegrationException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        activity_log('updated', $branch, [
+            'location_id' => $ihs,
+        ], 'Lokasi SATUSEHAT cabang disinkronkan.', 'branches');
+
+        return back()->with('success', 'Lokasi SATUSEHAT tersimpan: '.$ihs);
     }
 
     public function edit(Branch $branch): View

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\IntegrationProvider;
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -66,6 +67,19 @@ class TenantIntegration extends Model
         $model->credentials = [];
 
         return $model;
+    }
+
+    /**
+     * Ciphertext yang tidak cocok dengan APP_KEY tidak boleh menjatuhkan halaman.
+     * Array kosong membuat integrasi terlihat belum dikonfigurasi.
+     */
+    public function fromEncryptedString($value)
+    {
+        try {
+            return parent::fromEncryptedString($value);
+        } catch (DecryptException) {
+            return '[]';
+        }
     }
 
     public function credential(string $key, mixed $fallback = null): mixed

@@ -4,7 +4,6 @@ alwaysApply: true
 - klinik multi-modul: ikuti pola modul yang sudah ada, bukan tutorial generik/SPA default.
 - Stack: Laravel 10; Blade + jQuery; pakai layout/utilitas proyek.
 - DB: banyak koneksi (lihat `config/database.php`); setiap model/query pakai `connection` yang benar (`$connection` / `DB::connection()`).
-- Skema produksi: **tanpa migration**; perubahan skema = **SQL lengkap** + catatan singkat untuk review/eksekusi DBA; jangan asumsikan `php artisan migrate`.
 - **Jangan** jalankan Pest/PHPUnit otomatis; verifikasi manual (lintas modul, transaksi, edge case).
 - Jangan lakukan pengecekan manual melalui browser kecuali diminta secara eksplisit.
 - UI baru/form: tiru `resources/views/pages/pendaftaran/` (master, breadcrumb, card, alert; DataTables/Yajra jika setara; AJAX jQuery seperti file existing). Cari contoh serupa sebelum komponen baru.

@@ -35,7 +35,7 @@ class ReportController extends Controller
             ['title' => 'Pendapatan', 'route' => 'reports.revenue', 'desc' => 'Pembayaran masuk per hari dan metode.', 'show' => $user->can('revenue.view') || $user->can('branch.manage')],
             ['title' => 'Tindakan', 'route' => 'reports.procedures', 'desc' => 'Tindakan medis dan nilai.', 'show' => true],
             ['title' => 'Pasien', 'route' => 'reports.patients', 'desc' => 'Pasien baru dan yang berkunjung.', 'show' => true],
-            ['title' => 'Farmasi', 'route' => 'reports.pharmacy', 'desc' => 'Stok, masuk, keluar, expired.', 'show' => $user->can('pharmacy.view') || $user->can('stock.view')],
+            ['title' => 'Farmasi', 'route' => 'pharmacy.reports', 'desc' => 'Stok, masuk, keluar, expired.', 'show' => $user->can('pharmacy.view') || $user->can('stock.view') || $user->can('report.view')],
             ['title' => 'Operasional', 'route' => 'reports.operational', 'desc' => 'Antrean, tagihan, resep menunggu.', 'show' => true],
             ['title' => 'Medis', 'route' => 'reports.medical', 'desc' => 'Diagnosis, tindakan, rujukan.', 'show' => true],
             ['title' => 'Keuangan', 'route' => 'reports.finance', 'desc' => 'Laba rugi, arus kas, piutang.', 'show' => $user->can('finance.view') || $user->can('branch.manage')],

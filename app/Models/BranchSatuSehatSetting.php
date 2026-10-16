@@ -147,6 +147,18 @@ class BranchSatuSehatSetting extends Model
             && $this->hasSecret();
     }
 
+    /**
+     * Kredensial + uji koneksi cukup untuk membuat/memperbarui Location cabang.
+     */
+    public function readyToPushLocation(): bool
+    {
+        return $this->connection_ok
+            && filled($this->organization_id)
+            && filled($this->client_id)
+            && $this->hasSecret()
+            && ! $this->secretIsUnreadable();
+    }
+
     public function statusLabel(): string
     {
         if ($this->secretIsUnreadable()) {

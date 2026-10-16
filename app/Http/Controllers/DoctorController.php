@@ -11,6 +11,8 @@ use App\Models\Doctor;
 use App\Models\Room;
 use App\Models\User;
 use App\Support\Doctors\DoctorService;
+use App\Support\Integrations\IntegrationException;
+use App\Support\Integrations\IntegrationService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -114,6 +116,19 @@ class DoctorController extends Controller
         return redirect()
             ->route('doctors.index')
             ->with('success', 'Profil tenaga medis dihapus. Akun login tetap ada.');
+    }
+
+    public function fetchIhs(Doctor $doctor, IntegrationService $integrations): RedirectResponse
+    {
+        $this->authorize('update', $doctor);
+
+        try {
+            $ihs = $integrations->lookupDoctorIhs($doctor);
+        } catch (IntegrationException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
+
+        return back()->with('success', 'IHS '.$doctor->displayName().' tersimpan: '.$ihs);
     }
 
     /**

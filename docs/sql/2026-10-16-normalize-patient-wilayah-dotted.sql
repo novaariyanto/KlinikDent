@@ -1,0 +1,5 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_10_16_095000_normalize_patient_wilayah_codes.php
+--
+-- Normalisasi kode wilayah pasien ke digit saja (tanpa titik).

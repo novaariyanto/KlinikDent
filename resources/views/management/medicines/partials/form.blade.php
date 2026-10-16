@@ -5,7 +5,9 @@
         <x-input name="name" label="Nama Obat" :value="$medicine?->name" required />
     </div>
     <div class="col-md-6">
-        <x-input name="kfa_code" label="Kode KFA" :value="$medicine?->kfa_code" />
+        <x-input name="kfa_code" label="Kode KFA" :value="$medicine?->kfa_code" placeholder="Contoh: 93004418" inputmode="numeric" autocomplete="off" />
+        <p class="form-text mt-n2 mb-1">Dari <a href="https://satusehat.kemkes.go.id/kfa-browser/" target="_blank" rel="noopener noreferrer">KFA Browser</a>. Wajib agar resep ikut ke SATUSEHAT.</p>
+        <p class="form-text mb-3">Lihat playbook di panel kanan untuk langkah pengisian.</p>
     </div>
     <div class="col-md-3">
         <x-select name="unit" label="Satuan" :options="\App\Models\Medicine::UNITS" :selected="old('unit', $medicine?->unit)" required />

@@ -3,13 +3,16 @@
 namespace App\Http\Requests\Visit;
 
 use App\Enums\Gender;
+use App\Http\Requests\Concerns\NormalizesWilayahCodes;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\Visit;
+use App\Rules\WilayahCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreVisitRequest extends FormRequest
 {
+    use NormalizesWilayahCodes;
     use ResolvesActorTenant;
 
     public function authorize(): bool
@@ -58,18 +61,36 @@ class StoreVisitRequest extends FormRequest
             'gender' => ['nullable', Rule::enum(Gender::class)],
             'phone' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:1000'],
+            'address_city' => ['nullable', 'string', 'max:100'],
+            'address_postal_code' => ['nullable', 'string', 'max:10'],
+            'province_code' => ['nullable', 'string', 'max:10', new WilayahCode('province')],
+            'city_code' => ['nullable', 'string', 'max:10', new WilayahCode('city', 'province_code')],
+            'district_code' => ['nullable', 'string', 'max:10', new WilayahCode('district', 'city_code')],
+            'village_code' => ['nullable', 'string', 'max:20', new WilayahCode('village', 'district_code')],
+            'rt' => ['nullable', 'string', 'max:5'],
+            'rw' => ['nullable', 'string', 'max:5'],
+            'satusehat_id' => ['nullable', 'string', 'max:64'],
         ];
     }
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
-            'patient_id' => $this->filled('patient_id') ? $this->input('patient_id') : null,
-            'nik' => $this->filled('nik') ? $this->input('nik') : null,
-            'doctor_id' => $this->filled('doctor_id') ? $this->input('doctor_id') : null,
-            'room_id' => $this->filled('room_id') ? $this->input('room_id') : null,
+        $nullable = [
+            'patient_id', 'nik', 'doctor_id', 'room_id', 'gender', 'phone', 'address',
+            'address_city', 'address_postal_code',
+            'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
+            'satusehat_id',
+        ];
+
+        $merge = [
             'visit_date' => $this->input('visit_date') ?: now()->toDateString(),
             'branch_id' => $this->input('branch_id') ?: $this->user()?->branch_id,
-        ]);
+        ];
+
+        foreach ($nullable as $field) {
+            $merge[$field] = $this->filled($field) ? $this->input($field) : null;
+        }
+
+        $this->merge($this->normalizeWilayahInto($merge));
     }
 }

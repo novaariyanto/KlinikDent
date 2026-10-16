@@ -116,6 +116,39 @@ class SatuSehatClient
         return $locations;
     }
 
+    /**
+     * Ambil lokasi dari daftar organisasi, atau validasi ID yang diisi manual.
+     *
+     * @return array{id: string, name: string}
+     */
+    public function resolveLocation(string $locationId): array
+    {
+        $locationId = trim($locationId);
+
+        if ($locationId === '') {
+            throw new IntegrationException('Location ID wajib diisi.');
+        }
+
+        foreach ($this->locations() as $location) {
+            if ($location['id'] === $locationId) {
+                return $location;
+            }
+        }
+
+        $resource = $this->read('Location', $locationId);
+        $reference = (string) data_get($resource, 'managingOrganization.reference', '');
+        $orgId = (string) $this->branch->organization_id;
+
+        if ($orgId !== '' && $reference !== '' && ! str_ends_with($reference, '/'.$orgId) && $reference !== $orgId) {
+            throw new IntegrationException('Location itu tidak dikelola oleh Organization cabang ini.');
+        }
+
+        return [
+            'id' => (string) ($resource['id'] ?? $locationId),
+            'name' => (string) ($resource['name'] ?? $locationId),
+        ];
+    }
+
     public function findByNik(string $resourceType, string $nik): ?string
     {
         $query = ['identifier' => SatuSehatCodes::NIK_SYSTEM.'|'.$nik];
@@ -216,11 +249,12 @@ class SatuSehatClient
             if ($existingId) {
                 $payload['id'] = $existingId;
             }
-            $this->record($existingId ? 'PUT' : 'POST', $this->fhirUrl($existingId ? $resourceType.'/'.$existingId : $resourceType), $payload, 200, $body);
+            $this->record($existingId ? 'PUT' : 'POST', $this->fhirUrl($existingId ? $resourceType.'/'.$existingId : $resourceType), $payload, 200, $body, $localKey);
 
             return [
                 'ok' => true,
                 'id' => $id,
+                'local_key' => $localKey,
                 'response' => $body,
             ];
         }
@@ -241,11 +275,17 @@ class SatuSehatClient
             }
 
             $body = $this->responseBody($response);
-            $this->record($method, $url, $payload, $response->status(), $body);
+            $this->record($method, $url, $payload, $response->status(), $body, $localKey);
 
             if (! $response->successful()) {
+                $status = $response->status();
+                $retryable = $status === 429 || $status >= 500;
+
                 return [
                     'ok' => false,
+                    'retryable' => $retryable,
+                    'http_status' => $status,
+                    'local_key' => $localKey,
                     'response' => $body,
                     'error' => $this->failureMessage($response, 'Pengiriman '.$resourceType.' gagal.'),
                 ];
@@ -256,6 +296,8 @@ class SatuSehatClient
             if ($id === '') {
                 return [
                     'ok' => false,
+                    'http_status' => $response->status(),
+                    'local_key' => $localKey,
                     'response' => $body,
                     'error' => 'SATUSEHAT tidak mengembalikan ID '.$resourceType.'.',
                 ];
@@ -264,13 +306,16 @@ class SatuSehatClient
             return [
                 'ok' => true,
                 'id' => $id,
+                'local_key' => $localKey,
+                'http_status' => $response->status(),
                 'response' => $body,
             ];
         } catch (IntegrationException $exception) {
-            $this->record('POST', $this->fhirUrl($resourceType), $payload, null, ['error' => $exception->getMessage()]);
+            $this->record('POST', $this->fhirUrl($resourceType), $payload, null, ['error' => $exception->getMessage()], $localKey);
 
             return [
                 'ok' => false,
+                'local_key' => $localKey,
                 'response' => ['error' => $exception->getMessage()],
                 'error' => $exception->getMessage(),
             ];
@@ -280,7 +325,7 @@ class SatuSehatClient
     /**
      * @param  array<string, mixed>|null  $request
      */
-    protected function record(string $method, string $url, mixed $request, ?int $status, mixed $response): void
+    protected function record(string $method, string $url, mixed $request, ?int $status, mixed $response, ?string $localKey = null): void
     {
         $this->exchanges[] = [
             'method' => $method,
@@ -288,6 +333,7 @@ class SatuSehatClient
             'request' => $request,
             'status' => $status,
             'response' => $response,
+            'local_key' => $localKey,
         ];
     }
 
@@ -354,6 +400,128 @@ class SatuSehatClient
         Cache::put($this->tokenCacheKey(), $token, $ttl);
 
         return $token;
+    }
+
+    /**
+     * Master Wilayah SATUSEHAT v2 — daftar desa/kelurahan per kecamatan (Kode Kemendagri).
+     *
+     * @return array<string, string> kode => "kode — nama"
+     */
+    public function masterWilayahSubDistricts(string $districtCode): array
+    {
+        $districtCode = preg_replace('/\D+/', '', $districtCode) ?? '';
+
+        if ($districtCode === '') {
+            return [];
+        }
+
+        if ($this->localSandbox()) {
+            return [];
+        }
+
+        $cacheKey = 'satusehat.wilayah.subdistricts.'.$this->branch->id.'.'.$districtCode;
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $options = [];
+        $page = 1;
+        $cursorNext = null;
+
+        do {
+            $query = [
+                'current_page' => $page,
+                'district_codes' => $districtCode,
+            ];
+
+            if (filled($cursorNext)) {
+                $query['next'] = $cursorNext;
+            }
+
+            $response = $this->authed()->get($this->masterdataUrl('sub-districts'), $query);
+            $this->record('GET', $this->masterdataUrl('sub-districts'), $query, $response->status(), $this->responseBody($response));
+
+            if (! $response->successful()) {
+                throw new IntegrationException($this->failureMessage($response, 'Master Wilayah desa/kelurahan gagal diambil.'));
+            }
+
+            foreach ($response->json('data') ?? [] as $row) {
+                if (! is_array($row) || blank($row['code'] ?? null)) {
+                    continue;
+                }
+                $code = (string) $row['code'];
+                $name = (string) ($row['name'] ?? $code);
+                $options[$code] = $code.' — '.$name;
+            }
+
+            $cursorNext = $response->json('meta.cursors.next');
+            $page++;
+        } while (filled($cursorNext) && $page <= 100);
+
+        asort($options, SORT_NATURAL | SORT_FLAG_CASE);
+        Cache::put($cacheKey, $options, 3600);
+
+        return $options;
+    }
+
+    /**
+     * Pastikan kode administratif ada di Master Wilayah SATUSEHAT v2.
+     */
+    public function assertMasterWilayahCodes(
+        string $provinceCode,
+        string $cityCode,
+        string $districtCode,
+        string $villageCode,
+    ): void {
+        if ($this->localSandbox()) {
+            return;
+        }
+
+        $provinceCode = preg_replace('/\D+/', '', $provinceCode) ?? '';
+        $cityCode = preg_replace('/\D+/', '', $cityCode) ?? '';
+        $districtCode = preg_replace('/\D+/', '', $districtCode) ?? '';
+        $villageCode = preg_replace('/\D+/', '', $villageCode) ?? '';
+
+        $checks = [
+            'provinsi' => ['provinces', $provinceCode, null],
+            'kab/kota' => ['cities', $cityCode, ['province_codes' => $provinceCode]],
+            'kecamatan' => ['districts', $districtCode, ['city_codes' => $cityCode]],
+            'desa/kelurahan' => ['sub-districts', $villageCode, ['district_codes' => $districtCode]],
+        ];
+
+        foreach ($checks as $label => [$path, $code, $parent]) {
+            if ($code === '') {
+                throw new IntegrationException('Kode '.$label.' wajib diisi sesuai Master Wilayah SATUSEHAT (Kemendagri).');
+            }
+
+            $query = ['current_page' => 1, 'codes' => $code];
+            if (is_array($parent)) {
+                $query = array_merge($query, $parent);
+            }
+
+            $response = $this->authed()->get($this->masterdataUrl($path), $query);
+            $this->record('GET', $this->masterdataUrl($path), $query, $response->status(), $this->responseBody($response));
+
+            if (! $response->successful()) {
+                throw new IntegrationException($this->failureMessage($response, 'Validasi Master Wilayah '.$label.' gagal.'));
+            }
+
+            $found = collect($response->json('data') ?? [])
+                ->contains(fn ($row) => is_array($row) && (string) ($row['code'] ?? '') === $code);
+
+            if (! $found) {
+                throw new IntegrationException(
+                    'Kode '.$label.' "'.$code.'" tidak ditemukan di Master Wilayah SATUSEHAT. Pilih ulang dari daftar Kemendagri.'
+                );
+            }
+        }
+    }
+
+    protected function masterdataUrl(string $path): string
+    {
+        return $this->branch->baseUrl().'/masterdata/v2/'.ltrim($path, '/');
     }
 
     protected function fhirUrl(string $path): string

@@ -49,6 +49,7 @@ use App\Http\Controllers\Pharmacy\SupplierController;
 use App\Http\Controllers\Portal\DocumentCheckController;
 use App\Http\Controllers\Portal\PatientPortalController;
 use App\Http\Controllers\Registration\PatientController;
+use App\Http\Controllers\Registration\WilayahController;
 use App\Http\Controllers\Registration\PublicBookingController;
 use App\Http\Controllers\Registration\QueueController;
 use App\Http\Controllers\Registration\QueueMonitorController;
@@ -116,6 +117,7 @@ Route::get('/antrean/{token}/data', [QueueMonitorController::class, 'feed'])->na
 
 Route::get('/janji/{slug}', [PublicBookingController::class, 'show'])->name('booking.public');
 Route::get('/janji/{slug}/sesi', [PublicBookingController::class, 'sessions'])->name('booking.public.sessions');
+Route::get('/janji/{slug}/from-nik', [PublicBookingController::class, 'fromNik'])->middleware('throttle:30,1')->name('booking.public.from-nik');
 Route::post('/janji/{slug}', [PublicBookingController::class, 'store'])->middleware('throttle:10,1')->name('booking.public.store');
 
 Route::get('/cek/{code}', [DocumentCheckController::class, 'show'])->name('documents.check');
@@ -158,6 +160,9 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/branches/data', [BranchController::class, 'data'])
                 ->middleware('permission:branch.view')
                 ->name('branches.data');
+            Route::post('/branches/{branch}/satusehat', [BranchController::class, 'syncSatuSehat'])
+                ->middleware('permission:branch.manage')
+                ->name('branches.satusehat');
             Route::resource('branches', BranchController::class);
 
             Route::prefix('management')->name('management.')->group(function () {
@@ -201,6 +206,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
 
             Route::get('/doctors/{doctor}/edit', [DoctorController::class, 'edit'])->name('doctors.edit');
             Route::match(['put', 'patch'], '/doctors/{doctor}', [DoctorController::class, 'update'])->name('doctors.update');
+            Route::post('/doctors/{doctor}/satusehat', [DoctorController::class, 'fetchIhs'])->name('doctors.satusehat');
             Route::get('/doctors/schedule/today', [DoctorScheduleController::class, 'today'])
                 ->middleware('permission:schedule.view')
                 ->name('doctors.schedule.today');
@@ -244,6 +250,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/registration', [VisitController::class, 'hub'])->name('registration.index');
             Route::get('/registration/new', [VisitController::class, 'create'])->name('registration.new');
             Route::get('/registration/availability', [VisitController::class, 'availability'])->name('registration.availability');
+            Route::post('/registration/patient-ihs', [VisitController::class, 'lookupPatientIhs'])->name('registration.patient-ihs');
             Route::post('/registration/visits', [VisitController::class, 'store'])->name('registration.visits.store');
             Route::get('/registration/visits/data', [VisitController::class, 'data'])->name('registration.visits.data');
             Route::get('/registration/visits/today', [VisitController::class, 'index'])->name('registration.visits.today');
@@ -256,12 +263,17 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
 
             Route::get('/registration/patients/data', [PatientController::class, 'data'])->name('registration.patients.data');
             Route::get('/registration/patients/search', [PatientController::class, 'search'])->name('registration.patients.search');
+            Route::get('/registration/wilayah/cities', [WilayahController::class, 'cities'])->name('registration.wilayah.cities');
+            Route::get('/registration/wilayah/districts', [WilayahController::class, 'districts'])->name('registration.wilayah.districts');
+            Route::get('/registration/wilayah/villages', [WilayahController::class, 'villages'])->name('registration.wilayah.villages');
+            Route::get('/registration/wilayah/from-nik', [WilayahController::class, 'fromNik'])->name('registration.wilayah.from-nik');
             Route::get('/registration/patients/create', [PatientController::class, 'create'])->name('registration.patients.create');
             Route::get('/registration/patients', [PatientController::class, 'index'])->name('registration.patients');
             Route::post('/registration/patients', [PatientController::class, 'store'])->name('registration.patients.store');
             Route::get('/registration/patients/{patient}/edit', [PatientController::class, 'edit'])->name('registration.patients.edit');
             Route::get('/registration/patients/{patient}', [PatientController::class, 'show'])->name('registration.patients.show');
             Route::put('/registration/patients/{patient}', [PatientController::class, 'update'])->name('registration.patients.update');
+            Route::post('/registration/patients/{patient}/satusehat', [PatientController::class, 'fetchIhs'])->name('registration.patients.satusehat');
             Route::delete('/registration/patients/{patient}', [PatientController::class, 'destroy'])->name('registration.patients.destroy');
 
             Route::get('/queue/data', [QueueController::class, 'data'])->name('queue.data');
@@ -366,6 +378,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/pharmacy/purchases/receipts', [PurchaseOrderController::class, 'receipts'])->name('pharmacy.purchases.receipts');
 
             Route::get('/pharmacy/transactions', [PharmacyReportController::class, 'transactions'])->name('pharmacy.transactions');
+            Route::get('/pharmacy/reports', [PharmacyReportController::class, 'landing'])->name('pharmacy.reports');
             Route::get('/pharmacy/reports/stock', [PharmacyReportController::class, 'stock'])->name('pharmacy.reports.stock');
             Route::get('/pharmacy/reports/outgoing', [PharmacyReportController::class, 'outgoing'])->name('pharmacy.reports.outgoing');
             Route::get('/pharmacy/reports/incoming', [PharmacyReportController::class, 'incoming'])->name('pharmacy.reports.incoming');

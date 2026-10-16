@@ -89,8 +89,27 @@
                         <tr><th width="110">Email</th><td>{{ $doctor->user?->email ?: '-' }}</td></tr>
                         <tr><th>Peran</th><td>{{ $doctor->roleLabel() }}</td></tr>
                         <tr><th>Cabang</th><td>{{ $branchNames->implode(', ') ?: '-' }}</td></tr>
+                        <tr>
+                            <th>IHS</th>
+                            <td>
+                                @if (filled($doctor->satusehat_id))
+                                    <code>{{ $doctor->satusehat_id }}</code>
+                                @else
+                                    <span class="text-muted">Belum ada</span>
+                                @endif
+                            </td>
+                        </tr>
                     </tbody>
                 </x-table>
+                @if (filled($doctor->nik) && ! filled($doctor->satusehat_id))
+                    <form action="{{ route('doctors.satusehat', $doctor) }}" method="POST" class="mt-3">
+                        @csrf
+                        <x-button type="submit" variant="secondary" icon="bx bx-cloud-download">Ambil IHS</x-button>
+                    </form>
+                    <p class="text-muted small mt-2 mb-0">Mencari Practitioner SATUSEHAT berdasarkan NIK.</p>
+                @elseif (! filled($doctor->nik))
+                    <p class="text-muted small mt-3 mb-0">Isi NIK untuk mengambil IHS Practitioner.</p>
+                @endif
             </x-card>
         </div>
     </div>

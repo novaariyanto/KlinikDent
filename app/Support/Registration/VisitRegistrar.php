@@ -66,7 +66,9 @@ class VisitRegistrar
         });
 
         if ($visit->patient && $visit->branch) {
-            $this->integrations->lookupPatientIhs($visit->patient, $visit->branch);
+            $this->integrations->lookupPatientIhs($visit->patient->fresh(), $visit->branch);
+            $visit->unsetRelation('patient');
+            $visit->load('patient');
         }
 
         return $visit;
@@ -138,7 +140,11 @@ class VisitRegistrar
         });
 
         if ($visit->patient && $visit->branch) {
-            $this->integrations->lookupPatientIhs($visit->patient, $visit->branch);
+            $this->integrations->lookupPatientIhs($visit->patient->fresh(), $visit->branch);
+            $visit->unsetRelation('patient');
+            $visit->load([
+                'patient' => fn ($query) => $query->withoutGlobalScopes(),
+            ]);
         }
 
         return $visit;
@@ -183,15 +189,14 @@ class VisitRegistrar
             return $patient;
         }
 
-        return Patient::withoutGlobalScopes()->create([
+        return Patient::withoutGlobalScopes()->create($this->patientAttributes($data, [
             'tenant_id' => $tenant->id,
             'medical_record_number' => $this->sequences->nextMedicalRecord($tenant, $branch),
             'name' => $data['name'],
             'nik' => $nik,
-            'dob' => $data['dob'] ?? null,
             'phone' => $phone,
             'default_payer_id' => $data['payer_id'] ?? null,
-        ]);
+        ]));
     }
 
     /**
@@ -208,7 +213,9 @@ class VisitRegistrar
                 ]);
             }
 
-            return $patient;
+            $this->syncPatientProfile($patient, $data);
+
+            return $patient->fresh();
         }
 
         $tenant = $branch->tenant ?? $actor->tenant;
@@ -226,22 +233,77 @@ class VisitRegistrar
 
             if ($existing) {
                 $this->reusedExistingPatient = true;
+                $this->syncPatientProfile($existing, $data);
 
-                return $existing;
+                return $existing->fresh();
             }
         }
 
-        return Patient::query()->create([
+        return Patient::query()->create($this->patientAttributes($data, [
             'tenant_id' => $tenantId,
             'medical_record_number' => $this->sequences->nextMedicalRecord($tenant, $branch),
             'name' => $data['name'],
             'nik' => $nik,
-            'dob' => $data['dob'] ?? null,
-            'gender' => $data['gender'] ?? null,
-            'phone' => $data['phone'] ?? null,
-            'address' => $data['address'] ?? null,
             'default_payer_id' => $data['default_payer_id'] ?? $data['payer_id'] ?? null,
-        ]);
+        ]));
+    }
+
+    /**
+     * Simpan IHS / alamat KTP dari form pendaftaran sebelum lookup SATUSEHAT.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    protected function syncPatientProfile(Patient $patient, array $data): void
+    {
+        $fill = [];
+
+        if (! filled($patient->satusehat_id) && filled($data['satusehat_id'] ?? null)) {
+            $fill['satusehat_id'] = $data['satusehat_id'];
+        }
+
+        $profileFields = [
+            'name', 'dob', 'gender', 'phone', 'address', 'address_city', 'address_postal_code',
+            'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
+        ];
+
+        foreach ($profileFields as $field) {
+            if (! array_key_exists($field, $data) || $data[$field] === null || $data[$field] === '') {
+                continue;
+            }
+
+            if (blank($patient->{$field}) || in_array($field, [
+                'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw', 'address',
+            ], true)) {
+                $fill[$field] = $data[$field];
+            }
+        }
+
+        if ($fill !== []) {
+            $patient->forceFill($fill)->save();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $base
+     * @return array<string, mixed>
+     */
+    protected function patientAttributes(array $data, array $base): array
+    {
+        $fields = [
+            'dob', 'gender', 'phone', 'address', 'address_city', 'address_postal_code',
+            'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
+            'birth_place', 'marital_status', 'citizenship', 'family_card_number',
+            'satusehat_id',
+        ];
+
+        foreach ($fields as $field) {
+            if (array_key_exists($field, $data) && $data[$field] !== null && $data[$field] !== '') {
+                $base[$field] = $data[$field];
+            }
+        }
+
+        return $base;
     }
 
     protected function resolveRoomId(int $tenantId, Branch $branch, mixed $roomId): ?int

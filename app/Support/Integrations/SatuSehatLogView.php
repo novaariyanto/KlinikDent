@@ -73,7 +73,8 @@ final class SatuSehatLogView
         return match ($status) {
             IntegrationLogStatus::Success => $skipped === []
                 ? 'Semua data pada pengiriman ini diterima SATUSEHAT.'
-                : 'Kunjungan terkirim, tetapi ada bagian yang tidak ikut dikirim.',
+                : 'Kunjungan terkirim lengkap; beberapa bagian opsional tidak ikut dikirim.',
+            IntegrationLogStatus::Partial => 'Sinkronisasi sebagian berhasil. Encounter belum ditutup atau resource wajib masih gagal — kirim ulang setelah diperbaiki.',
             IntegrationLogStatus::Failed => 'Pengiriman belum berhasil. Perbaiki data yang disebut di bawah, lalu kirim ulang.',
             IntegrationLogStatus::Queued => 'Pengiriman masih menunggu giliran.',
         };
@@ -278,6 +279,8 @@ final class SatuSehatLogView
     }
 
     /**
+     * Resource inti kunjungan klinik gigi yang selalu ditampilkan di ringkasan log.
+     *
      * @return list<string>
      */
     private static function resourceOrder(): array
@@ -287,21 +290,7 @@ final class SatuSehatLogView
             'Condition',
             'Observation',
             'Procedure',
-            'Composition',
-            'Medication',
-            'MedicationRequest',
-            'MedicationDispense',
-            'AllergyIntolerance',
-            'ImagingStudy',
-            'ServiceRequest',
-            'ClinicalImpression',
-            'Immunization',
-            'QuestionnaireResponse',
-            'MedicationStatement',
-            'CarePlan',
-            'Specimen',
-            'DiagnosticReport',
-            'EpisodeOfCare',
+            'Location',
         ];
     }
 
@@ -331,6 +320,10 @@ final class SatuSehatLogView
         }
 
         foreach ($grouped as $type => $items) {
+            if ($items === []) {
+                continue;
+            }
+
             $rows[] = self::resourceRow((string) $type, $items, false);
         }
 

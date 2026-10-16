@@ -32,8 +32,10 @@
                                         </label>
                                     @endforeach
                                 </div>
-                                <label class="form-label" for="plan_instructions_extra">Instruksi tambahan</label>
+                                <label class="form-label" for="plan_instructions_extra">Instruksi tambahan / edukasi</label>
                                 <textarea name="plan_instructions[extra]" id="plan_instructions_extra" rows="4" class="form-control">{{ $instructionExtra }}</textarea>
+                                <label class="form-label mt-3" for="plan_instructions_prognosis">Prognosis (opsional, untuk ClinicalImpression)</label>
+                                <textarea name="plan_instructions[prognosis]" id="plan_instructions_prognosis" rows="2" class="form-control">{{ $instructions['prognosis'] ?? '' }}</textarea>
                             </form>
                         @else
                             <p class="mb-0">{{ $record?->clinical_notes ?: 'Belum ada instruksi.' }}</p>

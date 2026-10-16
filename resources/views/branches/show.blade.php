@@ -85,5 +85,77 @@
                 </div>
             </x-card>
         </div>
+
+        <div class="col-lg-4">
+            <x-card title="SATUSEHAT">
+                @php
+                    $hasCoords = $branch->latitude !== null && $branch->longitude !== null;
+                @endphp
+
+                <p class="mb-1 small text-muted">Status</p>
+                <p class="mb-3">
+                    @if (! $satusehatEnabled)
+                        <span class="badge bg-secondary">Modul nonaktif</span>
+                    @elseif (! $satusehatSetting?->connection_ok)
+                        <span class="badge bg-warning">Belum diuji koneksi</span>
+                    @elseif (filled($satusehatSetting?->location_id))
+                        <span class="badge bg-success">Lokasi terhubung</span>
+                    @else
+                        <span class="badge bg-warning">Lokasi belum disinkronkan</span>
+                    @endif
+                </p>
+
+                <p class="mb-1 small text-muted">Location ID</p>
+                <p class="mb-3">
+                    @if (filled($satusehatSetting?->location_id))
+                        <code>{{ $satusehatSetting->location_id }}</code>
+                        @if (filled($satusehatSetting->location_name))
+                            <span class="d-block text-muted small mt-1">{{ $satusehatSetting->location_name }}</span>
+                        @endif
+                    @else
+                        <span class="text-muted">—</span>
+                    @endif
+                </p>
+
+                @if (! $hasCoords)
+                    <div class="alert alert-warning py-2 px-3 small">
+                        Isi lintang &amp; bujur di form edit cabang sebelum sync lokasi.
+                    </div>
+                @endif
+
+                <div class="d-grid gap-2">
+                    @can('update', $branch)
+                        @if ($canSyncSatusehat && $hasCoords)
+                            <form method="POST" action="{{ route('branches.satusehat', $branch) }}">
+                                @csrf
+                                <x-button type="submit" class="w-100" variant="info" icon="bx bx-cloud-upload">
+                                    {{ filled($satusehatSetting?->location_id) ? 'Perbarui lokasi SATUSEHAT' : 'Sync lokasi ke SATUSEHAT' }}
+                                </x-button>
+                            </form>
+                        @elseif (auth()->user()?->can('integration.manage'))
+                            <x-button
+                                href="{{ route('integrations.satusehat', ['branch_id' => $branch->id]) }}"
+                                variant="secondary"
+                                class="w-100"
+                                icon="bx bx-cog"
+                            >Buka pengaturan SATUSEHAT</x-button>
+                        @endif
+                    @endcan
+
+                    @can('satusehat.view')
+                        <x-button
+                            href="{{ route('integrations.satusehat', ['branch_id' => $branch->id]) }}"
+                            variant="light"
+                            class="w-100"
+                            icon="bx bx-cloud"
+                        >Modul SATUSEHAT</x-button>
+                    @endcan
+                </div>
+
+                <p class="text-muted small mt-3 mb-0">
+                    Sync mengirim nama, alamat, dan koordinat cabang sebagai Location induk (Site) di bawah Organization SATUSEHAT.
+                </p>
+            </x-card>
+        </div>
     </div>
 @endsection
