@@ -37,7 +37,7 @@ HTTP 2xx saja tidak otomatis berarti playbook lengkap.
 | Condition | Ada diagnosis ICD-10 |
 | Procedure | Ada tindakan + ICD-9; edukasi jika instruksi tercatat |
 | Observation | Vital, exam gigi, odontogram, DMF; OHIS jika DI+CI lengkap; ABO/Rh/hamil jika terisi |
-| AllergyIntolerance | `present` + zat pemicu, atau `none_confirmed`. `not_asked` dan `unknown` tidak dikirim. `code.coding` wajib (Rule 10078): obat dari KFA atau ATC level 3/4, makanan/lingkungan dari SNOMED. Nama zat tetap di `code.text`. Kategori kosong pada data lama dikirim sebagai `medication` |
+| AllergyIntolerance | `present` + zat pemicu, atau `none_confirmed`. `not_asked` dan `unknown` tidak dikirim. `code.coding` wajib (Rule 10078) dan system ATC `http://www.whocc.no/atc` ditolak. Obat memakai KFA atau SNOMED, makanan/lingkungan memakai SNOMED. Nama zat tetap di `code.text`. Kategori kosong pada data lama dikirim sebagai `medication` |
 | MedicationStatement | `medication_status=present` + detail teks |
 | Medication / MedicationRequest | Resep sent/fulfilled + item siap (obat jadi: `kfa_code`; racikan: bahan ber-KFA + tipe EP) |
 | MedicationDispense | Hanya prescription `fulfilled` |

@@ -210,6 +210,17 @@ final class SatuSehatPayloadValidator
             );
         }
 
+        $allowedSystems = [
+            SatuSehatCodes::SNOMED,
+            SatuSehatFhirPayload::KFA_SYSTEM,
+        ];
+
+        if (! in_array((string) $coding['system'], $allowedSystems, true)) {
+            throw IntegrationException::permanent(
+                'Validasi lokal gagal ['.$localKey.']: AllergyIntolerance.code.coding.system "'.$coding['system'].'" tidak diterima SATUSEHAT (RuleNumber: 10078).'
+            );
+        }
+
         $category = $payload['category'][0] ?? null;
 
         if ($category !== null && ! in_array($category, SatuSehatFhirPayload::ALLERGY_CATEGORIES, true)) {

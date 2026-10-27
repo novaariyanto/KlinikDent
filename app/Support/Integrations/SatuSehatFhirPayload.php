@@ -20,9 +20,6 @@ final class SatuSehatFhirPayload
 
     public const KFA_SYSTEM = 'http://sys-ids.kemkes.go.id/kfa';
 
-    /** ATC level 3–4, system yang dipakai SATUSEHAT untuk alergi golongan obat. */
-    public const ATC_SYSTEM = 'http://www.whocc.no/atc';
-
     public const ORDERABLE_DRUG_FORM = 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm';
 
     public const KEMKES_TERMINOLOGY = 'http://terminology.kemkes.go.id';
@@ -401,7 +398,7 @@ final class SatuSehatFhirPayload
         $resolved = self::allergySubstanceCoding($category, $substance, $tenantId);
 
         if ($resolved['fallback']) {
-            $fallbackNote = 'Zat "'.$substance.'" tidak punya kode KFA/SNOMED spesifik. code.coding memakai kode resmi golongan, nama zat tetap di code.text.';
+            $fallbackNote = 'Zat "'.$substance.'" tidak punya kode KFA/SNOMED spesifik. code.coding memakai kode SNOMED golongan, nama zat tetap di code.text.';
             $note = $note === null ? $fallbackNote : $note.' '.$fallbackNote;
         }
 
@@ -491,7 +488,8 @@ final class SatuSehatFhirPayload
 
     /**
      * Kode resmi untuk AllergyIntolerance.code.coding.
-     * Obat: KFA master obat, lalu ATC level 3/4. Makanan/lingkungan: SNOMED substance.
+     * Obat: KFA master obat, lalu SNOMED. Makanan/lingkungan: SNOMED.
+     * System ATC WHOCC ditolak SATUSEHAT pada elemen ini (Invalid coding system, Rule 10078).
      *
      * @return array{system: string, code: string, display: string, fallback: bool}
      */
@@ -509,7 +507,7 @@ final class SatuSehatFhirPayload
 
         $mapped = self::matchAllergyCodebook($normalized, self::allergyCodebook());
         $allowedSystems = $category === 'medication'
-            ? [self::ATC_SYSTEM, self::KFA_SYSTEM]
+            ? [self::KFA_SYSTEM, SatuSehatCodes::SNOMED]
             : [SatuSehatCodes::SNOMED];
 
         if ($mapped !== null && in_array($mapped['system'], $allowedSystems, true)) {
@@ -530,9 +528,9 @@ final class SatuSehatFhirPayload
                 'fallback' => true,
             ],
             default => [
-                'system' => self::ATC_SYSTEM,
-                'code' => 'V03A',
-                'display' => 'All other therapeutic products',
+                'system' => SatuSehatCodes::SNOMED,
+                'code' => '416098002',
+                'display' => 'Allergy to drug (finding)',
                 'fallback' => true,
             ],
         };
@@ -630,47 +628,40 @@ final class SatuSehatFhirPayload
     }
 
     /**
-     * Kode yang ada di contoh/lampiran SATUSEHAT atau ATC WHO. Bukan kode karangan.
+     * SNOMED CT yang terbit. System ATC WHOCC tidak diterima pada AllergyIntolerance.code.
      *
      * @return array<string, array{system: string, code: string, display: string}>
      */
     protected static function allergyCodebook(): array
     {
-        $atc = fn (string $code, string $display) => [
-            'system' => self::ATC_SYSTEM,
-            'code' => $code,
-            'display' => $display,
-        ];
-
         return [
-            'amoksisilin' => $atc('J01CA', 'Penicillins with extended spectrum'),
-            'amoxicillin' => $atc('J01CA', 'Penicillins with extended spectrum'),
-            'ampisilin' => $atc('J01CA', 'Penicillins with extended spectrum'),
-            'ampicillin' => $atc('J01CA', 'Penicillins with extended spectrum'),
-            'penisilin' => $atc('J01C', 'Beta-lactam antibacterials, penicillins'),
-            'penicillin' => $atc('J01C', 'Beta-lactam antibacterials, penicillins'),
-            'sefalosporin' => $atc('J01D', 'Other beta-lactam antibacterials'),
-            'cephalosporin' => $atc('J01D', 'Other beta-lactam antibacterials'),
-            'klindamisin' => $atc('J01FF', 'Lincosamides'),
-            'clindamycin' => $atc('J01FF', 'Lincosamides'),
-            'metronidazol' => $atc('J01XD', 'Imidazole derivatives'),
-            'metronidazole' => $atc('J01XD', 'Imidazole derivatives'),
-            'eritromisin' => $atc('J01FA', 'Macrolides'),
-            'erythromycin' => $atc('J01FA', 'Macrolides'),
-            'siprofloksasin' => $atc('J01MA', 'Fluoroquinolones'),
-            'ciprofloxacin' => $atc('J01MA', 'Fluoroquinolones'),
-            'sulfonamid' => $atc('J01E', 'Sulfonamides and trimethoprim'),
-            'sulfa' => $atc('J01E', 'Sulfonamides and trimethoprim'),
-            'ibuprofen' => $atc('M01AE', 'Propionic acid derivatives'),
-            'asam mefenamat' => $atc('M01AG', 'Fenamates'),
-            'mefenamat' => $atc('M01AG', 'Fenamates'),
-            'nsaid' => $atc('M01A', 'Antiinflammatory and antirheumatic products, non-steroids'),
-            'parasetamol' => $atc('N02BE', 'Anilides'),
-            'paracetamol' => $atc('N02BE', 'Anilides'),
-            'asetaminofen' => $atc('N02BE', 'Anilides'),
-            'aspirin' => $atc('N02BA', 'Salicylic acid and derivatives'),
-            'lidokain' => $atc('N01BB', 'Amides'),
-            'lidocaine' => $atc('N01BB', 'Amides'),
+            'amoksisilin' => self::snomedAllergen('294505008', 'Allergy to amoxicillin (finding)'),
+            'amoxicillin' => self::snomedAllergen('294505008', 'Allergy to amoxicillin (finding)'),
+            'ampisilin' => self::snomedAllergen('294506009', 'Allergy to ampicillin (finding)'),
+            'ampicillin' => self::snomedAllergen('294506009', 'Allergy to ampicillin (finding)'),
+            'penisilin' => self::snomedAllergen('91936005', 'Allergy to penicillin (finding)'),
+            'penicillin' => self::snomedAllergen('91936005', 'Allergy to penicillin (finding)'),
+            'sefalosporin' => self::snomedAllergen('294532003', 'Allergy to cephalosporin antibacterial (finding)'),
+            'cephalosporin' => self::snomedAllergen('294532003', 'Allergy to cephalosporin antibacterial (finding)'),
+            'klindamisin' => self::snomedAllergen('294561002', 'Allergy to clindamycin (finding)'),
+            'clindamycin' => self::snomedAllergen('294561002', 'Allergy to clindamycin (finding)'),
+            'metronidazol' => self::snomedAllergen('294567003', 'Allergy to metronidazole (finding)'),
+            'metronidazole' => self::snomedAllergen('294567003', 'Allergy to metronidazole (finding)'),
+            'eritromisin' => self::snomedAllergen('91931000', 'Allergy to erythromycin (finding)'),
+            'erythromycin' => self::snomedAllergen('91931000', 'Allergy to erythromycin (finding)'),
+            'siprofloksasin' => self::snomedAllergen('294487000', 'Allergy to ciprofloxacin (finding)'),
+            'ciprofloxacin' => self::snomedAllergen('294487000', 'Allergy to ciprofloxacin (finding)'),
+            'sulfonamid' => self::snomedAllergen('91939003', 'Allergy to sulfonamide (finding)'),
+            'sulfa' => self::snomedAllergen('91939003', 'Allergy to sulfonamide (finding)'),
+            'ibuprofen' => self::snomedAllergen('293619005', 'Allergy to ibuprofen (finding)'),
+            'asam mefenamat' => self::snomedAllergen('293623002', 'Allergy to mefenamic acid (finding)'),
+            'mefenamat' => self::snomedAllergen('293623002', 'Allergy to mefenamic acid (finding)'),
+            'parasetamol' => self::snomedAllergen('293584003', 'Allergy to paracetamol (finding)'),
+            'paracetamol' => self::snomedAllergen('293584003', 'Allergy to paracetamol (finding)'),
+            'asetaminofen' => self::snomedAllergen('293584003', 'Allergy to paracetamol (finding)'),
+            'aspirin' => self::snomedAllergen('293585002', 'Allergy to salicylate (finding)'),
+            'lidokain' => self::snomedAllergen('293722000', 'Allergy to lidocaine (finding)'),
+            'lidocaine' => self::snomedAllergen('293722000', 'Allergy to lidocaine (finding)'),
             'gluten' => self::snomedAllergen('89811004', 'Gluten (substance)'),
             'gandum' => self::snomedAllergen('89811004', 'Gluten (substance)'),
             'terigu' => self::snomedAllergen('89811004', 'Gluten (substance)'),
