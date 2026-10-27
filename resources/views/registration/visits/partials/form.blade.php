@@ -92,7 +92,7 @@
                 placeholder="Cari / pilih desa/kelurahan"
                 data-placeholder="Cari / pilih desa/kelurahan"
             />
-            <div class="form-text">NIK hanya sampai kecamatan. Pilih desa sesuai KTP (Master Wilayah SATUSEHAT).</div>
+            <div class="form-text">Pilih provinsi sampai desa/kelurahan sesuai KTP.</div>
         </div>
         <div class="col-md-4">
             <x-input name="address_city" id="address_city" label="Kota (nama)" :value="$patient?->address_city" />

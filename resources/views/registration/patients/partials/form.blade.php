@@ -54,7 +54,7 @@
 
     <div class="col-12">
         <h6 class="mt-2 mb-2">Alamat KTP (SATUSEHAT)</h6>
-        <p class="text-muted small mb-3">Pilih wilayah administratif sesuai Kode Kemendagri (Master Wilayah SATUSEHAT). Desa/kelurahan wajib untuk pendaftaran IHS pasien baru di MPI.</p>
+        <p class="text-muted small mb-3">Pilih wilayah administratif sesuai KTP. Desa/kelurahan wajib untuk pendaftaran IHS pasien baru di MPI.</p>
     </div>
     <div class="col-md-12">
         <x-input name="address" label="Alamat (jalan / dusun)" :value="$patient?->address" />
@@ -106,7 +106,7 @@
             placeholder="Cari / pilih desa/kelurahan"
             data-placeholder="Cari / pilih desa/kelurahan"
         />
-        <div class="form-text">NIK hanya sampai kecamatan. Pilih desa sesuai KTP (Master Wilayah SATUSEHAT).</div>
+        <div class="form-text">Pilih provinsi sampai desa/kelurahan sesuai KTP.</div>
     </div>
     <div class="col-md-4">
         <x-input name="address_city" id="address_city" label="Kota (nama)" :value="$patient?->address_city" />

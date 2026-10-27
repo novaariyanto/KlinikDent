@@ -186,64 +186,75 @@
             if (level <= 3) fillSelect(village, {}, '');
         }
 
-        function applyNikWilayah(data) {
-            if (! data.province_code || ! data.city_code) {
-                if (dobInput && data.dob && ! dobInput.value) {
-                    dobInput.value = data.dob;
-                }
-                if (genderInput && data.gender && ! genderInput.value) {
-                    genderInput.value = data.gender;
-                    if ($ && $.fn.select2 && $(genderInput).data('select2')) {
-                        $(genderInput).val(data.gender).trigger('change');
-                    }
-                }
-                setNikHint('NIK 16 digit. Kode wilayah tidak ada di master, isi alamat secara manual.', false);
-                document.dispatchEvent(new CustomEvent('wilayah:nik-synced', {
-                    detail: Object.assign({ nik: data.nik || '' }, data || {})
-                }));
-                return;
-            }
-
-            syncingFromNik = true;
-            fillSelect(province, @json($provinces ?? []), data.province_code || '');
-            fillSelect(city, data.cities || {}, data.city_code || '');
-            fillSelect(district, data.districts || {}, data.district_code || '');
-            fillSelect(village, data.villages || {}, '');
-
-            if (addressCity && data.city_name) {
-                addressCity.value = data.city_name;
-            }
+        function applyNikIdentity(data) {
+            var filled = false;
             if (dobInput && data.dob && ! dobInput.value) {
                 dobInput.value = data.dob;
+                filled = true;
             }
             if (genderInput && data.gender && ! genderInput.value) {
                 genderInput.value = data.gender;
+                filled = true;
                 if ($ && $.fn.select2 && $(genderInput).data('select2')) {
                     $(genderInput).val(data.gender).trigger('change');
                 }
             }
-
-            syncingFromNik = false;
-
-            var bits = [data.province_name, data.city_name, data.district_name].filter(Boolean);
-            setNikHint(bits.length
-                ? ('Wilayah dari NIK: ' + bits.join(' · ') + '. Pilih desa/kelurahan (Master Wilayah SATUSEHAT / Kemendagri).')
-                : 'Wilayah dari NIK terisi.', false);
-
-            // Muat ulang desa dari Master Wilayah SATUSEHAT bila cabang sudah terhubung.
-            if (data.district_code) {
-                loadVillages(data.village_code || '', function () {
-                    document.dispatchEvent(new CustomEvent('wilayah:nik-synced', {
-                        detail: Object.assign({ nik: data.nik || '' }, data || {})
-                    }));
-                });
-                return;
-            }
-
+            setNikHint(filled ? 'Tanggal lahir dan jenis kelamin diisi dari NIK. Wilayah diisi manual.' : 'NIK 16 digit. Isi wilayah secara manual.', false);
             document.dispatchEvent(new CustomEvent('wilayah:nik-synced', {
                 detail: Object.assign({ nik: data.nik || '' }, data || {})
             }));
         }
+
+        function applyStoredWilayah(codes, done) {
+            codes = codes || {};
+            var provinceCode = codes.province_code || '';
+            var cityCode = codes.city_code || '';
+            var districtCode = codes.district_code || '';
+            var villageCode = codes.village_code || '';
+
+            if (! provinceCode || ! window.axios) {
+                if (typeof done === 'function') done();
+                return;
+            }
+
+            syncingFromNik = true;
+            fillSelect(province, @json($provinces ?? []), provinceCode);
+
+            window.axios.get(urls.cities, { params: { province_code: provinceCode } }).then(function (response) {
+                fillSelect(city, response.data.options, cityCode);
+                if (addressCity && ! addressCity.value) {
+                    var selected = city.options[city.selectedIndex];
+                    if (selected && selected.value) {
+                        var label = selected.textContent || '';
+                        var parts = label.split(' — ');
+                        addressCity.value = parts.length > 1 ? parts.slice(1).join(' — ') : label;
+                    }
+                }
+                if (! cityCode) return null;
+                return window.axios.get(urls.districts, { params: { city_code: cityCode } });
+            }).then(function (response) {
+                if (! response) {
+                    syncingFromNik = false;
+                    if (typeof done === 'function') done();
+                    return;
+                }
+                fillSelect(district, response.data.options, districtCode);
+                if (! districtCode) {
+                    syncingFromNik = false;
+                    if (typeof done === 'function') done();
+                    return;
+                }
+                loadVillages(villageCode, function () {
+                    syncingFromNik = false;
+                    if (typeof done === 'function') done();
+                });
+            }).catch(function () {
+                syncingFromNik = false;
+                if (typeof done === 'function') done();
+            });
+        }
+
+        window.applyStoredWilayah = applyStoredWilayah;
 
         function loadVillages(selected, done) {
             if (! district.value) {
@@ -280,16 +291,15 @@
             }
             if (nik === lastNikSynced) return;
 
-            setNikHint('Memetakan NIK ke wilayah…', false);
             window.axios.get(urls.fromNik, { params: { nik: nik } }).then(function (response) {
                 lastNikSynced = nik;
                 var payload = Object.assign({ nik: nik }, response.data || {});
-                applyNikWilayah(payload);
+                applyNikIdentity(payload);
             }).catch(function (error) {
                 lastNikSynced = '';
                 var message = error.response && error.response.data && error.response.data.message
                     ? error.response.data.message
-                    : 'NIK tidak bisa dipetakan ke wilayah.';
+                    : 'NIK tidak bisa dibaca.';
                 setNikHint(message, true);
             });
         }

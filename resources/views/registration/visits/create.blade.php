@@ -111,11 +111,15 @@
 
             if (row.nik && String(row.nik).replace(/\D+/g, '').length === 16 && nikInput) {
                 nikInput.dispatchEvent(new Event('input', { bubbles: true }));
-            } else {
-                setFieldValue('province_code', row.province_code);
-                setFieldValue('city_code', row.city_code);
-                setFieldValue('district_code', row.district_code);
-                setFieldValue('village_code', row.village_code);
+            }
+
+            if (window.applyStoredWilayah) {
+                window.applyStoredWilayah({
+                    province_code: row.province_code || '',
+                    city_code: row.city_code || '',
+                    district_code: row.district_code || '',
+                    village_code: row.village_code || ''
+                });
             }
         }
 
