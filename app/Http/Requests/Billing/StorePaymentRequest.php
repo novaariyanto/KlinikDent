@@ -21,6 +21,14 @@ class StorePaymentRequest extends FormRequest
         return $this->user()?->can('create', \App\Models\Payment::class) ?? false;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'amount' => $this->normalizeMoney($this->input('amount')),
+            'tendered' => $this->normalizeMoney($this->input('tendered')),
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -44,7 +52,6 @@ class StorePaymentRequest extends FormRequest
                 'min:0',
             ],
             'cashier' => ['nullable', 'boolean'],
-            'service_confirmed' => [Rule::excludeIf(! $this->boolean('cashier')), 'accepted'],
         ];
     }
 
@@ -54,8 +61,34 @@ class StorePaymentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'service_confirmed.accepted' => 'Centang pemeriksaan layanan sebelum pembayaran.',
             'tendered.required' => 'Isi uang yang diterima untuk pembayaran tunai.',
         ];
+    }
+
+    protected function normalizeMoney(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        $value = trim(str_ireplace(['rp', ' '], '', $value));
+
+        if ($value === '') {
+            return $value;
+        }
+
+        if (str_contains($value, ',') && str_contains($value, '.')) {
+            return str_replace(',', '.', str_replace('.', '', $value));
+        }
+
+        if (str_contains($value, ',') && ! str_contains($value, '.')) {
+            return str_replace(',', '.', $value);
+        }
+
+        if (preg_match('/^\d{1,3}(\.\d{3})+$/', $value)) {
+            return str_replace('.', '', $value);
+        }
+
+        return $value;
     }
 }

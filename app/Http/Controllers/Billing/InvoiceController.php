@@ -289,7 +289,6 @@ class InvoiceController extends Controller
                 $request->validated('notes'),
                 $request->validated('reference'),
                 $request->filled('tendered') ? (string) $request->validated('tendered') : null,
-                $request->boolean('service_confirmed'),
             );
         } catch (BillingException $exception) {
             return back()->withInput()->with('error', $exception->getMessage());

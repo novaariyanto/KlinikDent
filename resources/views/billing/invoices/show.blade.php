@@ -162,18 +162,45 @@
                                 <form method="POST" action="{{ route('billing.invoices.pay', $invoice) }}" id="pay-form">
                                     @csrf
                                     <input type="hidden" name="cashier" value="1">
-                                    <x-input name="amount" id="pay-amount" type="number" label="Nominal pembayaran" :value="old('amount', $invoice->remainingAmount())" step="0.01" min="0.01" required />
+                                    @php
+                                        $rupiahInput = function ($value) {
+                                            if ($value === null || $value === '') {
+                                                return '';
+                                            }
+                                            $text = trim((string) $value);
+                                            if (preg_match('/^\d{1,3}(\.\d{3})+(,\d+)?$/', $text)) {
+                                                return preg_replace('/,\d+$/', '', $text);
+                                            }
+
+                                            return number_format((float) $text, 0, ',', '.');
+                                        };
+                                    @endphp
+                                    <div class="mb-3">
+                                        <label for="pay-amount" class="form-label">Nominal pembayaran <span class="text-danger">*</span></label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">Rp</span>
+                                            <input type="text" name="amount" id="pay-amount" inputmode="numeric" autocomplete="off" required class="form-control @error('amount') is-invalid @enderror" value="{{ $rupiahInput(old('amount', $invoice->remainingAmount())) }}">
+                                        </div>
+                                        @error('amount')
+                                            <div class="invalid-feedback d-block">{{ $message }}</div>
+                                        @enderror
+                                    </div>
                                     <x-select name="method" id="pay-method" label="Metode" :options="$methods" :selected="old('method', 'cash')" required />
                                     <x-input name="reference" label="No. referensi" :value="old('reference')" maxlength="64" />
                                     <div id="cash-box">
-                                        <x-input name="tendered" id="pay-tendered" type="number" label="Uang diterima" :value="old('tendered')" step="0.01" min="0" />
-                                        <p class="mb-3">Uang kembalian: <strong id="pay-change">0</strong></p>
+                                        <div class="mb-3">
+                                            <label for="pay-tendered" class="form-label">Uang diterima</label>
+                                            <div class="input-group">
+                                                <span class="input-group-text">Rp</span>
+                                                <input type="text" name="tendered" id="pay-tendered" inputmode="numeric" autocomplete="off" class="form-control @error('tendered') is-invalid @enderror" value="{{ $rupiahInput(old('tendered')) }}">
+                                            </div>
+                                            @error('tendered')
+                                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                                            @enderror
+                                        </div>
+                                        <p class="mb-3">Uang kembalian: <strong id="pay-change">Rp 0</strong></p>
                                     </div>
                                     <x-input name="notes" label="Catatan" :value="old('notes')" />
-                                    <div class="form-check mb-3">
-                                        <input class="form-check-input" type="checkbox" name="service_confirmed" value="1" id="service-confirmed" @checked(old('service_confirmed')) required>
-                                        <label class="form-check-label" for="service-confirmed">Saya sudah memeriksa isi tagihan. Penyerahan obat dicatat terpisah, sebelum atau sesudah pembayaran.</label>
-                                    </div>
                                     <x-button type="submit" variant="success" icon="bx bx-money" id="pay-button">Proses pembayaran</x-button>
                                 </form>
                             </x-card>
@@ -526,14 +553,37 @@
             const change = document.getElementById('pay-change');
             const cashBox = document.getElementById('cash-box');
 
+            const rupiahDigits = (value) => {
+                const text = String(value ?? '').trim().replace(/\s/g, '').replace(/^rp/i, '');
+                if (!text) return '';
+                if (text.includes(',')) return text.split(',')[0].replace(/\D/g, '');
+                if (/^\d+\.\d{1,2}$/.test(text)) return text.split('.')[0];
+                return text.replace(/\D/g, '');
+            };
+            const formatRupiah = (value) => {
+                const digits = rupiahDigits(value);
+                return digits ? new Intl.NumberFormat('id-ID').format(Number(digits)) : '';
+            };
+            const bindRupiah = (input) => {
+                if (!input) return;
+                const paint = () => {
+                    const formatted = formatRupiah(input.value);
+                    if (input.value !== formatted) input.value = formatted;
+                };
+                input.addEventListener('input', paint);
+                paint();
+            };
+            bindRupiah(amount);
+            bindRupiah(tendered);
+
             const syncCash = () => {
                 if (!method || !cashBox) return;
                 const cash = method.value === 'cash';
                 cashBox.hidden = !cash;
                 if (tendered) tendered.required = cash;
-                const received = cash ? Number(tendered?.value || 0) : 0;
-                const due = Number(amount?.value || 0);
-                if (change) change.textContent = money(Math.max(0, received - due));
+                const received = cash ? Number(rupiahDigits(tendered?.value) || 0) : 0;
+                const due = Number(rupiahDigits(amount?.value) || 0);
+                if (change) change.textContent = 'Rp ' + money(Math.max(0, received - due));
             };
 
             method?.addEventListener('change', syncCash);
