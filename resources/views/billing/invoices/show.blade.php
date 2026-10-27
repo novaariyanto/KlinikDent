@@ -93,7 +93,13 @@
 
             <div class="mb-3">
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmServicesModal">Konfirmasi tindakan dan obat</button>
-                <span class="text-muted ms-2">{{ $review['summary']['procedure_confirmed'] }}/{{ $review['summary']['procedure_count'] }} tindakan · {{ $review['summary']['medicine_confirmed'] }}/{{ $review['summary']['medicine_count'] }} obat@if ($review['summary']['mismatch_count'] > 0) · {{ $review['summary']['mismatch_count'] }} perlu diperiksa @endif</span>
+                <span class="text-muted ms-2">
+                    {{ $review['summary']['procedure_confirmed'] }}/{{ $review['summary']['procedure_count'] }} tindakan
+                    · {{ $review['summary']['medicine_confirmed'] }}/{{ $review['summary']['medicine_count'] }} obat
+                    @if ($review['summary']['mismatch_count'] > 0)
+                        · {{ $review['summary']['mismatch_count'] }} perlu diperiksa
+                    @endif
+                </span>
             </div>
 
             <x-card title="Riwayat pembayaran">
