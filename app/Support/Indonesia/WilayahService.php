@@ -320,10 +320,8 @@ class WilayahService
     /**
      * Parse NIK → wilayah laravolt + DOB/gender.
      *
-     * NIK hanya memuat kode sampai kecamatan (6 digit). Kode kecamatan lama
-     * sering tidak ada di master (pemekaran/perubahan), jadi kecamatan bersifat
-     * best-effort: cukup provinsi + kab/kota untuk dianggap valid. Desa tidak
-     * ada di NIK dan tidak wajib cocok dengan master.
+     * NIK valid bila 16 digit. Kode wilayah yang tidak ada di master tidak
+     * menolak NIK; provinsi/kab/kota hanya diisi bila kodenya dikenali.
      *
      * @return array{
      *     ok: bool,
@@ -353,13 +351,25 @@ class WilayahService
         $provinceCode = substr($nik, 0, 2);
         $cityCode = substr($nik, 0, 4);
         $districtCode = substr($nik, 0, 6);
+        $provinceKnown = $this->isProvince($provinceCode);
+        $cityKnown = $provinceKnown && $this->isCity($cityCode, $provinceCode);
 
-        if (! $this->isProvince($provinceCode)) {
-            return ['ok' => false, 'message' => 'Kode provinsi NIK tidak ditemukan di master wilayah.'];
-        }
-
-        if (! $this->isCity($cityCode, $provinceCode)) {
-            return ['ok' => false, 'message' => 'Kode kab/kota NIK tidak ditemukan di master wilayah.'];
+        // Kode wilayah tidak membatalkan NIK. Yang wajib hanya 16 digit.
+        if (! $provinceKnown || ! $cityKnown) {
+            return [
+                'ok' => true,
+                'province_code' => null,
+                'city_code' => null,
+                'district_code' => null,
+                'province_name' => null,
+                'city_name' => null,
+                'district_name' => null,
+                'gender' => $identity['gender'] ?? null,
+                'dob' => $identity['dob'] ?? null,
+                'cities' => [],
+                'districts' => [],
+                'villages' => [],
+            ];
         }
 
         // Kecamatan dari NIK boleh tidak ada di master (kode lama / pemekaran).

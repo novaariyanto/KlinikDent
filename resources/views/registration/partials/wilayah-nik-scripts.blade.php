@@ -87,6 +87,23 @@
         }
 
         function applyNikWilayah(data) {
+            if (! data.province_code || ! data.city_code) {
+                if (dobInput && data.dob && ! dobInput.value) {
+                    dobInput.value = data.dob;
+                }
+                if (genderInput && data.gender && ! genderInput.value) {
+                    genderInput.value = data.gender;
+                    if ($ && $.fn.select2 && $(genderInput).data('select2')) {
+                        $(genderInput).val(data.gender).trigger('change');
+                    }
+                }
+                setNikHint('NIK 16 digit. Kode wilayah tidak ada di master, isi alamat secara manual.', false);
+                document.dispatchEvent(new CustomEvent('wilayah:nik-synced', {
+                    detail: Object.assign({ nik: data.nik || '' }, data || {})
+                }));
+                return;
+            }
+
             syncingFromNik = true;
             fillSelect(province, @json($provinces ?? []), data.province_code || '');
             fillSelect(city, data.cities || {}, data.city_code || '');
@@ -153,7 +170,7 @@
             if (! nikInput) return;
             var nik = String(nikInput.value || '').replace(/\D+/g, '');
             if (nik.length !== 16) {
-                if (nik.length > 0) setNikHint('NIK harus 16 digit untuk sync wilayah.', true);
+                if (nik.length > 0) setNikHint('NIK harus 16 digit.', true);
                 else setNikHint('', false);
                 return;
             }
@@ -233,7 +250,7 @@
                 if (digits !== nikInput.value) nikInput.value = digits;
                 if (digits.length < 16) {
                     lastNikSynced = '';
-                    if (digits.length > 0) setNikHint('NIK harus 16 digit untuk sync wilayah.', false);
+                    if (digits.length > 0) setNikHint('NIK harus 16 digit.', false);
                     else setNikHint('', false);
                     return;
                 }
