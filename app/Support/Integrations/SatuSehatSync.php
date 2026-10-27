@@ -1745,6 +1745,7 @@ class SatuSehatSync
             $practitionerIhs,
             $encounterId,
             $this->fhirTime($at),
+            $this->branch->tenant_id,
         );
 
         if ($allergy['note'] !== null) {

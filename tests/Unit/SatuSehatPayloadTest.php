@@ -275,7 +275,9 @@ class SatuSehatPayloadTest extends TestCase
         $payload = $built['payload'];
         $this->assertSame('AllergyIntolerance', $payload['resourceType']);
         $this->assertSame('Amoksisilin', $payload['code']['text']);
-        $this->assertArrayNotHasKey('coding', $payload['code']);
+        $this->assertSame('http://www.whocc.no/atc', $payload['code']['coding'][0]['system']);
+        $this->assertSame('J01CA', $payload['code']['coding'][0]['code']);
+        $this->assertSame('126485001', $payload['reaction'][0]['manifestation'][0]['coding'][0]['code']);
         $this->assertSame(['medication'], $payload['category']);
         $this->assertSame('allergy', $payload['type']);
         $this->assertSame('Ruam kulit', $payload['reaction'][0]['manifestation'][0]['text']);

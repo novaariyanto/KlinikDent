@@ -199,12 +199,14 @@ final class SatuSehatPayloadValidator
         self::requireReference($payload, 'recorder', 'Practitioner/', 'AllergyIntolerance.recorder', $localKey);
 
         $code = $payload['code'] ?? null;
-        $hasCoding = is_array($code) && filled($code['coding'][0]['code'] ?? null);
-        $hasText = is_array($code) && filled($code['text'] ?? null);
+        $coding = is_array($code) ? ($code['coding'][0] ?? null) : null;
+        $hasCoding = is_array($coding)
+            && filled($coding['system'] ?? null)
+            && filled($coding['code'] ?? null);
 
-        if (! $hasCoding && ! $hasText) {
+        if (! $hasCoding) {
             throw IntegrationException::permanent(
-                'Validasi lokal gagal ['.$localKey.']: AllergyIntolerance.code wajib berisi zat pemicu atau kode terminologi.'
+                'Validasi lokal gagal ['.$localKey.']: AllergyIntolerance.code.coding wajib diisi (RuleNumber: 10078).'
             );
         }
 

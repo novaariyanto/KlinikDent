@@ -8,26 +8,22 @@ $app->make(Kernel::class)->bootstrap();
 
 view()->share('errors', new Illuminate\Support\ViewErrorBag);
 
-$user = App\Models\User::query()->first();
-if ($user) {
-    auth()->login($user);
-}
+$provinces = app(App\Support\Indonesia\WilayahService::class)->provinces();
+echo 'service_count='.count($provinces).PHP_EOL;
+echo 'first_key='.array_key_first($provinces).PHP_EOL;
 
-$html = view('registration.visits.create', [
-    'patient' => null,
-    'payers' => collect(),
-    'branches' => collect(),
-    'rooms' => collect(),
-    'doctors' => collect(),
-    'genders' => [],
-    'defaultBranchId' => null,
-    'provinces' => ['33' => '33 Jawa Tengah'],
-    'cities' => [],
-    'districts' => [],
-    'villages' => [],
+$html = view('components.select', [
+    'name' => 'province_code',
+    'id' => 'province_code',
+    'label' => 'Provinsi',
+    'options' => $provinces,
+    'placeholder' => 'Cari / pilih provinsi',
+    'attributes' => new Illuminate\View\ComponentAttributeBag([
+        'id' => 'province_code',
+        'class' => 'js-wilayah-select',
+        'data-placeholder' => 'Cari / pilih provinsi',
+    ]),
 ])->render();
 
-$head = substr($html, 0, (int) strpos($html, '</head>'));
-echo 'overflowFix='.(str_contains($html, 'overflow: visible !important') ? 'yes' : 'no').PHP_EOL;
-$start = strpos($html, 'id="province_code"');
-echo substr($html, max(0, $start - 200), 900).PHP_EOL;
+echo 'option_tags='.substr_count($html, '<option').PHP_EOL;
+echo substr($html, 0, 500).PHP_EOL;

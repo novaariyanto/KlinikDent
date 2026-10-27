@@ -140,17 +140,15 @@
 
                 <form action="{{ route('care.complete', $visit) }}" method="POST" id="care-complete-form">
                     @csrf
-                    <div class="form-check">
+                    <label class="care-complete-confirm" for="care-complete-confirm">
                         <input class="form-check-input" type="checkbox" value="1" id="care-complete-confirm" required>
-                        <label class="form-check-label" for="care-complete-confirm">
-                            Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan ini.
-                        </label>
-                    </div>
+                        <span>Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan ini.</span>
+                    </label>
                 </form>
 
                 <x-slot:footer>
                     <x-button variant="secondary" data-bs-dismiss="modal">Batal</x-button>
-                    <x-button type="submit" variant="success" icon="bx bx-check" form="care-complete-form" id="care-complete-submit" disabled>
+                    <x-button type="submit" variant="success" icon="bx bx-check" form="care-complete-form" id="care-complete-submit" class="btn-lg" disabled>
                         Ya, Selesaikan Kunjungan
                     </x-button>
                 </x-slot:footer>
@@ -161,6 +159,42 @@
 
 @push('styles')
     <link href="{{ theme('libs/select2/css/select2.min.css') }}" rel="stylesheet" type="text/css">
+    <style>
+        .care-complete-confirm {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.9rem;
+            margin: 0.25rem 0 0;
+            padding: 1rem 1.15rem;
+            border: 2px solid #34c38f;
+            border-radius: 10px;
+            background: #f4fbf8;
+            cursor: pointer;
+            font-size: 1.05rem;
+            font-weight: 600;
+            line-height: 1.45;
+            color: #1a3c2e;
+        }
+
+        .care-complete-confirm .form-check-input {
+            float: none;
+            width: 1.65rem;
+            height: 1.65rem;
+            margin: 0.12rem 0 0;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .care-complete-confirm:has(.form-check-input:checked) {
+            background: #e5f7ee;
+            box-shadow: 0 0 0 3px rgba(52, 195, 143, 0.2);
+        }
+
+        #care-complete-modal .modal-footer #care-complete-submit {
+            min-width: 16rem;
+            font-weight: 600;
+        }
+    </style>
 @endpush
 
 @push('scripts')

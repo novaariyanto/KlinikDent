@@ -20,6 +20,9 @@ final class SatuSehatFhirPayload
 
     public const KFA_SYSTEM = 'http://sys-ids.kemkes.go.id/kfa';
 
+    /** ATC level 3–4, system yang dipakai SATUSEHAT untuk alergi golongan obat. */
+    public const ATC_SYSTEM = 'http://www.whocc.no/atc';
+
     public const ORDERABLE_DRUG_FORM = 'http://terminology.hl7.org/CodeSystem/v3-orderableDrugForm';
 
     public const KEMKES_TERMINOLOGY = 'http://terminology.kemkes.go.id';
@@ -339,6 +342,7 @@ final class SatuSehatFhirPayload
         string $practitionerIhs,
         string $encounterId,
         string $recordedAt,
+        ?int $tenantId = null,
     ): array {
         $status = (string) ($history['allergy_status'] ?? '');
 
@@ -394,9 +398,19 @@ final class SatuSehatFhirPayload
             $clinical = 'active';
         }
 
+        $resolved = self::allergySubstanceCoding($category, $substance, $tenantId);
+
+        if ($resolved['fallback']) {
+            $fallbackNote = 'Zat "'.$substance.'" tidak punya kode KFA/SNOMED spesifik. code.coding memakai kode resmi golongan, nama zat tetap di code.text.';
+            $note = $note === null ? $fallbackNote : $note.' '.$fallbackNote;
+        }
+
         $payload = self::allergyBase($organizationId, $localValue, $patientIhs, $practitionerIhs, $encounterId, $recordedAt, $clinical);
         $payload['category'] = [$category];
-        $payload['code'] = ['text' => $substance];
+        $payload['code'] = [
+            'coding' => [SatuSehatCodes::coding($resolved['system'], $resolved['code'], $resolved['display'])],
+            'text' => $substance,
+        ];
 
         $type = (string) ($history['allergy_type'] ?? '');
 
@@ -407,8 +421,13 @@ final class SatuSehatFhirPayload
         $reaction = trim((string) ($history['allergy_reaction'] ?? ''));
 
         if ($reaction !== '') {
+            $manifestation = self::allergyManifestationCoding($reaction);
             $event = [
-                'manifestation' => [['text' => $reaction]],
+                'manifestation' => [[
+                    'coding' => [SatuSehatCodes::coding($manifestation['system'], $manifestation['code'], $manifestation['display'])],
+                    'text' => $reaction,
+                ]],
+                'description' => $reaction,
             ];
             $severity = (string) ($history['allergy_severity'] ?? '');
 
@@ -467,6 +486,216 @@ final class SatuSehatFhirPayload
             'encounter' => ['reference' => 'Encounter/'.$encounterId],
             'recordedDate' => $recordedAt,
             'recorder' => ['reference' => 'Practitioner/'.$practitionerIhs],
+        ];
+    }
+
+    /**
+     * Kode resmi untuk AllergyIntolerance.code.coding.
+     * Obat: KFA master obat, lalu ATC level 3/4. Makanan/lingkungan: SNOMED substance.
+     *
+     * @return array{system: string, code: string, display: string, fallback: bool}
+     */
+    protected static function allergySubstanceCoding(string $category, string $substance, ?int $tenantId): array
+    {
+        $normalized = self::normalizeAllergenText($substance);
+
+        if ($category === 'medication' && $tenantId !== null) {
+            $kfa = self::kfaCodingForSubstance($normalized, $tenantId);
+
+            if ($kfa !== null) {
+                return $kfa + ['fallback' => false];
+            }
+        }
+
+        $mapped = self::matchAllergyCodebook($normalized, self::allergyCodebook());
+        $allowedSystems = $category === 'medication'
+            ? [self::ATC_SYSTEM, self::KFA_SYSTEM]
+            : [SatuSehatCodes::SNOMED];
+
+        if ($mapped !== null && in_array($mapped['system'], $allowedSystems, true)) {
+            return $mapped + ['fallback' => false];
+        }
+
+        return match ($category) {
+            'food' => [
+                'system' => SatuSehatCodes::SNOMED,
+                'code' => '255620007',
+                'display' => 'Food (substance)',
+                'fallback' => true,
+            ],
+            'environment', 'biologic' => [
+                'system' => SatuSehatCodes::SNOMED,
+                'code' => '406465008',
+                'display' => 'Allergen class (substance)',
+                'fallback' => true,
+            ],
+            default => [
+                'system' => self::ATC_SYSTEM,
+                'code' => 'V03A',
+                'display' => 'All other therapeutic products',
+                'fallback' => true,
+            ],
+        };
+    }
+
+    /**
+     * @return array{system: string, code: string, display: string}
+     */
+    protected static function allergyManifestationCoding(string $reaction): array
+    {
+        $mapped = self::matchAllergyCodebook(self::normalizeAllergenText($reaction), [
+            'urtikaria' => self::snomedAllergen('126485001', 'Urticaria (disorder)'),
+            'biduran' => self::snomedAllergen('126485001', 'Urticaria (disorder)'),
+            'ruam' => self::snomedAllergen('126485001', 'Urticaria (disorder)'),
+            'gatal' => self::snomedAllergen('418290006', 'Itching (finding)'),
+            'sesak' => self::snomedAllergen('267036007', 'Dyspnea (finding)'),
+            'bengkak' => self::snomedAllergen('65124004', 'Swelling (finding)'),
+            'mual' => self::snomedAllergen('422587007', 'Nausea (finding)'),
+            'anafilaksis' => self::snomedAllergen('39579001', 'Anaphylaxis (disorder)'),
+        ]);
+
+        return $mapped ?? self::snomedAllergen('419076005', 'Allergic reaction (disorder)');
+    }
+
+    /**
+     * @return array{system: string, code: string, display: string}|null
+     */
+    protected static function kfaCodingForSubstance(string $normalized, int $tenantId): ?array
+    {
+        if ($normalized === '') {
+            return null;
+        }
+
+        try {
+            $like = '%'.addcslashes($normalized, '%_\\').'%';
+            $medicine = Medicine::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->whereNotNull('kfa_code')
+                ->where('kfa_code', '!=', '')
+                ->where(function ($query) use ($normalized, $like) {
+                    $query->whereRaw('LOWER(name) = ?', [$normalized]);
+
+                    if (mb_strlen($normalized) >= 4) {
+                        $query->orWhereRaw('LOWER(name) LIKE ?', [$like]);
+                    }
+                })
+                ->orderByRaw('CHAR_LENGTH(name)')
+                ->first();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $medicine instanceof Medicine || ! filled($medicine->kfa_code)) {
+            return null;
+        }
+
+        return [
+            'system' => self::KFA_SYSTEM,
+            'code' => (string) $medicine->kfa_code,
+            'display' => (string) $medicine->name,
+        ];
+    }
+
+    protected static function normalizeAllergenText(string $value): string
+    {
+        $value = mb_strtolower(trim($value));
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+
+        return preg_replace('/^(alergi|allergy)\s+/', '', $value) ?? $value;
+    }
+
+    /**
+     * @param  array<string, array{system: string, code: string, display: string}>  $book
+     * @return array{system: string, code: string, display: string}|null
+     */
+    protected static function matchAllergyCodebook(string $normalized, array $book): ?array
+    {
+        if ($normalized === '') {
+            return null;
+        }
+
+        if (isset($book[$normalized])) {
+            return $book[$normalized];
+        }
+
+        uksort($book, fn (string $a, string $b) => strlen($b) <=> strlen($a));
+
+        foreach ($book as $alias => $coding) {
+            if (strlen($alias) >= 4 && str_contains($normalized, $alias)) {
+                return $coding;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Kode yang ada di contoh/lampiran SATUSEHAT atau ATC WHO. Bukan kode karangan.
+     *
+     * @return array<string, array{system: string, code: string, display: string}>
+     */
+    protected static function allergyCodebook(): array
+    {
+        $atc = fn (string $code, string $display) => [
+            'system' => self::ATC_SYSTEM,
+            'code' => $code,
+            'display' => $display,
+        ];
+
+        return [
+            'amoksisilin' => $atc('J01CA', 'Penicillins with extended spectrum'),
+            'amoxicillin' => $atc('J01CA', 'Penicillins with extended spectrum'),
+            'ampisilin' => $atc('J01CA', 'Penicillins with extended spectrum'),
+            'ampicillin' => $atc('J01CA', 'Penicillins with extended spectrum'),
+            'penisilin' => $atc('J01C', 'Beta-lactam antibacterials, penicillins'),
+            'penicillin' => $atc('J01C', 'Beta-lactam antibacterials, penicillins'),
+            'sefalosporin' => $atc('J01D', 'Other beta-lactam antibacterials'),
+            'cephalosporin' => $atc('J01D', 'Other beta-lactam antibacterials'),
+            'klindamisin' => $atc('J01FF', 'Lincosamides'),
+            'clindamycin' => $atc('J01FF', 'Lincosamides'),
+            'metronidazol' => $atc('J01XD', 'Imidazole derivatives'),
+            'metronidazole' => $atc('J01XD', 'Imidazole derivatives'),
+            'eritromisin' => $atc('J01FA', 'Macrolides'),
+            'erythromycin' => $atc('J01FA', 'Macrolides'),
+            'siprofloksasin' => $atc('J01MA', 'Fluoroquinolones'),
+            'ciprofloxacin' => $atc('J01MA', 'Fluoroquinolones'),
+            'sulfonamid' => $atc('J01E', 'Sulfonamides and trimethoprim'),
+            'sulfa' => $atc('J01E', 'Sulfonamides and trimethoprim'),
+            'ibuprofen' => $atc('M01AE', 'Propionic acid derivatives'),
+            'asam mefenamat' => $atc('M01AG', 'Fenamates'),
+            'mefenamat' => $atc('M01AG', 'Fenamates'),
+            'nsaid' => $atc('M01A', 'Antiinflammatory and antirheumatic products, non-steroids'),
+            'parasetamol' => $atc('N02BE', 'Anilides'),
+            'paracetamol' => $atc('N02BE', 'Anilides'),
+            'asetaminofen' => $atc('N02BE', 'Anilides'),
+            'aspirin' => $atc('N02BA', 'Salicylic acid and derivatives'),
+            'lidokain' => $atc('N01BB', 'Amides'),
+            'lidocaine' => $atc('N01BB', 'Amides'),
+            'gluten' => self::snomedAllergen('89811004', 'Gluten (substance)'),
+            'gandum' => self::snomedAllergen('89811004', 'Gluten (substance)'),
+            'terigu' => self::snomedAllergen('89811004', 'Gluten (substance)'),
+            'udang' => self::snomedAllergen('278840001', 'Shrimp (substance)'),
+            'shrimp' => self::snomedAllergen('278840001', 'Shrimp (substance)'),
+            'seafood' => self::snomedAllergen('44027008', 'Seafood (substance)'),
+            'telur' => self::snomedAllergen('102263004', 'Eggs (edible) (substance)'),
+            'susu' => self::snomedAllergen('3718001', 'Cow\'s milk (substance)'),
+            'kacang' => self::snomedAllergen('762952008', 'Peanut (substance)'),
+            'lateks' => self::snomedAllergen('111088007', 'Latex (substance)'),
+            'latex' => self::snomedAllergen('111088007', 'Latex (substance)'),
+            'serbuk sari' => self::snomedAllergen('256259004', 'Pollen (substance)'),
+            'pollen' => self::snomedAllergen('256259004', 'Pollen (substance)'),
+        ];
+    }
+
+    /**
+     * @return array{system: string, code: string, display: string}
+     */
+    protected static function snomedAllergen(string $code, string $display): array
+    {
+        return [
+            'system' => SatuSehatCodes::SNOMED,
+            'code' => $code,
+            'display' => $display,
         ];
     }
 
