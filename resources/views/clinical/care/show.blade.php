@@ -194,6 +194,63 @@
             min-width: 16rem;
             font-weight: 600;
         }
+
+        .care-save-status {
+            white-space: normal;
+            max-width: 18rem;
+            text-align: right;
+            line-height: 1.35;
+        }
+
+        .care-save-status.is-error {
+            color: #f46a6a;
+        }
+
+        .exam-readonly__wide {
+            grid-column: 1 / -1;
+        }
+
+        .ohis-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.75rem 1rem;
+            align-items: end;
+        }
+
+        .ohis-result {
+            min-height: 100%;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            background: #f8f9fa;
+        }
+
+        @media (max-width: 767.98px) {
+            .ohis-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .ohis-result__value {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .ohis-result__value.is-baik { color: #34c38f; }
+        .ohis-result__value.is-sedang { color: #f1b44c; }
+        .ohis-result__value.is-buruk { color: #f46a6a; }
+
+        .instruksi-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.45rem;
+        }
+
+        @media (max-width: 767.98px) {
+            .instruksi-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 @endpush
 
@@ -208,16 +265,31 @@
     var pending = new WeakMap();
     var $ = window.jQuery;
 
-    function setStatus(text) {
-        if (statusEl) statusEl.textContent = text;
+    function setStatus(text, failed) {
+        if (!statusEl) return;
+        statusEl.textContent = text;
+        statusEl.classList.toggle('is-error', !!failed);
     }
 
-    function markDone(section) {
+    function validationMessage(data) {
+        if (data && data.errors) {
+            var keys = Object.keys(data.errors);
+            for (var i = 0; i < keys.length; i++) {
+                var list = data.errors[keys[i]];
+                if (list && list[0]) return list[0];
+            }
+        }
+        if (data && data.message && data.message !== 'The given data was invalid.') return data.message;
+        return 'Gagal menyimpan';
+    }
+
+    function markDone(section, done) {
         var link = document.querySelector('[data-care-section="' + section + '"]');
         if (!link) return;
-        link.classList.add('is-done');
+        var complete = done !== false;
+        link.classList.toggle('is-done', complete);
         var mark = link.querySelector('.care-flow-link__mark');
-        if (mark) mark.textContent = '✓';
+        if (mark) mark.textContent = complete ? '✓' : '○';
     }
 
     window.careSave = function (form) {
@@ -238,14 +310,21 @@
             },
             body: body
         }).then(function (res) {
-            if (!res.ok) throw new Error('save failed');
-            return res.json();
+            return res.json().catch(function () { return {}; }).then(function (data) {
+                if (!res.ok) {
+                    var message = validationMessage(data);
+                    var error = new Error(message);
+                    error.careMessage = message;
+                    throw error;
+                }
+                return data;
+            });
         }).then(function (data) {
             setStatus('✓ Tersimpan');
-            if (data && data.section) markDone(data.section);
+            if (data && data.section) markDone(data.section, data.done);
             return data;
-        }).catch(function () {
-            setStatus('Gagal menyimpan');
+        }).catch(function (error) {
+            setStatus(error && error.careMessage ? error.careMessage : 'Gagal menyimpan', true);
         }).finally(function () {
             form.dataset.busy = '0';
             if (pending.get(form)) {

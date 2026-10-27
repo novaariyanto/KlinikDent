@@ -23,6 +23,7 @@ use App\Http\Requests\Clinical\UpdateSystemicHistoryRequest;
 use App\Http\Requests\Clinical\UpdateToothRequest;
 use App\Http\Requests\Clinical\UpdateVitalsRequest;
 use App\Models\Diagnosis;
+use App\Models\MedicalRecord;
 use App\Models\Medicine;
 use App\Models\OdontogramTooth;
 use App\Models\Prescription;
@@ -39,6 +40,7 @@ use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
 use App\Support\Clinical\FdiTeeth;
 use App\Support\Clinical\IcdCatalog;
+use App\Support\Clinical\MedicalRecordLock;
 use App\Support\ClinicSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -187,14 +189,19 @@ class CareController extends Controller
     public function updateRecord(UpdateMedicalRecordRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $record = $this->care->ensureRecord($visit);
+        app(MedicalRecordLock::class)->assertMutable($record);
         $data = $request->validated();
 
         if (isset($data['plan_instructions'])) {
-            $items = $data['plan_instructions']['items'] ?? [];
+            $items = array_values(array_filter(
+                (array) ($data['plan_instructions']['items'] ?? []),
+                fn ($item) => is_string($item) && $item !== '',
+            ));
             $extra = trim((string) ($data['plan_instructions']['extra'] ?? ''));
             $prognosis = trim((string) ($data['plan_instructions']['prognosis'] ?? ''));
             $goal = trim((string) ($data['plan_instructions']['goal'] ?? ''));
-            $planStatus = (string) ($data['plan_instructions']['status'] ?? 'active');
+            $planStatus = (string) ($data['plan_instructions']['status'] ?? '');
+            $statuses = CareExamOptions::carePlanStatuses();
             $labels = CareExamOptions::instructions();
             $lines = collect($items)
                 ->map(fn ($key) => $labels[$key] ?? $key)
@@ -207,11 +214,11 @@ class CareController extends Controller
 
             $data['clinical_notes'] = $lines->implode("\n");
             $data['plan_instructions'] = [
-                'items' => array_values($items),
-                'extra' => $extra,
-                'prognosis' => $prognosis,
-                'goal' => $goal,
-                'status' => array_key_exists($planStatus, CareExamOptions::carePlanStatuses()) ? $planStatus : 'active',
+                'items' => $items,
+                'extra' => $extra !== '' ? $extra : null,
+                'prognosis' => $prognosis !== '' ? $prognosis : null,
+                'goal' => $goal !== '' ? $goal : null,
+                'status' => array_key_exists($planStatus, $statuses) ? $planStatus : null,
             ];
         }
 
@@ -224,7 +231,12 @@ class CareController extends Controller
             ? 'instruksi'
             : 'keluhan';
 
-        return $this->respondCare($visit, $tab, 'Rekam medis disimpan.');
+        return $this->respondCare(
+            $visit,
+            $tab,
+            'Rekam medis disimpan.',
+            $tab === 'instruksi' ? $this->instructionDone($record) : null,
+        );
     }
 
     public function updateExamination(UpdateExaminationRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -241,20 +253,37 @@ class CareController extends Controller
     public function updateVitals(UpdateVitalsRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $record = $this->care->ensureRecord($visit);
-        $vitals = collect($request->validated())->only([
-            'blood_pressure',
-            'pulse',
-            'temperature',
-            'respiration',
-            'weight',
-            'height',
-        ])->all();
+        app(MedicalRecordLock::class)->assertMutable($record);
+
+        $validated = $request->validated();
+        [$sys, $dia] = $this->bloodPressureParts(
+            $validated['blood_pressure_sys'] ?? null,
+            $validated['blood_pressure_dia'] ?? null,
+            $validated['blood_pressure'] ?? null,
+        );
+        $vitals = [
+            'blood_pressure' => ($sys !== '' || $dia !== '') ? trim($sys.'/'.$dia, '/') : null,
+            'blood_pressure_sys' => $sys !== '' ? $sys : null,
+            'blood_pressure_dia' => $dia !== '' ? $dia : null,
+            'pulse' => $validated['pulse'] ?? null,
+            'temperature' => $validated['temperature'] ?? null,
+            'respiration' => $validated['respiration'] ?? null,
+            'weight' => $validated['weight'] ?? null,
+            'height' => $validated['height'] ?? null,
+        ];
+        $history = $record->systemic_history ?? [];
+        $history['blood_pressure_sys'] = $vitals['blood_pressure_sys'];
+        $history['blood_pressure_dia'] = $vitals['blood_pressure_dia'];
+
         $before = activity_snapshot($record);
-        $record->update(['vital_signs' => $vitals]);
+        $record->update([
+            'vital_signs' => $vitals,
+            'systemic_history' => $history,
+        ]);
 
         activity_audit('updated', $record, $before, 'Updated vital signs', 'medical_records');
 
-        return $this->respondCare($visit, 'screening', 'Tanda vital disimpan.');
+        return $this->respondCare($visit, 'screening', 'Tanda vital disimpan.', $this->screeningDone($record));
     }
 
     public function updateAnamnesis(UpdateAnamnesisRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -271,12 +300,13 @@ class CareController extends Controller
     public function updateNotes(UpdateCareNotesRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $record = $this->care->ensureRecord($visit);
+        app(MedicalRecordLock::class)->assertMutable($record);
         $before = activity_snapshot($record);
         $record->update($request->validated());
 
         activity_audit('updated', $record, $before, 'Updated care notes', 'medical_records');
 
-        return $this->respondCare($visit, 'instruksi', 'Catatan pelayanan disimpan.');
+        return $this->respondCare($visit, 'instruksi', 'Catatan pelayanan disimpan.', $this->instructionDone($record));
     }
 
     public function updateTooth(UpdateToothRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -323,49 +353,42 @@ class CareController extends Controller
 
     public function updateDentalExam(UpdateDentalExamRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
-        $data = $request->validated();
-        $ohis = $data['ohis'] ?? null;
-
-        if (is_array($ohis) && is_numeric($ohis['debris_index'] ?? null) && is_numeric($ohis['calculus_index'] ?? null)) {
-            $di = round((float) $ohis['debris_index'], 2);
-            $ci = round((float) $ohis['calculus_index'], 2);
-            $total = round($di + $ci, 2);
-            $data['ohis'] = [
-                'debris_index' => $di,
-                'calculus_index' => $ci,
-                'total' => $total,
-                'interpretation' => match (true) {
-                    $total <= 1.2 => 'baik',
-                    $total <= 3.0 => 'sedang',
-                    default => 'buruk',
-                },
-            ];
-        } elseif (is_array($ohis) && ! is_numeric($ohis['debris_index'] ?? null) && ! is_numeric($ohis['calculus_index'] ?? null)) {
-            unset($data['ohis']);
-        }
-
         $record = $this->care->ensureRecord($visit);
+        app(MedicalRecordLock::class)->assertMutable($record);
+
+        $data = $this->normalizeDentalExam($request->validated());
         $record->update(['dental_exam' => $data]);
 
         activity_log('updated', $record, $data, 'Updated dental examination', 'medical_records');
 
-        return $this->respondCare($visit, 'pemeriksaan', 'Pemeriksaan gigi & mulut disimpan.');
+        return $this->respondCare($visit, 'pemeriksaan', 'Pemeriksaan gigi & mulut disimpan.', $this->examDone($record));
     }
 
     public function updateSystemicHistory(UpdateSystemicHistoryRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
-        $data = $request->validated();
+        $record = $this->care->ensureRecord($visit);
+        app(MedicalRecordLock::class)->assertMutable($record);
 
-        if (! empty($data['none'])) {
-            $data['conditions'] = [];
+        $data = $this->normalizeSystemicHistory($request->validated());
+        [$sys, $dia] = $this->bloodPressureParts($data['blood_pressure_sys'] ?? null, $data['blood_pressure_dia'] ?? null, null);
+        $data['blood_pressure_sys'] = $sys !== '' ? $sys : null;
+        $data['blood_pressure_dia'] = $dia !== '' ? $dia : null;
+
+        $payload = ['systemic_history' => $data];
+
+        if ($request->exists('blood_pressure_sys') || $request->exists('blood_pressure_dia')) {
+            $vitals = $record->vital_signs ?? [];
+            $vitals['blood_pressure_sys'] = $data['blood_pressure_sys'];
+            $vitals['blood_pressure_dia'] = $data['blood_pressure_dia'];
+            $vitals['blood_pressure'] = ($sys !== '' || $dia !== '') ? trim($sys.'/'.$dia, '/') : null;
+            $payload['vital_signs'] = $vitals;
         }
 
-        $record = $this->care->ensureRecord($visit);
-        $record->update(['systemic_history' => $data]);
+        $record->update($payload);
 
         activity_log('updated', $record, $data, 'Updated systemic history', 'medical_records');
 
-        return $this->respondCare($visit, 'screening', 'Riwayat penyakit sistemik disimpan.');
+        return $this->respondCare($visit, 'screening', 'Riwayat penyakit sistemik disimpan.', $this->screeningDone($record));
     }
 
     public function searchDiagnoses(Request $request, Visit $visit): JsonResponse
@@ -853,19 +876,157 @@ class CareController extends Controller
         return $this->respondCare($visit, 'odontogram', $message);
     }
 
-    protected function respondCare(Visit $visit, string $section, string $message): RedirectResponse|JsonResponse
+    protected function respondCare(Visit $visit, string $section, string $message, ?bool $done = null): RedirectResponse|JsonResponse
     {
         if (request()->wantsJson() || request()->ajax()) {
-            return response()->json([
+            $payload = [
                 'ok' => true,
                 'message' => $message,
                 'section' => $section,
-            ]);
+            ];
+
+            if ($done !== null) {
+                $payload['done'] = $done;
+            }
+
+            return response()->json($payload);
         }
 
         return redirect()
             ->route('care.show', ['visit' => $visit, 'tab' => $section])
             ->with('success', $message);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function normalizeSystemicHistory(array $data): array
+    {
+        $data['none'] = filter_var($data['none'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $conditions = array_values(array_filter(
+            (array) ($data['conditions'] ?? []),
+            fn ($value) => is_string($value) && $value !== '',
+        ));
+        $allergyStatus = (string) ($data['allergy_status'] ?? 'not_asked');
+        $medicationStatus = (string) ($data['medication_status'] ?? 'not_asked');
+
+        if ($allergyStatus !== 'present') {
+            $conditions = array_values(array_filter($conditions, fn ($item) => $item !== 'allergy'));
+        } elseif (! in_array('allergy', $conditions, true)) {
+            $conditions[] = 'allergy';
+        }
+
+        if ($medicationStatus !== 'present' && ! filled($data['medication_detail'] ?? null)) {
+            $conditions = array_values(array_filter($conditions, fn ($item) => $item !== 'medication'));
+        } elseif ($medicationStatus === 'present' && ! in_array('medication', $conditions, true)) {
+            $conditions[] = 'medication';
+        }
+
+        if ($allergyStatus === 'present' || $medicationStatus === 'present' || $conditions !== []) {
+            $data['none'] = false;
+            $data['conditions'] = $conditions;
+        } elseif ($data['none']) {
+            $data['conditions'] = [];
+            $data['other_detail'] = null;
+            $data['allergy_detail'] = null;
+            $data['medication_detail'] = null;
+        } else {
+            $data['conditions'] = $conditions;
+        }
+
+        $data['allergy_status'] = $allergyStatus !== '' ? $allergyStatus : 'not_asked';
+        $data['medication_status'] = $medicationStatus !== '' ? $medicationStatus : 'not_asked';
+
+        return $data;
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    protected function bloodPressureParts(mixed $sys, mixed $dia, mixed $combined): array
+    {
+        $sys = trim((string) ($sys ?? ''));
+        $dia = trim((string) ($dia ?? ''));
+
+        if ($sys === '' && $dia === '' && is_string($combined) && str_contains($combined, '/')) {
+            [$sys, $dia] = array_pad(explode('/', $combined, 2), 2, '');
+            $sys = trim($sys);
+            $dia = trim($dia);
+        }
+
+        return [$sys, $dia];
+    }
+
+    protected function screeningDone(MedicalRecord $record): bool
+    {
+        return CareProgress::screeningComplete(
+            $record->vital_signs ?? [],
+            $record->systemic_history ?? [],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function normalizeDentalExam(array $data): array
+    {
+        if (($data['occlusion'] ?? null) === 'deep') {
+            $data['occlusion'] = 'steep';
+        }
+
+        if (($data['extraoral'] ?? null) !== 'abnormal') {
+            $data['extraoral_note'] = null;
+        }
+
+        if (($data['intraoral'] ?? null) !== 'abnormal') {
+            $data['intraoral_note'] = null;
+        }
+
+        if (($data['diastema'] ?? null) !== 'present') {
+            $data['diastema_elements'] = null;
+        }
+
+        if (($data['supernumerary'] ?? null) !== 'present') {
+            $data['supernumerary_teeth'] = null;
+        }
+
+        if (($data['anomaly'] ?? null) !== 'present') {
+            $data['anomaly_description'] = null;
+        }
+
+        $ohis = $data['ohis'] ?? null;
+
+        if (is_array($ohis) && is_numeric($ohis['debris_index'] ?? null) && is_numeric($ohis['calculus_index'] ?? null)) {
+            $di = round((float) $ohis['debris_index'], 2);
+            $ci = round((float) $ohis['calculus_index'], 2);
+            $total = round($di + $ci, 2);
+            $data['ohis'] = [
+                'debris_index' => $di,
+                'calculus_index' => $ci,
+                'total' => $total,
+                'interpretation' => match (true) {
+                    $total <= 1.2 => 'baik',
+                    $total <= 3.0 => 'sedang',
+                    default => 'buruk',
+                },
+            ];
+        } else {
+            unset($data['ohis']);
+        }
+
+        return $data;
+    }
+
+    protected function examDone(MedicalRecord $record): bool
+    {
+        return CareProgress::examComplete($record->dental_exam ?? [], $record->initial_examination);
+    }
+
+    protected function instructionDone(MedicalRecord $record): bool
+    {
+        return CareProgress::instructionComplete($record);
     }
 
     protected function authorizeCare(Request $request, Visit $visit): void

@@ -866,7 +866,14 @@
 .care-save-status {
     font-size: 0.72rem;
     color: var(--care-muted);
-    white-space: nowrap;
+    white-space: normal;
+    max-width: 18rem;
+    text-align: right;
+    line-height: 1.35;
+}
+
+.care-save-status.is-error {
+    color: #f46a6a;
 }
 
 .care-flow > .care-section,
@@ -1049,6 +1056,40 @@
     font-size: 0.72rem;
 }
 
+.exam-readonly__wide {
+    grid-column: 1 / -1;
+}
+
+.ohis-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.75rem 1rem;
+    align-items: end;
+}
+
+.ohis-result {
+    min-height: 100%;
+    padding: 0.35rem 0.75rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.ohis-result__value {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.ohis-result__value.is-baik { color: #34c38f; }
+.ohis-result__value.is-sedang { color: #f1b44c; }
+.ohis-result__value.is-buruk { color: #f46a6a; }
+
+.instruksi-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+}
+
 .soap-wrap {
     min-height: 0;
 }
@@ -1159,6 +1200,8 @@
     .exam-grid,
     .sys-grid,
     .exam-readonly,
+    .ohis-grid,
+    .instruksi-grid,
     .soap-grid,
     .vital-grid {
         grid-template-columns: 1fr;
