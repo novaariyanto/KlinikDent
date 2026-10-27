@@ -293,6 +293,14 @@ class IntegrationTest extends TestCase
                 'resourceType' => 'Observation',
                 'id' => 'observation-1',
             ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition/*' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ]),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
                 'id' => 'encounter-1',
@@ -398,6 +406,14 @@ class IntegrationTest extends TestCase
                 'resourceType' => 'OperationOutcome',
                 'issue' => [['severity' => 'error', 'details' => ['text' => 'Element not found: Observation.issued']]],
             ], 400),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition/*' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ]),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
                 'id' => 'encounter-1',
@@ -479,6 +495,14 @@ class IntegrationTest extends TestCase
                 'resourceType' => 'Observation',
                 'id' => 'observation-1',
             ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition/*' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ]),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
                 'id' => 'encounter-1',

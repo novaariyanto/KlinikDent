@@ -168,6 +168,12 @@ class CareController extends Controller
                 'mucosa' => CareExamOptions::mucosa(),
                 'systemic' => CareExamOptions::systemic(),
                 'instructions' => CareExamOptions::instructions(),
+                'allergy_statuses' => CareExamOptions::allergyStatuses(),
+                'allergy_categories' => CareExamOptions::allergyCategories(),
+                'allergy_types' => CareExamOptions::allergyTypes(),
+                'allergy_clinical_statuses' => CareExamOptions::allergyClinicalStatuses(),
+                'allergy_severities' => CareExamOptions::allergySeverities(),
+                'care_plan_statuses' => CareExamOptions::carePlanStatuses(),
             ],
             'dentalExam' => $record?->dental_exam ?? [],
             'systemicHistory' => $record?->systemic_history ?? [],
@@ -187,6 +193,8 @@ class CareController extends Controller
             $items = $data['plan_instructions']['items'] ?? [];
             $extra = trim((string) ($data['plan_instructions']['extra'] ?? ''));
             $prognosis = trim((string) ($data['plan_instructions']['prognosis'] ?? ''));
+            $goal = trim((string) ($data['plan_instructions']['goal'] ?? ''));
+            $planStatus = (string) ($data['plan_instructions']['status'] ?? 'active');
             $labels = CareExamOptions::instructions();
             $lines = collect($items)
                 ->map(fn ($key) => $labels[$key] ?? $key)
@@ -202,6 +210,8 @@ class CareController extends Controller
                 'items' => array_values($items),
                 'extra' => $extra,
                 'prognosis' => $prognosis,
+                'goal' => $goal,
+                'status' => array_key_exists($planStatus, CareExamOptions::carePlanStatuses()) ? $planStatus : 'active',
             ];
         }
 

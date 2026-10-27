@@ -292,14 +292,45 @@ class WilayahService
     }
 
     /**
+     * Parse NIK → DOB/gender saja (tanpa cek master wilayah).
+     *
+     * @return array{ok: bool, message?: string, gender?: string|null, dob?: string|null}
+     */
+    public function identityFromNik(string $nik): array
+    {
+        $nik = preg_replace('/\D+/', '', $nik) ?? '';
+
+        if (strlen($nik) !== 16) {
+            return ['ok' => false, 'message' => 'NIK harus 16 digit.'];
+        }
+
+        $dayRaw = (int) substr($nik, 6, 2);
+        $month = (int) substr($nik, 8, 2);
+        $yearTwo = (int) substr($nik, 10, 2);
+        $gender = $dayRaw > 40 ? 'female' : 'male';
+        $day = $dayRaw > 40 ? $dayRaw - 40 : $dayRaw;
+
+        return [
+            'ok' => true,
+            'gender' => $gender,
+            'dob' => $this->resolveBirthDate($day, $month, $yearTwo),
+        ];
+    }
+
+    /**
      * Parse NIK → wilayah laravolt + DOB/gender.
+     *
+     * NIK hanya memuat kode sampai kecamatan (6 digit). Kode kecamatan lama
+     * sering tidak ada di master (pemekaran/perubahan), jadi kecamatan bersifat
+     * best-effort: cukup provinsi + kab/kota untuk dianggap valid. Desa tidak
+     * ada di NIK dan tidak wajib cocok dengan master.
      *
      * @return array{
      *     ok: bool,
      *     message?: string,
      *     province_code?: string,
      *     city_code?: string,
-     *     district_code?: string,
+     *     district_code?: string|null,
      *     province_name?: string|null,
      *     city_name?: string|null,
      *     district_name?: string|null,
@@ -312,44 +343,42 @@ class WilayahService
      */
     public function fromNik(string $nik): array
     {
-        $nik = preg_replace('/\D+/', '', $nik) ?? '';
+        $identity = $this->identityFromNik($nik);
 
-        if (strlen($nik) !== 16) {
-            return ['ok' => false, 'message' => 'NIK harus 16 digit.'];
+        if (! ($identity['ok'] ?? false)) {
+            return $identity;
         }
 
+        $nik = preg_replace('/\D+/', '', $nik) ?? '';
         $provinceCode = substr($nik, 0, 2);
         $cityCode = substr($nik, 0, 4);
         $districtCode = substr($nik, 0, 6);
 
-        if (! $this->isProvince($provinceCode)
-            || ! $this->isCity($cityCode, $provinceCode)
-            || ! $this->isDistrict($districtCode, $cityCode)) {
-            return ['ok' => false, 'message' => 'Kode wilayah NIK tidak ditemukan di master laravolt/indonesia.'];
+        if (! $this->isProvince($provinceCode)) {
+            return ['ok' => false, 'message' => 'Kode provinsi NIK tidak ditemukan di master wilayah.'];
         }
 
-        $dayRaw = (int) substr($nik, 6, 2);
-        $month = (int) substr($nik, 8, 2);
-        $yearTwo = (int) substr($nik, 10, 2);
-        $gender = $dayRaw > 40 ? 'female' : 'male';
-        $day = $dayRaw > 40 ? $dayRaw - 40 : $dayRaw;
+        if (! $this->isCity($cityCode, $provinceCode)) {
+            return ['ok' => false, 'message' => 'Kode kab/kota NIK tidak ditemukan di master wilayah.'];
+        }
 
-        $dob = $this->resolveBirthDate($day, $month, $yearTwo);
-        $labels = $this->labels($provinceCode, $cityCode, $districtCode, null);
+        // Kecamatan dari NIK boleh tidak ada di master (kode lama / pemekaran).
+        $resolvedDistrict = $this->isDistrict($districtCode, $cityCode) ? $districtCode : null;
+        $labels = $this->labels($provinceCode, $cityCode, $resolvedDistrict, null);
 
         return [
             'ok' => true,
             'province_code' => $provinceCode,
             'city_code' => $cityCode,
-            'district_code' => $districtCode,
+            'district_code' => $resolvedDistrict,
             'province_name' => $labels['province'] ?? null,
             'city_name' => $labels['city'] ?? null,
             'district_name' => $labels['district'] ?? null,
-            'gender' => $gender,
-            'dob' => $dob,
+            'gender' => $identity['gender'] ?? null,
+            'dob' => $identity['dob'] ?? null,
             'cities' => $this->cities($provinceCode),
             'districts' => $this->districts($cityCode),
-            'villages' => $this->villages($districtCode),
+            'villages' => $resolvedDistrict ? $this->villages($resolvedDistrict) : [],
         ];
     }
 

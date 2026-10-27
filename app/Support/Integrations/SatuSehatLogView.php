@@ -194,6 +194,10 @@ final class SatuSehatLogView
             'MedicationDispense' => 'Penyerahan obat',
             'ServiceRequest' => self::labeled('Rujukan/permintaan', self::codingDisplay($body['code'] ?? null) ?? self::text($body['code']['text'] ?? null)),
             'ClinicalImpression' => 'Prognosis',
+            'AllergyIntolerance' => 'Riwayat alergi',
+            'CarePlan' => 'Rencana perawatan',
+            'Composition' => 'Resume medis',
+            'MedicationStatement' => 'Riwayat obat',
             'Patient' => 'Mendaftarkan pasien',
             'Practitioner' => 'Mendaftarkan dokter',
             default => $type !== '' ? 'Mengirim '.$type : 'Mengirim data',
@@ -342,6 +346,10 @@ final class SatuSehatLogView
             'MedicationDispense',
             'ServiceRequest',
             'ClinicalImpression',
+            'AllergyIntolerance',
+            'CarePlan',
+            'Composition',
+            'MedicationStatement',
             'Location',
         ];
     }

@@ -13,6 +13,7 @@ use App\Models\BranchSatuSehatSetting;
 use App\Models\Diagnosis;
 use App\Models\Doctor;
 use App\Models\IntegrationLog;
+use App\Models\MedicalRecord;
 use App\Models\Medicine;
 use App\Models\Patient;
 use App\Models\Payer;
@@ -93,6 +94,30 @@ class SatuSehatMedicationServiceRequestTest extends TestCase
                 'resourceType' => 'ServiceRequest',
                 'id' => 'servicerequest-remote-1',
             ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance/*' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan/*' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition/*' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ]),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
                 'id' => 'encounter-1',
@@ -215,6 +240,30 @@ class SatuSehatMedicationServiceRequestTest extends TestCase
                 'resourceType' => 'ServiceRequest',
                 'id' => 'servicerequest-remote-1',
             ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance/*' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan/*' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition/*' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ]),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
                 'id' => 'encounter-1',
@@ -306,6 +355,30 @@ class SatuSehatMedicationServiceRequestTest extends TestCase
                 'resourceType' => 'MedicationRequest',
                 'id' => 'medrequest-remote-1',
             ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance/*' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan/*' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition/*' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ]),
             'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
                 'resourceType' => 'Encounter',
                 'id' => 'encounter-1',
@@ -351,6 +424,207 @@ class SatuSehatMedicationServiceRequestTest extends TestCase
 
         $this->assertSame(0, $calls['medication']);
         $this->assertSame('org-'.$this->branch->id, $setting->organization_id);
+    }
+
+    public function test_form_data_is_sent_once_as_allergy_care_plan_and_composition(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake($this->clinicalFhirFake());
+
+        $owner = $this->tenantUser(RoleName::Owner);
+        $this->readyBranch(false);
+        $visit = $this->doneVisit();
+
+        $this->actingAs($owner)
+            ->put(route('care.systemic.update', $visit), [
+                'allergy_status' => 'present',
+                'allergy_category' => 'food',
+                'allergy_type' => 'allergy',
+                'allergy_clinical_status' => 'active',
+                'allergy_detail' => 'Udang',
+                'allergy_reaction' => 'Gatal',
+                'allergy_severity' => 'mild',
+                'allergy_note' => 'Sejak kecil',
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($owner)
+            ->from(route('care.show', $visit))
+            ->put(route('care.systemic.update', $visit), [
+                'allergy_status' => 'present',
+            ])
+            ->assertSessionHasErrors(['allergy_detail', 'allergy_category']);
+
+        $this->actingAs($owner)
+            ->put(route('care.record.update', $visit), [
+                'plan_instructions' => [
+                    'goal' => 'Bebas nyeri',
+                    'status' => 'active',
+                    'items' => ['jaga_kebersihan'],
+                    'extra' => 'Kontrol bila bengkak',
+                ],
+                'control_date' => now()->addWeek()->toDateString(),
+            ])
+            ->assertRedirect()
+            ->assertSessionHasNoErrors();
+
+        $record = $visit->fresh()->medicalRecord;
+        $this->assertSame('Udang', $record->systemic_history['allergy_detail']);
+        $this->assertSame('food', $record->systemic_history['allergy_category']);
+        $this->assertSame('Bebas nyeri', $record->plan_instructions['goal']);
+        $this->assertNotNull($record->control_date);
+
+        $this->actingAs($owner)
+            ->post(route('integrations.satusehat.send'), ['visit_id' => $visit->id])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($owner)
+            ->post(route('integrations.satusehat.send'), ['visit_id' => $visit->id])
+            ->assertRedirect();
+
+        $this->assertSame(SatuSehatStatus::Synced, $visit->fresh()->satusehat_status);
+        $this->assertSame(1, $this->fhirPosts('AllergyIntolerance'));
+        $this->assertSame(1, $this->fhirPosts('CarePlan'));
+        $this->assertSame(1, $this->fhirPosts('Composition'));
+
+        Http::assertSent(function ($request) {
+            if ($request->method() !== 'POST' || ! str_ends_with($request->url(), '/Composition')) {
+                return false;
+            }
+
+            $encoded = json_encode($request->data(), JSON_UNESCAPED_SLASHES);
+
+            return str_contains($encoded, 'AllergyIntolerance/allergy-1')
+                && str_contains($encoded, 'CarePlan/careplan-1')
+                && str_contains($encoded, 'Condition/condition-1')
+                && str_contains($encoded, 'Patient/patient-ihs')
+                && str_contains($encoded, 'Encounter/encounter-1')
+                && ($request['type']['coding'][0]['code'] ?? null) === '88645-7';
+        });
+
+        Http::assertSent(function ($request) {
+            return $request->method() === 'POST'
+                && str_ends_with($request->url(), '/AllergyIntolerance')
+                && ($request['code']['text'] ?? null) === 'Udang'
+                && ($request['category'][0] ?? null) === 'food'
+                && ($request['recorder']['reference'] ?? null) === 'Practitioner/practitioner-ihs';
+        });
+    }
+
+    public function test_unknown_allergy_is_not_posted_and_composition_failure_stays_partial(): void
+    {
+        Http::preventStrayRequests();
+        $fake = $this->clinicalFhirFake();
+        $fake['https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition'] = Http::response([
+            'resourceType' => 'OperationOutcome',
+            'issue' => [[
+                'severity' => 'error',
+                'diagnostics' => 'Element not found: Composition.section',
+            ]],
+        ], 400);
+        Http::fake($fake);
+
+        $owner = $this->tenantUser(RoleName::Owner);
+        $this->readyBranch(false);
+        $visit = $this->doneVisit();
+        MedicalRecord::factory()->create([
+            'visit_id' => $visit->id,
+            'systemic_history' => ['allergy_status' => 'unknown'],
+            'plan_instructions' => [],
+            'vital_signs' => [],
+        ]);
+
+        $this->actingAs($owner)
+            ->post(route('integrations.satusehat.send'), ['visit_id' => $visit->id])
+            ->assertRedirect();
+
+        $this->assertSame(SatuSehatStatus::Partial, $visit->fresh()->satusehat_status);
+        $this->assertSame(0, $this->fhirPosts('AllergyIntolerance'));
+        $this->assertSame(0, $this->fhirPuts('Encounter'));
+
+        $log = IntegrationLog::query()->where('provider', 'satusehat')->latest('id')->first();
+        $failure = collect($log?->response_payload['failures'] ?? [])->firstWhere('type', 'Composition');
+        $this->assertNotNull($failure);
+        $this->assertSame(400, $failure['http_status'] ?? null);
+        $this->assertSame(
+            SatuSehatStatus::Failed,
+            SatuSehatResource::query()->where('local_key', 'composition:'.$visit->id)->value('sync_status'),
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function clinicalFhirFake(): array
+    {
+        return [
+            'https://api-satusehat-stg.dto.kemkes.go.id/oauth2/v1/accesstoken*' => Http::response([
+                'access_token' => 'token-med',
+                'expires_in' => 3600,
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Patient*' => Http::response([
+                'resourceType' => 'Bundle',
+                'entry' => [['resource' => ['resourceType' => 'Patient', 'id' => 'patient-ihs']]],
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Practitioner*' => Http::response([
+                'resourceType' => 'Bundle',
+                'entry' => [['resource' => ['resourceType' => 'Practitioner', 'id' => 'practitioner-ihs']]],
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Location/*' => Http::response([
+                'resourceType' => 'Location',
+                'id' => 'loc-med',
+                'status' => 'active',
+                'name' => 'Poli Gigi',
+            ]),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Condition' => Http::response([
+                'resourceType' => 'Condition',
+                'id' => 'condition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Observation' => Http::response([
+                'resourceType' => 'Observation',
+                'id' => 'observation-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Procedure' => Http::response([
+                'resourceType' => 'Procedure',
+                'id' => 'procedure-edu-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/AllergyIntolerance' => Http::response([
+                'resourceType' => 'AllergyIntolerance',
+                'id' => 'allergy-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/CarePlan' => Http::response([
+                'resourceType' => 'CarePlan',
+                'id' => 'careplan-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Composition' => Http::response([
+                'resourceType' => 'Composition',
+                'id' => 'composition-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter' => Http::response([
+                'resourceType' => 'Encounter',
+                'id' => 'encounter-1',
+            ], 201),
+            'https://api-satusehat-stg.dto.kemkes.go.id/fhir-r4/v1/Encounter/*' => Http::response([
+                'resourceType' => 'Encounter',
+                'id' => 'encounter-1',
+            ]),
+        ];
+    }
+
+    protected function fhirPosts(string $type): int
+    {
+        return collect(Http::recorded())->filter(function (array $pair) use ($type) {
+            return $pair[0]->method() === 'POST' && str_ends_with($pair[0]->url(), '/'.$type);
+        })->count();
+    }
+
+    protected function fhirPuts(string $type): int
+    {
+        return collect(Http::recorded())->filter(function (array $pair) use ($type) {
+            return $pair[0]->method() === 'PUT' && str_contains($pair[0]->url(), '/'.$type.'/');
+        })->count();
     }
 
     protected function doneVisit(): Visit

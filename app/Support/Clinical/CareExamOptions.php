@@ -126,6 +126,76 @@ final class CareExamOptions
     /**
      * @return array<string, string>
      */
+    public static function allergyStatuses(): array
+    {
+        return [
+            'not_asked' => 'Belum ditanyakan',
+            'unknown' => 'Tidak diketahui',
+            'none_confirmed' => 'Tidak ada alergi yang diketahui',
+            'present' => 'Ada alergi',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function allergyCategories(): array
+    {
+        return [
+            'medication' => 'Obat',
+            'food' => 'Makanan',
+            'environment' => 'Lingkungan',
+            'biologic' => 'Biologis',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function allergyTypes(): array
+    {
+        return [
+            'allergy' => 'Alergi',
+            'intolerance' => 'Intoleransi',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function allergyClinicalStatuses(): array
+    {
+        return [
+            'active' => 'Masih berlangsung',
+            'inactive' => 'Tidak aktif',
+            'resolved' => 'Sudah sembuh',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function allergySeverities(): array
+    {
+        return [
+            'mild' => 'Ringan',
+            'moderate' => 'Sedang',
+            'severe' => 'Berat',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function carePlanStatuses(): array
+    {
+        return [
+            'active' => 'Aktif',
+            'completed' => 'Selesai',
+            'on-hold' => 'Ditunda',
+        ];
+    }
+
     public static function instructions(): array
     {
         return [

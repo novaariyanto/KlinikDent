@@ -37,7 +37,9 @@ final class CareProgress
             'rujukan' => $visit->referrals->isNotEmpty(),
             'instruksi' => filled($record?->clinical_notes)
                 || filled($instructions['items'] ?? null)
-                || filled($instructions['extra'] ?? null),
+                || filled($instructions['extra'] ?? null)
+                || filled($instructions['goal'] ?? null)
+                || filled($record?->control_date),
         ];
     }
 

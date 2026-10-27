@@ -32,6 +32,22 @@
                                         </label>
                                     @endforeach
                                 </div>
+                                <label class="form-label" for="plan_instructions_goal">Tujuan perawatan</label>
+                                <textarea name="plan_instructions[goal]" id="plan_instructions_goal" rows="2" class="form-control mb-3">{{ $instructions['goal'] ?? '' }}</textarea>
+                                <div class="row g-2 mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="plan_instructions_status">Status rencana</label>
+                                        <select name="plan_instructions[status]" id="plan_instructions_status" class="form-select">
+                                            @foreach ($examOptions['care_plan_statuses'] as $value => $label)
+                                                <option value="{{ $value }}" @selected(($instructions['status'] ?? 'active') === $value)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="control_date">Tanggal kontrol</label>
+                                        <input type="date" name="control_date" id="control_date" class="form-control" value="{{ old('control_date', $record?->control_date?->format('Y-m-d')) }}">
+                                    </div>
+                                </div>
                                 <label class="form-label" for="plan_instructions_extra">Instruksi tambahan / edukasi</label>
                                 <textarea name="plan_instructions[extra]" id="plan_instructions_extra" rows="4" class="form-control">{{ $instructionExtra }}</textarea>
                                 <label class="form-label mt-3" for="plan_instructions_prognosis">Prognosis (opsional, untuk ClinicalImpression)</label>

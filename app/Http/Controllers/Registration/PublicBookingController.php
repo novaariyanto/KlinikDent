@@ -31,11 +31,23 @@ class PublicBookingController extends Controller
     public function show(string $slug): View
     {
         $tenant = $this->tenant($slug);
+        $provinceCode = $this->wilayah->normalizeProvinceCode(old('province_code'));
+        $cityCode = $this->wilayah->normalizeCityCode(old('city_code'));
+        $districtCode = $this->wilayah->normalizeDistrictCode(old('district_code'));
+        $villageCode = $this->wilayah->normalizeVillageCode(old('village_code'));
 
         return view('registration.booking.form', [
             'tenant' => $tenant,
             'branches' => Branch::withoutGlobalScopes()->where('tenant_id', $tenant->id)->where('is_active', true)->orderBy('name')->get(),
             'genders' => Gender::options(),
+            'provinces' => $this->wilayah->provinces(),
+            'cities' => $provinceCode ? $this->wilayah->cities($provinceCode) : [],
+            'districts' => $cityCode ? $this->wilayah->districts($cityCode) : [],
+            'villages' => $districtCode ? $this->wilayah->villages($districtCode) : [],
+            'selectedProvince' => $provinceCode,
+            'selectedCity' => $cityCode,
+            'selectedDistrict' => $districtCode,
+            'selectedVillage' => $villageCode,
         ]);
     }
 
@@ -43,9 +55,41 @@ class PublicBookingController extends Controller
     {
         $this->tenant($slug);
 
-        $result = $this->wilayah->fromNik((string) $request->query('nik', $request->input('nik', '')));
+        $result = $this->wilayah->identityFromNik((string) $request->query('nik', $request->input('nik', '')));
 
         return response()->json($result, ($result['ok'] ?? false) ? 200 : 422);
+    }
+
+    public function cities(Request $request, string $slug): JsonResponse
+    {
+        $this->tenant($slug);
+
+        return response()->json([
+            'options' => $this->wilayah->cities((string) $request->query('province_code', '')),
+        ]);
+    }
+
+    public function districts(Request $request, string $slug): JsonResponse
+    {
+        $this->tenant($slug);
+
+        return response()->json([
+            'options' => $this->wilayah->districts((string) $request->query('city_code', '')),
+        ]);
+    }
+
+    public function villages(Request $request, string $slug): JsonResponse
+    {
+        $this->tenant($slug);
+
+        $districtCode = (string) $request->query('district_code', '');
+        $villageCode = (string) $request->query('village_code', '');
+
+        return response()->json([
+            'options' => $this->wilayah->villages($districtCode),
+            'postal_code' => $this->wilayah->villagePostalCode($villageCode ?: null),
+            'city_name' => $this->wilayah->cityName((string) $request->query('city_code', '')),
+        ]);
     }
 
     public function sessions(Request $request, string $slug): JsonResponse
@@ -107,12 +151,30 @@ class PublicBookingController extends Controller
             'nik' => ['nullable', 'digits:16'],
             'dob' => ['nullable', 'date'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
+            'address' => ['nullable', 'string', 'max:500'],
+            'province_code' => ['nullable', 'string', 'max:10'],
+            'city_code' => ['nullable', 'string', 'max:10'],
+            'district_code' => ['nullable', 'string', 'max:10'],
+            'village_code' => ['nullable', 'string', 'max:20'],
+            'address_city' => ['nullable', 'string', 'max:100'],
+            'address_postal_code' => ['nullable', 'string', 'max:10'],
+            'rt' => ['nullable', 'string', 'max:5'],
+            'rw' => ['nullable', 'string', 'max:5'],
             'company_website' => ['nullable', 'string', 'max:0'],
         ]);
+
+        $data['province_code'] = $this->wilayah->normalizeProvinceCode($data['province_code'] ?? null);
+        $data['city_code'] = $this->wilayah->normalizeCityCode($data['city_code'] ?? null);
+        $data['district_code'] = $this->wilayah->normalizeDistrictCode($data['district_code'] ?? null);
+        $data['village_code'] = $this->wilayah->normalizeVillageCode($data['village_code'] ?? null);
 
         $schedule = DoctorSchedule::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->whereKey($data['doctor_schedule_id'])
+            ->with([
+                'doctor' => fn ($query) => $query->withoutGlobalScopes()->with('user'),
+                'room' => fn ($query) => $query->withoutGlobalScopes(),
+            ])
             ->first();
 
         if (! $schedule || $this->slots->remaining($schedule, $data['visit_date'], (int) $tenant->id) < 1) {
@@ -138,11 +200,16 @@ class PublicBookingController extends Controller
             'payer_id' => $payer->id,
         ]);
 
+        $branch = $visit->branch;
+
         return redirect()
             ->route('booking.public', $tenant->subdomain)
             ->with('booking', [
                 'number' => $visit->queue?->displayNumber(),
-                'doctor' => $visit->doctor?->name,
+                'doctor' => $schedule->doctor?->displayName() ?: ($visit->doctor?->name),
+                'time' => $schedule->timeRange(),
+                'room' => $schedule->room?->name,
+                'branch' => $branch?->name,
                 'date' => $visit->visit_date?->format('d M Y'),
                 'patient' => $visit->patient?->name,
                 'mrn' => $visit->patient?->medical_record_number,

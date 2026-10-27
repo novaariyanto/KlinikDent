@@ -186,7 +186,9 @@ class VisitRegistrar
         }
 
         if ($patient) {
-            return $patient;
+            $this->syncPatientProfile($patient, $data);
+
+            return $patient->fresh();
         }
 
         return Patient::withoutGlobalScopes()->create($this->patientAttributes($data, [

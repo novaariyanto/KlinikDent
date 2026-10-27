@@ -37,7 +37,7 @@ HTTP 2xx saja tidak otomatis berarti playbook lengkap.
 | Condition | Ada diagnosis ICD-10 |
 | Procedure | Ada tindakan + ICD-9; edukasi jika instruksi tercatat |
 | Observation | Vital, exam gigi, odontogram, DMF; OHIS jika DI+CI lengkap; ABO/Rh/hamil jika terisi |
-| AllergyIntolerance | `allergy_status=present` (+detail) atau `none_confirmed` |
+| AllergyIntolerance | `present` + zat pemicu, atau `none_confirmed`. `not_asked` dan `unknown` tidak dikirim. Kategori kosong pada data lama dikirim sebagai `medication` |
 | MedicationStatement | `medication_status=present` + detail teks |
 | Medication / MedicationRequest | Resep sent/fulfilled + item siap (obat jadi: `kfa_code`; racikan: bahan ber-KFA + tipe EP) |
 | MedicationDispense | Hanya prescription `fulfilled` |
@@ -70,8 +70,10 @@ Wajib `SimpleQuantity` lengkap (`value`, `unit`, `system`, `code`). Tanpa `syste
 
 Local key `servicerequest:referral:{id}` berasal dari tabel `referrals`. Payload wajib punya `code.coding` (bukan hanya `text`).
 | ClinicalImpression | Hanya jika `plan_instructions.prognosis` terisi |
+| CarePlan | Ada tujuan perawatan dan/atau instruksi. Kategori SNOMED `736271009`. Periode memakai `control_date` atau `followup_date` bila terisi |
+| Composition | Resume medis rawat jalan (LOINC `88645-7`) setelah resource klinis sukses. Section hanya merujuk resource yang benar-benar terkirim |
 
-Tidak dikirim: Composition, Specimen, ImagingStudy, DiagnosticReport (tidak relevan / tidak ada sumber lokal klinis).
+Tidak dikirim: Specimen, ImagingStudy, DiagnosticReport (tidak ada sumber lokal klinis). AllergyIntolerance tidak dikirim bila status belum ditanyakan atau tidak diketahui.
 
 ## Logging & privasi
 

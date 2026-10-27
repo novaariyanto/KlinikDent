@@ -121,6 +121,9 @@ Route::get('/antrean/{token}/data', [QueueMonitorController::class, 'feed'])->na
 Route::get('/janji/{slug}', [PublicBookingController::class, 'show'])->name('booking.public');
 Route::get('/janji/{slug}/sesi', [PublicBookingController::class, 'sessions'])->name('booking.public.sessions');
 Route::get('/janji/{slug}/from-nik', [PublicBookingController::class, 'fromNik'])->middleware('throttle:30,1')->name('booking.public.from-nik');
+Route::get('/janji/{slug}/wilayah/cities', [PublicBookingController::class, 'cities'])->middleware('throttle:60,1')->name('booking.public.wilayah.cities');
+Route::get('/janji/{slug}/wilayah/districts', [PublicBookingController::class, 'districts'])->middleware('throttle:60,1')->name('booking.public.wilayah.districts');
+Route::get('/janji/{slug}/wilayah/villages', [PublicBookingController::class, 'villages'])->middleware('throttle:60,1')->name('booking.public.wilayah.villages');
 Route::post('/janji/{slug}', [PublicBookingController::class, 'store'])->middleware('throttle:10,1')->name('booking.public.store');
 
 Route::get('/cek/{code}', [DocumentCheckController::class, 'show'])->name('documents.check');

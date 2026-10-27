@@ -33,6 +33,9 @@ class UpdateMedicalRecordRequest extends FormRequest
             'plan_instructions.items.*' => ['string', Rule::in(array_keys(CareExamOptions::instructions()))],
             'plan_instructions.extra' => ['nullable', 'string', 'max:5000'],
             'plan_instructions.prognosis' => ['nullable', 'string', 'max:2000'],
+            'plan_instructions.goal' => ['nullable', 'string', 'max:2000'],
+            'plan_instructions.status' => ['nullable', 'string', Rule::in(array_keys(CareExamOptions::carePlanStatuses()))],
+            'control_date' => ['nullable', 'date'],
         ];
     }
 }

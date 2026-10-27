@@ -250,4 +250,186 @@ class SatuSehatPayloadTest extends TestCase
 
         $this->assertNull(SatuSehatFhirPayload::medicationFromItem($item, '10000004'));
     }
+
+    public function test_allergy_present_uses_text_substance_without_invented_code(): void
+    {
+        $built = SatuSehatFhirPayload::allergyIntolerance(
+            [
+                'allergy_status' => 'present',
+                'allergy_detail' => 'Amoksisilin',
+                'allergy_category' => 'medication',
+                'allergy_type' => 'allergy',
+                'allergy_clinical_status' => 'active',
+                'allergy_reaction' => 'Ruam kulit',
+                'allergy_severity' => 'moderate',
+                'allergy_note' => 'Muncul setelah minum obat',
+            ],
+            '10000004',
+            '88',
+            'patient-ihs',
+            'practitioner-ihs',
+            'encounter-1',
+            '2026-10-16T03:00:00Z',
+        );
+
+        $payload = $built['payload'];
+        $this->assertSame('AllergyIntolerance', $payload['resourceType']);
+        $this->assertSame('Amoksisilin', $payload['code']['text']);
+        $this->assertArrayNotHasKey('coding', $payload['code']);
+        $this->assertSame(['medication'], $payload['category']);
+        $this->assertSame('allergy', $payload['type']);
+        $this->assertSame('Ruam kulit', $payload['reaction'][0]['manifestation'][0]['text']);
+        $this->assertSame('moderate', $payload['reaction'][0]['severity']);
+        $this->assertSame('Practitioner/practitioner-ihs', $payload['recorder']['reference']);
+        $this->assertSame('Patient/patient-ihs', $payload['patient']['reference']);
+        $this->assertSame('Encounter/encounter-1', $payload['encounter']['reference']);
+
+        SatuSehatPayloadValidator::assert('AllergyIntolerance', $payload, 'allergy:88');
+    }
+
+    public function test_empty_or_unknown_allergy_is_not_sent_as_no_known_allergy(): void
+    {
+        $empty = SatuSehatFhirPayload::allergyIntolerance([], '1', '1', 'p', 'd', 'e', '2026-10-16T03:00:00Z');
+        $unknown = SatuSehatFhirPayload::allergyIntolerance(
+            ['allergy_status' => 'unknown'],
+            '1',
+            '1',
+            'p',
+            'd',
+            'e',
+            '2026-10-16T03:00:00Z',
+        );
+        $notAsked = SatuSehatFhirPayload::allergyIntolerance(
+            ['allergy_status' => 'not_asked'],
+            '1',
+            '1',
+            'p',
+            'd',
+            'e',
+            '2026-10-16T03:00:00Z',
+        );
+
+        $this->assertNull($empty['payload']);
+        $this->assertNull($empty['note']);
+        $this->assertNull($unknown['payload']);
+        $this->assertNotNull($unknown['note']);
+        $this->assertNull($notAsked['payload']);
+    }
+
+    public function test_no_known_allergy_uses_snomed_without_reaction(): void
+    {
+        $built = SatuSehatFhirPayload::allergyIntolerance(
+            ['allergy_status' => 'none_confirmed'],
+            '10000004',
+            '9',
+            'patient-ihs',
+            'practitioner-ihs',
+            'encounter-1',
+            '2026-10-16T03:00:00Z',
+        );
+
+        $payload = $built['payload'];
+        $this->assertSame('716186003', $payload['code']['coding'][0]['code']);
+        $this->assertArrayNotHasKey('reaction', $payload);
+        $this->assertArrayNotHasKey('category', $payload);
+        SatuSehatPayloadValidator::assert('AllergyIntolerance', $payload, 'allergy:none:9');
+    }
+
+    public function test_care_plan_maps_goal_activity_and_condition_reference(): void
+    {
+        $payload = SatuSehatFhirPayload::carePlan(
+            '10000004',
+            '15',
+            'patient-ihs',
+            'practitioner-ihs',
+            'encounter-1',
+            '2026-10-16T03:00:00Z',
+            'active',
+            "Tujuan: Bebas nyeri\nInstruksi: Jaga kebersihan gigi",
+            ['Jaga kebersihan gigi'],
+            ['condition-1'],
+            '2026-10-16T03:00:00Z',
+            '2026-10-23T16:59:59Z',
+        );
+
+        $this->assertSame('CarePlan', $payload['resourceType']);
+        $this->assertSame('plan', $payload['intent']);
+        $this->assertSame('736271009', $payload['category'][0]['coding'][0]['code']);
+        $this->assertSame('Condition/condition-1', $payload['addresses'][0]['reference']);
+        $this->assertSame('scheduled', $payload['activity'][0]['detail']['status']);
+        $this->assertSame('Jaga kebersihan gigi', $payload['activity'][0]['detail']['description']);
+        $this->assertArrayNotHasKey('code', $payload['activity'][0]['detail']);
+        $this->assertSame('Patient/patient-ihs', $payload['subject']['reference']);
+        $this->assertSame('Encounter/encounter-1', $payload['encounter']['reference']);
+
+        SatuSehatPayloadValidator::assert('CarePlan', $payload, 'careplan:15');
+    }
+
+    public function test_care_plan_without_narrative_is_not_sent(): void
+    {
+        $this->assertNull(SatuSehatFhirPayload::carePlan(
+            '10000004',
+            '15',
+            'patient-ihs',
+            'practitioner-ihs',
+            'encounter-1',
+            '2026-10-16T03:00:00Z',
+            'active',
+            '   ',
+            [],
+            [],
+        ));
+    }
+
+    public function test_composition_only_references_resources_that_exist(): void
+    {
+        $payload = SatuSehatFhirPayload::compositionResume([
+            'organization_id' => '10000004',
+            'visit_id' => '15',
+            'patient_ihs' => 'patient-ihs',
+            'practitioner_ihs' => 'practitioner-ihs',
+            'encounter_id' => 'encounter-1',
+            'date' => '2026-10-16T04:00:00Z',
+            'chief_complaint' => 'Sakit gigi',
+            'anamnesis' => 'Nyeri sejak dua hari',
+            'course' => 'Keluhan: Sakit gigi. Diagnosis: K02.1',
+            'allergy_ids' => ['allergy-1'],
+            'condition_ids' => ['condition-1'],
+            'care_plan_ids' => ['careplan-1'],
+            'vital_ids' => [],
+            'exam_ids' => ['observation-1'],
+            'procedure_ids' => [],
+            'medication_request_ids' => [],
+            'service_request_ids' => [],
+        ]);
+
+        $this->assertSame('88645-7', $payload['type']['coding'][0]['code']);
+        $this->assertSame('LP173421-1', $payload['category'][0]['coding'][0]['code']);
+        $this->assertSame('Patient/patient-ihs', $payload['subject']['reference']);
+        $this->assertSame('Encounter/encounter-1', $payload['encounter']['reference']);
+        $this->assertSame('Practitioner/practitioner-ihs', $payload['author'][0]['reference']);
+        $this->assertStringContainsString('xmlns="http://www.w3.org/1999/xhtml"', $payload['section'][0]['section'][0]['text']['div']);
+
+        $entries = json_encode($payload['section'], JSON_UNESCAPED_SLASHES);
+        $this->assertStringContainsString('AllergyIntolerance/allergy-1', $entries);
+        $this->assertStringContainsString('Condition/condition-1', $entries);
+        $this->assertStringContainsString('CarePlan/careplan-1', $entries);
+        $this->assertStringContainsString('Observation/observation-1', $entries);
+        $this->assertStringNotContainsString('Procedure/', $entries);
+        $this->assertStringNotContainsString('MedicationRequest/', $entries);
+
+        SatuSehatPayloadValidator::assert('Composition', $payload, 'composition:15');
+    }
+
+    public function test_composition_without_clinical_sections_is_not_sent(): void
+    {
+        $this->assertNull(SatuSehatFhirPayload::compositionResume([
+            'organization_id' => '10000004',
+            'visit_id' => '15',
+            'patient_ihs' => 'patient-ihs',
+            'practitioner_ihs' => 'practitioner-ihs',
+            'encounter_id' => 'encounter-1',
+            'date' => '2026-10-16T04:00:00Z',
+        ]));
+    }
 }

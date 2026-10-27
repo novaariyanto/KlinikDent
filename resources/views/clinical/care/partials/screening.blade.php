@@ -36,14 +36,59 @@
                         <span class="text-muted">mmHg</span>
                     </div>
                 </div>
-                <div class="exam-reveal mt-2" data-sys-panel="allergy" hidden>
-                    <label class="form-label">Status alergi (SATUSEHAT)</label>
-                    <select name="allergy_status" class="form-select mb-2">
-                        <option value="not_asked" @selected(($sys['allergy_status'] ?? 'not_asked') === 'not_asked')>Belum ditanyakan</option>
-                        <option value="none_confirmed" @selected(($sys['allergy_status'] ?? '') === 'none_confirmed')>Dikonfirmasi: tidak ada alergi</option>
-                        <option value="present" @selected(($sys['allergy_status'] ?? '') === 'present')>Ada alergi</option>
+                <div class="mt-3">
+                    <label class="form-label" for="allergy_status">Riwayat alergi</label>
+                    <select name="allergy_status" id="allergy_status" class="form-select mb-2">
+                        @foreach ($examOptions['allergy_statuses'] as $value => $label)
+                            <option value="{{ $value }}" @selected(($sys['allergy_status'] ?? 'not_asked') === $value)>{{ $label }}</option>
+                        @endforeach
                     </select>
-                    <x-input name="allergy_detail" label="Alergi terhadap" :value="$sys['allergy_detail'] ?? null" />
+                    <p class="text-muted small">Kosong atau belum ditanyakan tidak diartikan sebagai tidak ada alergi.</p>
+                    @php
+                        $allergyCategory = $sys['allergy_category'] ?? ((($sys['allergy_status'] ?? '') === 'present') ? 'medication' : '');
+                    @endphp
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <label class="form-label" for="allergy_category">Kategori</label>
+                            <select name="allergy_category" id="allergy_category" class="form-select">
+                                <option value="">—</option>
+                                @foreach ($examOptions['allergy_categories'] as $value => $label)
+                                    <option value="{{ $value }}" @selected($allergyCategory === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="allergy_type">Jenis</label>
+                            <select name="allergy_type" id="allergy_type" class="form-select">
+                                <option value="">—</option>
+                                @foreach ($examOptions['allergy_types'] as $value => $label)
+                                    <option value="{{ $value }}" @selected(($sys['allergy_type'] ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="allergy_clinical_status">Status klinis</label>
+                            <select name="allergy_clinical_status" id="allergy_clinical_status" class="form-select">
+                                <option value="">—</option>
+                                @foreach ($examOptions['allergy_clinical_statuses'] as $value => $label)
+                                    <option value="{{ $value }}" @selected(($sys['allergy_clinical_status'] ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="allergy_severity">Tingkat keparahan reaksi</label>
+                            <select name="allergy_severity" id="allergy_severity" class="form-select">
+                                <option value="">—</option>
+                                @foreach ($examOptions['allergy_severities'] as $value => $label)
+                                    <option value="{{ $value }}" @selected(($sys['allergy_severity'] ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <x-input name="allergy_detail" label="Zat atau bahan pemicu" :value="$sys['allergy_detail'] ?? null" />
+                    <x-input name="allergy_reaction" label="Reaksi atau manifestasi" :value="$sys['allergy_reaction'] ?? null" />
+                    <label class="form-label" for="allergy_note">Catatan klinis alergi</label>
+                    <textarea name="allergy_note" id="allergy_note" rows="2" class="form-control">{{ $sys['allergy_note'] ?? '' }}</textarea>
                 </div>
                 <div class="exam-reveal mt-2" data-sys-panel="medication" hidden>
                     <label class="form-label">Status obat rutin (SATUSEHAT)</label>
@@ -122,7 +167,7 @@
     var noneBox = document.querySelector('[data-sys-none]');
     var conditionBoxes = document.querySelectorAll('[data-sys-conditions] input[type="checkbox"]');
     function syncSys() {
-        ['hypertension', 'allergy', 'medication', 'other'].forEach(function (key) {
+        ['hypertension', 'medication', 'other'].forEach(function (key) {
             var box = document.querySelector('[data-sys-toggle="' + key + '"] input');
             var panel = document.querySelector('[data-sys-panel="' + key + '"]');
             if (panel) panel.hidden = !(box && box.checked);
