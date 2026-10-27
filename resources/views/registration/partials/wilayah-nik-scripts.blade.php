@@ -2,23 +2,14 @@
     @push('styles')
         <link href="{{ theme('libs/select2/css/select2.min.css') }}" rel="stylesheet" type="text/css">
         <style>
-            .main-content:has(select.js-wilayah-select),
-            .page-content:has(select.js-wilayah-select),
-            .card:has(select.js-wilayah-select),
-            .card-body:has(select.js-wilayah-select),
-            #new-patient-fields,
-            .mb-3:has(select.js-wilayah-select) {
-                overflow: visible !important;
-            }
             select.js-wilayah-select + .select2-container {
                 display: block !important;
                 width: 100% !important;
-                position: relative;
-                z-index: 3;
             }
             select.js-wilayah-select + .select2-container .select2-selection--single {
                 height: 38px;
                 border: 1px solid #ced4da;
+                border-radius: 0.25rem;
                 background-color: #fff;
             }
             select.js-wilayah-select + .select2-container .select2-selection--single .select2-selection__rendered {
@@ -26,27 +17,32 @@
                 padding-left: 12px;
                 color: #495057;
             }
+            select.js-wilayah-select + .select2-container .select2-selection--single .select2-selection__arrow {
+                height: 36px;
+            }
             select.js-wilayah-select + .select2-container .select2-selection--single .select2-selection__placeholder {
                 color: #74788d;
             }
-            .select2-container--open {
+            .select2-container--open.wilayah-select2,
+            .select2-dropdown.wilayah-select2-dropdown {
                 z-index: 10050 !important;
             }
-            .select2-dropdown {
-                z-index: 10050 !important;
-                background-color: #fff !important;
-                color: #495057 !important;
+            .select2-dropdown.wilayah-select2-dropdown {
+                background-color: #fff;
+                color: #495057;
+                border: 1px solid #ced4da;
             }
-            .select2-results__options {
+            .select2-dropdown.wilayah-select2-dropdown .select2-results__options {
                 max-height: 240px;
             }
-            .select2-container--default .select2-results__option {
-                color: #495057 !important;
+            .select2-dropdown.wilayah-select2-dropdown .select2-results__option {
+                color: #495057;
                 background-color: #fff;
             }
-            .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
-                background-color: #556ee6 !important;
-                color: #fff !important;
+            .select2-dropdown.wilayah-select2-dropdown .select2-results__option--highlighted.select2-results__option--selectable,
+            .select2-dropdown.wilayah-select2-dropdown .select2-results__option--highlighted[aria-selected] {
+                background-color: #556ee6;
+                color: #fff;
             }
         </style>
     @endpush
@@ -89,11 +85,6 @@
             nikHint.className = 'form-text' + (isError ? ' text-danger' : (text ? ' text-success' : ''));
         }
 
-        function dropdownParentFor(select) {
-            var parent = $(select).closest('.mb-3');
-            return parent.length ? parent : $(document.body);
-        }
-
         function revealSelect(select) {
             select.classList.remove('select2-hidden-accessible');
             select.removeAttribute('aria-hidden');
@@ -111,7 +102,9 @@
             try {
                 $el.select2({
                     width: '100%',
-                    dropdownParent: dropdownParentFor(select),
+                    dropdownParent: $(document.body),
+                    dropdownCssClass: 'wilayah-select2-dropdown',
+                    selectionCssClass: 'wilayah-select2',
                     placeholder: $el.data('placeholder') || 'Cari / pilih',
                     allowClear: true,
                     language: {
@@ -129,6 +122,7 @@
                 revealSelect(select);
                 return;
             }
+            box.classList.add('wilayah-select2');
             box.style.width = '100%';
             box.style.display = 'block';
         }
