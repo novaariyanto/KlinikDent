@@ -404,10 +404,15 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/billing', [BillingDashboardController::class, 'index'])->name('billing.index');
             Route::get('/billing/invoices', [InvoiceController::class, 'index'])->name('billing.invoices');
             Route::get('/billing/invoices/today', [InvoiceController::class, 'today'])->name('billing.invoices.today');
+            Route::get('/billing/invoices/search', [InvoiceController::class, 'search'])->name('billing.invoices.search');
+            Route::get('/billing/invoices/today-patients', [InvoiceController::class, 'todayPatients'])->name('billing.invoices.today-patients');
             Route::get('/billing/history', [InvoiceController::class, 'history'])->name('billing.history');
             Route::post('/billing/invoices/generate', [InvoiceController::class, 'generate'])->name('billing.invoices.generate');
             Route::get('/billing/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('billing.invoices.print');
+            Route::get('/billing/invoices/{invoice}/receipt', [InvoiceController::class, 'receipt'])->name('billing.invoices.receipt');
             Route::get('/billing/invoices/{invoice}', [InvoiceController::class, 'show'])->name('billing.invoices.show');
+            Route::post('/billing/invoices/{invoice}/confirm', [InvoiceController::class, 'confirm'])->name('billing.invoices.confirm');
+            Route::post('/billing/invoices/{invoice}/medicines/{prescriptionItem}/decline', [InvoiceController::class, 'declineMedicine'])->name('billing.invoices.medicines.decline');
             Route::post('/billing/invoices/{invoice}/pay', [InvoiceController::class, 'pay'])->name('billing.invoices.pay');
             Route::post('/billing/invoices/{invoice}/refund', [InvoiceController::class, 'refund'])->name('billing.invoices.refund');
             Route::post('/billing/invoices/{invoice}/void', [InvoiceController::class, 'void'])->name('billing.invoices.void');

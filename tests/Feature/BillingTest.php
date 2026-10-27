@@ -6,7 +6,9 @@ use App\Enums\BillingStatus;
 use App\Enums\CashShiftStatus;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\PrescriptionStatus;
 use App\Enums\RoleName;
+use App\Models\ActivityLog;
 use App\Models\Branch;
 use App\Models\Invoice;
 use App\Models\Medicine;
@@ -15,6 +17,7 @@ use App\Models\Menu;
 use App\Models\Patient;
 use App\Models\Payer;
 use App\Models\Prescription;
+use App\Models\PrescriptionItem;
 use App\Models\Procedure;
 use App\Models\ProcedureRecord;
 use App\Models\Tariff;
@@ -285,6 +288,331 @@ class BillingTest extends TestCase
         ] as $url) {
             $this->actingAs($cashier)->get($url)->assertOk()->assertDontSee('Coming Soon');
         }
+    }
+
+    public function test_cashier_page_adds_fulfilled_medicine_to_the_open_invoice(): void
+    {
+        $invoice = $this->invoiceFromVisit();
+        $dentist = $invoice->visit->doctor;
+        $this->actingAs($dentist)->post(route('care.prescription-item.store', $invoice->visit), [
+            'medicine_id' => $this->medicineA->id,
+            'quantity' => 10,
+        ])->assertRedirect();
+        Prescription::query()->where('visit_id', $invoice->visit_id)->update([
+            'status' => PrescriptionStatus::Fulfilled,
+        ]);
+
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $this->actingAs($cashier)
+            ->get(route('billing.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('Amoxicillin')
+            ->assertSee('275.000')
+            ->assertSee('Cetak');
+
+        $this->assertSame('275000.00', $invoice->fresh()->total_amount);
+        $this->assertSame(2, $invoice->items()->count());
+    }
+
+    public function test_cashier_search_stays_inside_the_branch(): void
+    {
+        $invoice = $this->invoiceFromVisit();
+        $invoice->patient->update(['name' => 'Pasien Kasir Unik', 'medical_record_number' => 'RM-KASIR-23']);
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $otherBranch = Branch::factory()->create(['tenant_id' => $this->tenantA->id]);
+        $other = $this->tenantUser(RoleName::Cashier, $this->tenantA, $otherBranch);
+
+        $this->actingAs($cashier)
+            ->getJson(route('billing.invoices.search', ['q' => 'RM-KASIR-23']))
+            ->assertOk()
+            ->assertJsonFragment(['number' => $invoice->number]);
+
+        $this->actingAs($other)
+            ->getJson(route('billing.invoices.search', ['q' => 'RM-KASIR-23']))
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->actingAs($other)
+            ->get(route('billing.invoices.show', $invoice))
+            ->assertForbidden();
+    }
+
+    public function test_service_confirmation_is_recorded_separately_from_payment(): void
+    {
+        $invoice = $this->invoiceFromVisit();
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $procedureId = ProcedureRecord::query()->where('visit_id', $invoice->visit_id)->value('id');
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.confirm', $invoice), [
+                'procedures' => [$procedureId],
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('activity_logs', [
+            'event' => 'cashier_confirmed',
+            'subject_id' => $invoice->id,
+        ]);
+        $this->assertSame(0, $invoice->payments()->count());
+
+        $this->actingAs($cashier)
+            ->get(route('billing.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('Dikonfirmasi')
+            ->assertDontSee('Tidak sesuai');
+    }
+
+    public function test_mismatched_procedure_quantity_is_shown_before_payment(): void
+    {
+        $invoice = $this->invoiceFromVisit();
+        $item = $invoice->items()->first();
+        $item->update([
+            'quantity' => 3,
+            'subtotal' => bcmul((string) $item->unit_price, '3', 2),
+        ]);
+
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $this->actingAs($cashier)
+            ->get(route('billing.invoices.show', $invoice))
+            ->assertOk()
+            ->assertSee('Tidak sesuai')
+            ->assertSee('berbeda dari rekam tindakan');
+    }
+
+    public function test_cash_payment_rejects_short_tender_and_duplicate_full_payment(): void
+    {
+        $invoice = $this->invoiceFromVisit();
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $this->openShift($cashier);
+
+        $this->actingAs($cashier)
+            ->from(route('billing.invoices.show', $invoice))
+            ->post(route('billing.invoices.pay', $invoice), [
+                'cashier' => '1',
+                'amount' => '250000',
+                'method' => PaymentMethod::Cash->value,
+                'tendered' => '1000',
+                'service_confirmed' => '1',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame(0, $invoice->payments()->count());
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.pay', $invoice), [
+                'cashier' => '1',
+                'amount' => '250000',
+                'method' => PaymentMethod::Cash->value,
+                'tendered' => '300000',
+                'service_confirmed' => '1',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('cashier_print');
+
+        $this->assertTrue($invoice->fresh()->isPaid());
+        $this->assertSame('250000.00', $invoice->fresh()->paid_amount);
+
+        $this->actingAs($cashier)
+            ->from(route('billing.invoices.show', $invoice))
+            ->post(route('billing.invoices.pay', $invoice), [
+                'cashier' => '1',
+                'amount' => '250000',
+                'method' => PaymentMethod::Cash->value,
+                'tendered' => '250000',
+                'service_confirmed' => '1',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame(1, $invoice->payments()->count());
+        $this->actingAs($cashier)
+            ->get(route('billing.invoices.receipt', [$invoice, 'paper' => '80']))
+            ->assertOk()
+            ->assertSee($invoice->number);
+        $this->actingAs($cashier)
+            ->get(route('billing.invoices.print', [$invoice, 'paper' => 'a5']))
+            ->assertOk();
+    }
+
+    public function test_declined_medicine_is_removed_from_the_bill_and_stock_is_returned_once(): void
+    {
+        [$invoice, $item, $stock] = $this->fulfilledMedicineInvoice();
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.medicines.decline', [$invoice, $item]), [
+                'quantity' => 4,
+                'reason' => 'tidak_jadi',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.medicines.decline', [$invoice, $item]), [
+                'quantity' => 4,
+                'reason' => 'tidak_jadi',
+            ])
+            ->assertRedirect();
+
+        $invoice->refresh();
+        $this->assertSame('255000.00', $invoice->total_amount);
+        $this->assertSame(2, (int) $invoice->items()->where('source_type', 'medicine')->where('source_id', $item->id)->value('quantity'));
+        $this->assertNotNull(PrescriptionItem::query()->find($item->id));
+        $this->assertSame(18, (int) $stock->fresh()->quantity);
+        $this->assertSame(2, ActivityLog::query()->where('event', 'medicine_not_taken')->where('subject_id', $item->id)->count());
+
+        $this->actingAs($cashier)
+            ->from(route('billing.invoices.show', $invoice))
+            ->post(route('billing.invoices.medicines.decline', [$invoice, $item]), [
+                'quantity' => 4,
+                'reason' => 'tidak_jadi',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame(18, (int) $stock->fresh()->quantity);
+    }
+
+    public function test_confirmed_handover_and_paid_invoice_do_not_silently_change_the_medicine_bill(): void
+    {
+        [$invoice, $item, $stock] = $this->fulfilledMedicineInvoice();
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $this->openShift($cashier);
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.confirm', $invoice), [
+                'medicines' => [$item->id],
+            ])
+            ->assertRedirect();
+
+        $this->actingAs($cashier)
+            ->from(route('billing.invoices.show', $invoice))
+            ->post(route('billing.invoices.medicines.decline', [$invoice, $item]), [
+                'quantity' => 2,
+                'reason' => 'menolak',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame('275000.00', $invoice->fresh()->total_amount);
+        $this->assertSame(10, (int) $stock->fresh()->quantity);
+
+        [$paidInvoice, $paidItem] = array_slice($this->fulfilledMedicineInvoice(), 0, 2);
+        $this->actingAs($cashier)->post(route('billing.invoices.pay', $paidInvoice), [
+            'amount' => '275000',
+            'method' => PaymentMethod::Transfer->value,
+        ])->assertRedirect();
+
+        $this->actingAs($cashier)
+            ->from(route('billing.invoices.show', $paidInvoice))
+            ->post(route('billing.invoices.medicines.decline', [$paidInvoice, $paidItem]), [
+                'quantity' => 1,
+                'reason' => 'lainnya',
+                'detail' => 'Pasien batal setelah lunas',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertSame('275000.00', $paidInvoice->fresh()->total_amount);
+        $this->assertTrue($paidInvoice->fresh()->isPaid());
+        $this->assertDatabaseHas('activity_logs', [
+            'event' => 'medicine_decline_requested',
+            'subject_id' => $paidItem->id,
+        ]);
+    }
+
+    public function test_partial_payment_stays_when_declined_medicine_makes_the_bill_smaller(): void
+    {
+        [$invoice, $item] = array_slice($this->fulfilledMedicineInvoice(), 0, 2);
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+        $this->openShift($cashier);
+
+        $this->actingAs($cashier)->post(route('billing.invoices.pay', $invoice), [
+            'amount' => '270000',
+            'method' => PaymentMethod::Card->value,
+        ])->assertRedirect();
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.medicines.decline', [$invoice, $item]), [
+                'quantity' => 4,
+                'reason' => 'beli_luar',
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $invoice->refresh();
+        $this->assertSame('265000.00', $invoice->total_amount);
+        $this->assertSame('270000.00', $invoice->paid_amount);
+        $this->assertSame(1, $invoice->payments()->count());
+        $this->assertSame(InvoiceStatus::Paid, $invoice->status);
+    }
+
+    public function test_medicine_declined_before_dispensing_is_not_billed_or_stocked(): void
+    {
+        $invoice = $this->invoiceFromVisit();
+        $dentist = $invoice->visit->doctor;
+        $pharmacy = $this->tenantUser(RoleName::Pharmacy, $this->tenantA, $this->branchA);
+        $cashier = $this->tenantUser(RoleName::Cashier, $this->tenantA, $this->branchA);
+
+        $this->actingAs($dentist)->post(route('care.prescription-item.store', $invoice->visit), [
+            'medicine_id' => $this->medicineA->id,
+            'quantity' => 10,
+        ])->assertRedirect();
+        $rx = Prescription::query()->where('visit_id', $invoice->visit_id)->first();
+        $item = $rx->items()->first();
+        $this->actingAs($dentist)->post(route('care.prescription.send', [$invoice->visit, $rx]));
+        $stock = MedicineStock::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'branch_id' => $this->branchA->id,
+            'medicine_id' => $this->medicineA->id,
+            'quantity' => 20,
+            'expired_date' => now()->addMonth()->toDateString(),
+        ]);
+
+        $this->actingAs($cashier)
+            ->post(route('billing.invoices.medicines.decline', [$invoice, $item]), [
+                'quantity' => 10,
+                'reason' => 'tidak_jadi',
+            ])
+            ->assertRedirect();
+
+        app(PharmacyStockService::class)->fulfill($rx->fresh(), $pharmacy);
+
+        $this->assertSame(20, (int) $stock->fresh()->quantity);
+        $this->assertSame('250000.00', $invoice->fresh()->total_amount);
+        $this->assertNotNull(PrescriptionItem::query()->find($item->id));
+    }
+
+    /**
+     * @return array{0: Invoice, 1: PrescriptionItem, 2: MedicineStock}
+     */
+    protected function fulfilledMedicineInvoice(): array
+    {
+        $invoice = $this->invoiceFromVisit();
+        $dentist = $invoice->visit->doctor;
+        $pharmacy = $this->tenantUser(RoleName::Pharmacy, $this->tenantA, $this->branchA);
+
+        $this->actingAs($dentist)->post(route('care.prescription-item.store', $invoice->visit), [
+            'medicine_id' => $this->medicineA->id,
+            'quantity' => 10,
+        ])->assertRedirect();
+        $rx = Prescription::query()->where('visit_id', $invoice->visit_id)->first();
+        $this->actingAs($dentist)->post(route('care.prescription.send', [$invoice->visit, $rx]));
+        $stock = MedicineStock::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'branch_id' => $this->branchA->id,
+            'medicine_id' => $this->medicineA->id,
+            'quantity' => 20,
+            'expired_date' => now()->addMonth()->toDateString(),
+        ]);
+        app(PharmacyStockService::class)->fulfill($rx->fresh(), $pharmacy);
+
+        return [
+            $invoice->fresh(),
+            $rx->items()->first(),
+            $stock->fresh(),
+        ];
     }
 
     protected function invoiceFromVisit(): Invoice

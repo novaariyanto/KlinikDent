@@ -36,6 +36,26 @@ class StorePaymentRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
             'method' => ['required', Rule::enum(PaymentMethod::class)],
             'notes' => ['nullable', 'string', 'max:255'],
+            'reference' => ['nullable', 'string', 'max:64'],
+            'tendered' => [
+                Rule::requiredIf(fn () => $this->boolean('cashier') && $this->input('method') === PaymentMethod::Cash->value),
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+            'cashier' => ['nullable', 'boolean'],
+            'service_confirmed' => [Rule::excludeIf(! $this->boolean('cashier')), 'accepted'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'service_confirmed.accepted' => 'Centang pemeriksaan layanan sebelum pembayaran.',
+            'tendered.required' => 'Isi uang yang diterima untuk pembayaran tunai.',
         ];
     }
 }

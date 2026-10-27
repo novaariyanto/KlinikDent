@@ -80,10 +80,20 @@ class PharmacyStockService
                 throw new InvalidArgumentException('Resep tidak memiliki cabang kunjungan.');
             }
 
+            $declined = app(BillingService::class)->declinedQuantities(
+                $locked->items->pluck('id')->map(fn ($id) => (int) $id)->all()
+            );
+
             $demands = [];
 
             foreach ($locked->items as $item) {
+                $skipped = (int) ($declined[$item->id] ?? 0);
+
                 if ($item->isCompound()) {
+                    if ($skipped > 0) {
+                        continue;
+                    }
+
                     foreach ($item->ingredients as $ingredient) {
                         if (! $ingredient->medicine_id) {
                             continue;
@@ -99,10 +109,16 @@ class PharmacyStockService
                     continue;
                 }
 
+                $needed = (int) $item->quantity - $skipped;
+
+                if ($needed < 1) {
+                    continue;
+                }
+
                 $demands[] = [
                     'label' => $item->medicine?->name ?? 'Obat #'.$item->medicine_id,
                     'medicine_id' => (int) $item->medicine_id,
-                    'quantity' => (int) $item->quantity,
+                    'quantity' => $needed,
                 ];
             }
 
@@ -169,6 +185,68 @@ class PharmacyStockService
                 }
             });
         });
+    }
+
+    public function returnDispensed(Prescription $prescription, int $medicineId, int $quantity, User $user, string $notes): void
+    {
+        if ($quantity < 1) {
+            throw new InvalidArgumentException('Jumlah pengembalian stok tidak valid.');
+        }
+
+        $outs = StockMovement::query()
+            ->where('reference_type', $prescription::class)
+            ->where('reference_id', $prescription->id)
+            ->where('type', StockMovementType::Out)
+            ->whereHas('stock', fn ($query) => $query->where('medicine_id', $medicineId))
+            ->lockForUpdate()
+            ->get();
+
+        $returns = StockMovement::query()
+            ->where('reference_type', $prescription::class)
+            ->where('reference_id', $prescription->id)
+            ->where('type', StockMovementType::ReturnIn)
+            ->whereHas('stock', fn ($query) => $query->where('medicine_id', $medicineId))
+            ->lockForUpdate()
+            ->get();
+
+        $outByStock = [];
+
+        foreach ($outs as $movement) {
+            $outByStock[$movement->medicine_stock_id] = ($outByStock[$movement->medicine_stock_id] ?? 0) + (int) $movement->quantity;
+        }
+
+        $returnedByStock = [];
+
+        foreach ($returns as $movement) {
+            $returnedByStock[$movement->medicine_stock_id] = ($returnedByStock[$movement->medicine_stock_id] ?? 0) + (int) $movement->quantity;
+        }
+
+        $remaining = $quantity;
+
+        foreach ($outByStock as $stockId => $outQty) {
+            $room = $outQty - (int) ($returnedByStock[$stockId] ?? 0);
+
+            if ($room < 1 || $remaining < 1) {
+                continue;
+            }
+
+            $take = min($room, $remaining);
+            $stock = MedicineStock::query()->whereKey($stockId)->lockForUpdate()->first();
+
+            if (! $stock) {
+                throw new InvalidArgumentException('Batch stok pengembalian tidak ditemukan.');
+            }
+
+            $stock->quantity += $take;
+            $stock->save();
+
+            $this->recordMovement($stock, StockMovementType::ReturnIn, $take, $user, $prescription, $notes);
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0) {
+            throw new InvalidArgumentException('Stok yang bisa dikembalikan untuk resep ini tidak cukup.');
+        }
     }
 
     /**

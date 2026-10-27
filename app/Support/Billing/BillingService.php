@@ -11,6 +11,7 @@ use App\Enums\PrescriptionStatus;
 use App\Enums\RoleName;
 use App\Enums\WhatsAppEvent;
 use App\Models\CashierShift;
+use App\Models\ActivityLog;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
@@ -18,6 +19,8 @@ use App\Models\PrescriptionItem;
 use App\Models\ProcedureRecord;
 use App\Models\User;
 use App\Models\Visit;
+use App\Support\Pharmacy\PharmacyStockService;
+use Illuminate\Support\Str;
 use App\Support\Registration\DocumentSequenceGenerator;
 use App\Support\WhatsApp\WhatsAppAutomationService;
 use Illuminate\Support\Collection;
@@ -26,6 +29,20 @@ use InvalidArgumentException;
 
 class BillingService
 {
+    /**
+     * @var array<string, string>
+     */
+    public const DECLINE_REASONS = [
+        'tidak_jadi' => 'Pasien tidak jadi membeli obat',
+        'beli_luar' => 'Pasien memilih membeli obat di luar klinik',
+        'stok_habis' => 'Obat tidak tersedia',
+        'menolak' => 'Pasien menolak obat',
+        'diganti' => 'Obat diganti dengan obat lain',
+        'dikurangi' => 'Jumlah obat dikurangi berdasarkan instruksi dokter',
+        'salah_input' => 'Kesalahan input resep atau billing',
+        'lainnya' => 'Alasan lainnya',
+    ];
+
     public function __construct(protected DocumentSequenceGenerator $sequences) {}
 
     public function generateForVisit(Visit $visit, ?User $user = null): ?Invoice
@@ -79,12 +96,18 @@ class BillingService
                     continue;
                 }
 
+                $qty = $this->billableQuantity($item);
+
+                if ($qty < 1) {
+                    continue;
+                }
+
                 $this->addItem(
                     $invoice,
                     InvoiceItemSource::Medicine,
                     (int) $item->id,
                     $this->medicineDescription($item),
-                    (int) $item->quantity,
+                    $qty,
                     (string) ($item->medicine?->sell_price ?? $item->medicine?->base_price ?? '0.00'),
                 );
             }
@@ -107,15 +130,42 @@ class BillingService
         });
     }
 
-    public function pay(Invoice $invoice, User $user, string $amount, PaymentMethod $method, ?string $notes = null): Payment
-    {
+    public function pay(
+        Invoice $invoice,
+        User $user,
+        string $amount,
+        PaymentMethod $method,
+        ?string $notes = null,
+        ?string $reference = null,
+        ?string $tendered = null,
+        bool $acknowledged = false,
+    ): Payment {
         $amount = $this->normalizeAmount($amount);
 
         if (bccomp($amount, '0', 2) <= 0) {
             throw new BillingException('Nominal pembayaran harus lebih dari 0.');
         }
 
-        return DB::transaction(function () use ($invoice, $user, $amount, $method, $notes) {
+        $change = null;
+
+        if ($tendered !== null && trim($tendered) !== '') {
+            $tendered = $this->normalizeAmount($tendered);
+
+            if ($method === PaymentMethod::Cash && bccomp($tendered, $amount, 2) < 0) {
+                throw new BillingException('Uang diterima lebih kecil dari nominal pembayaran.');
+            }
+
+            if ($method === PaymentMethod::Cash) {
+                $change = bcsub($tendered, $amount, 2);
+            }
+        } else {
+            $tendered = null;
+        }
+
+        $reference = $reference !== null ? trim($reference) : null;
+        $notes = $this->paymentNotes($notes, $reference, $method === PaymentMethod::Cash ? $tendered : null, $change);
+
+        return DB::transaction(function () use ($invoice, $user, $amount, $method, $notes, $reference, $tendered, $change, $acknowledged) {
             /** @var Invoice $locked */
             $locked = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
 
@@ -149,10 +199,20 @@ class BillingService
 
             $this->recalculate($locked);
 
-            activity_audit('paid', $locked->fresh(), $before, 'Pembayaran tagihan '.$locked->number, 'billing', [
+            activity_audit('paid', $locked->fresh(), $before, 'Pembayaran tagihan '.$locked->number, 'billing', array_filter([
                 'amount' => $amount,
                 'method' => $method->value,
-            ], $user);
+                'reference' => $reference,
+                'tendered' => $tendered,
+                'change' => $change,
+            ], fn ($value) => $value !== null && $value !== ''), $user);
+
+            if ($acknowledged) {
+                activity_log('cashier_payment_ack', $locked, [
+                    'payment_id' => $payment->id,
+                    'amount' => $amount,
+                ], 'Kasir menyatakan layanan sudah diperiksa sebelum pembayaran '.$locked->number, 'billing', $user);
+            }
 
             $paidInvoice = $locked->fresh(['patient', 'branch', 'visit']);
 
@@ -384,7 +444,7 @@ class BillingService
         if (! $invoice->isVoid()) {
             if (bccomp($paid, '0', 2) <= 0) {
                 $status = InvoiceStatus::Unpaid;
-            } elseif (bccomp($paid, $total, 2) >= 0 && bccomp($total, '0', 2) > 0) {
+            } elseif (bccomp($paid, $total, 2) >= 0) {
                 $status = InvoiceStatus::Paid;
             } else {
                 $status = InvoiceStatus::Partial;
@@ -411,16 +471,261 @@ class BillingService
             return $itemIds;
         }
 
+        $ids = $itemIds->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $declined = $this->declinedQuantities($ids);
+
         $billed = InvoiceItem::query()
             ->where('source_type', InvoiceItemSource::Medicine)
-            ->whereIn('source_id', $itemIds->pluck('id'))
+            ->whereIn('source_id', $ids)
             ->whereHas('invoice', fn ($query) => $query
                 ->where('visit_id', $visit->id)
                 ->where('status', '!=', InvoiceStatus::Void))
             ->pluck('source_id')
             ->all();
 
-        return $itemIds->reject(fn (PrescriptionItem $item) => in_array($item->id, $billed, true))->values();
+        return $itemIds->reject(function (PrescriptionItem $item) use ($billed, $declined) {
+            if (in_array($item->id, $billed, true)) {
+                return true;
+            }
+
+            return $this->billableQuantity($item, (int) ($declined[$item->id] ?? 0)) < 1;
+        })->values();
+    }
+
+    /**
+     * @param  list<int>  $itemIds
+     * @return array<int, int>
+     */
+    public function declinedQuantities(array $itemIds): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $sums = array_fill_keys($itemIds, 0);
+
+        $logs = ActivityLog::query()
+            ->where('subject_type', PrescriptionItem::class)
+            ->whereIn('subject_id', $itemIds)
+            ->where('event', 'medicine_not_taken')
+            ->get(['subject_id', 'properties']);
+
+        foreach ($logs as $log) {
+            $id = (int) $log->subject_id;
+            $sums[$id] = ($sums[$id] ?? 0) + (int) ($log->properties['quantity'] ?? 0);
+        }
+
+        return $sums;
+    }
+
+    public function billableQuantity(PrescriptionItem $item, ?int $declined = null): int
+    {
+        $declined ??= (int) ($this->declinedQuantities([(int) $item->id])[(int) $item->id] ?? 0);
+
+        if ($item->isCompound()) {
+            return $declined > 0 ? 0 : 1;
+        }
+
+        return max(0, (int) $item->quantity - $declined);
+    }
+
+    public function declineMedicine(Invoice $invoice, PrescriptionItem $item, User $user, int $quantity, string $reason, ?string $detail = null): string
+    {
+        $item->loadMissing(['prescription.visit', 'medicine', 'ingredients.medicine']);
+        $reasonLabel = self::DECLINE_REASONS[$reason] ?? null;
+
+        if (! $reasonLabel) {
+            throw new BillingException('Alasan pembatalan tidak valid.');
+        }
+
+        if ($reason === 'lainnya' && trim((string) $detail) === '') {
+            throw new BillingException('Isi keterangan untuk alasan lainnya.');
+        }
+
+        if ((int) $item->prescription?->visit_id !== (int) $invoice->visit_id) {
+            throw new BillingException('Obat tidak termasuk kunjungan tagihan ini.');
+        }
+
+        if ($quantity < 1) {
+            throw new BillingException('Jumlah yang tidak diambil minimal 1.');
+        }
+
+        $invoice->refresh();
+
+        if ($invoice->isVoid()) {
+            throw new BillingException('Tagihan yang dibatalkan tidak dapat diubah.');
+        }
+
+        $confirmed = app(CashierDesk::class)->confirmation($invoice);
+
+        if (in_array((int) $item->id, $confirmed['medicines'], true)) {
+            throw new BillingException('Obat sudah dikonfirmasi diserahkan. Gunakan pengembalian dana, bukan pembatalan pengambilan.');
+        }
+
+        if ($invoice->isPaid()) {
+            activity_log('medicine_decline_requested', $item, [
+                'invoice_id' => $invoice->id,
+                'quantity' => $quantity,
+                'reason' => $reason,
+                'reason_label' => $reasonLabel,
+                'detail' => $detail,
+            ], 'Permintaan koreksi obat pada tagihan lunas '.$invoice->number.' dicatat tanpa mengubah total.', 'billing', $user);
+
+            throw new BillingException('Tagihan sudah lunas. Permintaan koreksi dicatat. Total tidak diubah. Gunakan pengembalian dana.');
+        }
+
+        return DB::transaction(function () use ($invoice, $item, $user, $quantity, $reason, $reasonLabel, $detail) {
+            /** @var Invoice $locked */
+            $locked = Invoice::query()->whereKey($invoice->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->isPaid()) {
+                throw new BillingException('Tagihan sudah lunas. Total tidak diubah. Gunakan pengembalian dana.');
+            }
+
+            if ($locked->isVoid()) {
+                throw new BillingException('Tagihan yang dibatalkan tidak dapat diubah.');
+            }
+
+            /** @var PrescriptionItem $rxItem */
+            $rxItem = PrescriptionItem::query()->whereKey($item->id)->lockForUpdate()->firstOrFail();
+            $rxItem->loadMissing(['prescription', 'medicine', 'ingredients.medicine']);
+            $prescription = $rxItem->prescription;
+
+            if (! $prescription || (int) $prescription->visit_id !== (int) $locked->visit_id) {
+                throw new BillingException('Obat tidak termasuk kunjungan tagihan ini.');
+            }
+
+            $prescribed = $rxItem->isCompound() ? 1 : (int) $rxItem->quantity;
+            $already = (int) ($this->declinedQuantities([(int) $rxItem->id])[(int) $rxItem->id] ?? 0);
+
+            if ($quantity > max(0, $prescribed - $already)) {
+                throw new BillingException('Jumlah melebihi sisa obat yang masih bisa dibatalkan.');
+            }
+
+            if ($rxItem->isCompound() && $quantity !== 1) {
+                throw new BillingException('Racikan hanya dapat dibatalkan utuh.');
+            }
+
+            $line = InvoiceItem::query()
+                ->where('invoice_id', $locked->id)
+                ->where('source_type', InvoiceItemSource::Medicine)
+                ->where('source_id', $rxItem->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $line) {
+                $elsewhere = InvoiceItem::query()
+                    ->where('source_type', InvoiceItemSource::Medicine)
+                    ->where('source_id', $rxItem->id)
+                    ->where('invoice_id', '!=', $locked->id)
+                    ->whereHas('invoice', fn ($query) => $query
+                        ->where('visit_id', $locked->visit_id)
+                        ->where('status', '!=', InvoiceStatus::Void))
+                    ->exists();
+
+                if ($elsewhere) {
+                    throw new BillingException('Obat tercatat pada tagihan lain. Buka tagihan tersebut.');
+                }
+            }
+
+            if ($line && $quantity > (int) $line->quantity) {
+                throw new BillingException('Jumlah melebihi yang masih ditagihkan.');
+            }
+
+            $beforeTotal = (string) $locked->total_amount;
+            $unitPrice = $line ? (string) $line->unit_price : (string) ($rxItem->medicine?->sell_price ?? $rxItem->medicine?->base_price ?? '0.00');
+            $amount = $line
+                ? bcmul((string) $line->unit_price, (string) $quantity, 2)
+                : bcmul($unitPrice, (string) ($rxItem->isCompound() ? 1 : $quantity), 2);
+            $billedBefore = $line ? (int) $line->quantity : 0;
+            $billedAfter = $billedBefore;
+
+            if ($line) {
+                $billedAfter = $billedBefore - $quantity;
+                $description = (string) $line->description;
+
+                if ($billedAfter === 0 && ! str_contains($description, 'tidak diambil')) {
+                    $description = Str::limit($description.' — tidak diambil', 255, '');
+                }
+
+                $line->update([
+                    'quantity' => $billedAfter,
+                    'subtotal' => bcmul((string) $line->unit_price, (string) $billedAfter, 2),
+                    'description' => $description,
+                ]);
+            }
+
+            $stockReturned = false;
+
+            if ($prescription->isFulfilled()) {
+                $stock = app(PharmacyStockService::class);
+
+                if ($rxItem->isCompound()) {
+                    foreach ($rxItem->ingredients as $ingredient) {
+                        if (! $ingredient->medicine_id || (int) $ingredient->quantity < 1) {
+                            continue;
+                        }
+
+                        $stock->returnDispensed($prescription, (int) $ingredient->medicine_id, (int) $ingredient->quantity, $user, 'Obat tidak jadi diambil');
+                    }
+                } elseif ($rxItem->medicine_id) {
+                    $stock->returnDispensed($prescription, (int) $rxItem->medicine_id, $quantity, $user, 'Obat tidak jadi diambil');
+                }
+
+                $stockReturned = true;
+            }
+
+            $before = activity_snapshot($locked);
+
+            if ($line) {
+                $this->recalculate($locked);
+            }
+
+            $fresh = $locked->fresh();
+            $overpaid = bcsub((string) $fresh->paid_amount, (string) $fresh->total_amount, 2);
+
+            $properties = [
+                'invoice_id' => $locked->id,
+                'visit_id' => $locked->visit_id,
+                'prescription_id' => $prescription->id,
+                'prescription_item_id' => $rxItem->id,
+                'quantity' => $quantity,
+                'prescribed_quantity' => $prescribed,
+                'billed_quantity_before' => $billedBefore,
+                'billed_quantity_after' => $billedAfter,
+                'unit_price' => $line ? (string) $line->unit_price : $unitPrice,
+                'amount' => $amount,
+                'reason' => $reason,
+                'reason_label' => $reasonLabel,
+                'detail' => $detail,
+                'handover_before' => $prescription->isFulfilled() ? 'disiapkan_farmasi' : 'belum_diserahkan',
+                'handover_after' => $billedAfter > 0 ? 'sebagian_tidak_diambil' : 'tidak_diambil',
+                'stock_returned' => $stockReturned,
+                'invoice_total_before' => $beforeTotal,
+                'invoice_total_after' => (string) $fresh->total_amount,
+                'paid_amount' => (string) $fresh->paid_amount,
+                'overpaid' => bccomp($overpaid, '0', 2) > 0 ? $overpaid : '0.00',
+            ];
+
+            activity_log('medicine_not_taken', $rxItem, $properties, 'Obat tidak jadi diambil pada tagihan '.$locked->number, 'billing', $user);
+            activity_audit('medicine_declined', $fresh, $before, 'Obat tidak jadi diambil pada tagihan '.$locked->number, 'billing', $properties, $user);
+
+            $message = 'Obat tidak jadi diambil. Nilai yang dikeluarkan dari tagihan: Rp'.number_format((float) $amount, 0, ',', '.');
+
+            if (! $line) {
+                $message = 'Obat belum ditagih. Jumlah ini tidak akan masuk tagihan.';
+            }
+
+            if (! $stockReturned) {
+                $message .= ' Stok tidak diubah karena resep belum dipenuhi farmasi.';
+            }
+
+            if (bccomp($overpaid, '0', 2) > 0) {
+                $message .= ' Kelebihan pembayaran Rp'.number_format((float) $overpaid, 0, ',', '.').'. Gunakan pengembalian dana. Riwayat pembayaran tidak dihapus.';
+            }
+
+            return $message;
+        });
     }
 
     protected function openInvoiceForVisit(Visit $visit): ?Invoice
@@ -511,6 +816,21 @@ class BillingService
         }
 
         return $shift;
+    }
+
+    protected function paymentNotes(?string $notes, ?string $reference, ?string $tendered, ?string $change): ?string
+    {
+        $parts = array_filter([
+            $reference !== null && $reference !== '' ? 'Ref: '.$reference : null,
+            $notes !== null && trim($notes) !== '' ? trim($notes) : null,
+            $tendered !== null ? 'Diterima '.$tendered.' kembalian '.($change ?? '0.00') : null,
+        ]);
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return Str::limit(implode(' | ', $parts), 255, '');
     }
 
     protected function normalizeAmount(string $amount): string
