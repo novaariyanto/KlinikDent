@@ -397,9 +397,15 @@ final class SatuSehatFhirPayload
 
         $resolved = self::allergySubstanceCoding($category, $substance, $tenantId);
 
-        if ($resolved['fallback']) {
-            $fallbackNote = 'Zat "'.$substance.'" tidak punya kode KFA/SNOMED spesifik. code.coding memakai kode SNOMED golongan, nama zat tetap di code.text.';
-            $note = $note === null ? $fallbackNote : $note.' '.$fallbackNote;
+        if ($resolved === null) {
+            $missing = $category === 'medication'
+                ? 'Alergi obat "'.$substance.'" tidak dikirim. SATUSEHAT menolak SNOMED pada alergi obat (Rule 11149) dan ATC (Rule 10078). Samakan nama zat dengan obat di master yang punya kode KFA.'
+                : 'Alergi "'.$substance.'" tidak dikirim karena tidak ada kode SNOMED di lampiran terminologi SATUSEHAT.';
+
+            return [
+                'payload' => null,
+                'note' => $note === null ? $missing : $note.' '.$missing,
+            ];
         }
 
         $payload = self::allergyBase($organizationId, $localValue, $patientIhs, $practitionerIhs, $encounterId, $recordedAt, $clinical);
@@ -419,11 +425,18 @@ final class SatuSehatFhirPayload
 
         if ($reaction !== '') {
             $manifestation = self::allergyManifestationCoding($reaction);
+            $manifestationConcept = ['text' => $reaction];
+
+            if ($manifestation !== null) {
+                $manifestationConcept['coding'] = [SatuSehatCodes::coding(
+                    $manifestation['system'],
+                    $manifestation['code'],
+                    $manifestation['display'],
+                )];
+            }
+
             $event = [
-                'manifestation' => [[
-                    'coding' => [SatuSehatCodes::coding($manifestation['system'], $manifestation['code'], $manifestation['display'])],
-                    'text' => $reaction,
-                ]],
+                'manifestation' => [$manifestationConcept],
                 'description' => $reaction,
             ];
             $severity = (string) ($history['allergy_severity'] ?? '');
@@ -488,60 +501,42 @@ final class SatuSehatFhirPayload
 
     /**
      * Kode resmi untuk AllergyIntolerance.code.coding.
-     * Obat: KFA master obat, lalu SNOMED. Makanan/lingkungan: SNOMED.
-     * System ATC WHOCC ditolak SATUSEHAT pada elemen ini (Invalid coding system, Rule 10078).
+     * Obat hanya KFA. SNOMED pada alergi obat ditolak (Rule 11149). ATC ditolak (Rule 10078).
+     * Makanan dan lingkungan memakai SNOMED yang ada di lampiran terminologi SATUSEHAT.
      *
-     * @return array{system: string, code: string, display: string, fallback: bool}
+     * @return array{system: string, code: string, display: string}|null
      */
-    protected static function allergySubstanceCoding(string $category, string $substance, ?int $tenantId): array
+    protected static function allergySubstanceCoding(string $category, string $substance, ?int $tenantId): ?array
     {
         $normalized = self::normalizeAllergenText($substance);
 
-        if ($category === 'medication' && $tenantId !== null) {
-            $kfa = self::kfaCodingForSubstance($normalized, $tenantId);
+        if ($category === 'medication') {
+            if ($tenantId !== null) {
+                $kfa = self::kfaCodingForSubstance($normalized, $tenantId);
 
-            if ($kfa !== null) {
-                return $kfa + ['fallback' => false];
+                if ($kfa !== null) {
+                    return $kfa;
+                }
             }
+
+            return self::kfaActiveIngredient($normalized);
         }
 
         $mapped = self::matchAllergyCodebook($normalized, self::allergyCodebook());
-        $allowedSystems = $category === 'medication'
-            ? [self::KFA_SYSTEM, SatuSehatCodes::SNOMED]
-            : [SatuSehatCodes::SNOMED];
 
-        if ($mapped !== null && in_array($mapped['system'], $allowedSystems, true)) {
-            return $mapped + ['fallback' => false];
+        if ($mapped !== null && $mapped['system'] === SatuSehatCodes::SNOMED) {
+            return $mapped;
         }
 
-        return match ($category) {
-            'food' => [
-                'system' => SatuSehatCodes::SNOMED,
-                'code' => '255620007',
-                'display' => 'Food (substance)',
-                'fallback' => true,
-            ],
-            'environment', 'biologic' => [
-                'system' => SatuSehatCodes::SNOMED,
-                'code' => '406465008',
-                'display' => 'Allergen class (substance)',
-                'fallback' => true,
-            ],
-            default => [
-                'system' => SatuSehatCodes::SNOMED,
-                'code' => '416098002',
-                'display' => 'Allergy to drug (finding)',
-                'fallback' => true,
-            ],
-        };
+        return null;
     }
 
     /**
-     * @return array{system: string, code: string, display: string}
+     * @return array{system: string, code: string, display: string}|null
      */
-    protected static function allergyManifestationCoding(string $reaction): array
+    protected static function allergyManifestationCoding(string $reaction): ?array
     {
-        $mapped = self::matchAllergyCodebook(self::normalizeAllergenText($reaction), [
+        return self::matchAllergyCodebook(self::normalizeAllergenText($reaction), [
             'urtikaria' => self::snomedAllergen('126485001', 'Urticaria (disorder)'),
             'biduran' => self::snomedAllergen('126485001', 'Urticaria (disorder)'),
             'ruam' => self::snomedAllergen('126485001', 'Urticaria (disorder)'),
@@ -551,8 +546,31 @@ final class SatuSehatFhirPayload
             'mual' => self::snomedAllergen('422587007', 'Nausea (finding)'),
             'anafilaksis' => self::snomedAllergen('39579001', 'Anaphylaxis (disorder)'),
         ]);
+    }
 
-        return $mapped ?? self::snomedAllergen('419076005', 'Allergic reaction (disorder)');
+    /**
+     * BZA yang tertulis di dokumen KFA SATUSEHAT. Kode lain tidak dikarang.
+     *
+     * @return array{system: string, code: string, display: string}|null
+     */
+    protected static function kfaActiveIngredient(string $normalized): ?array
+    {
+        $book = [
+            'parasetamol' => ['91000101', 'Paracetamol'],
+            'paracetamol' => ['91000101', 'Paracetamol'],
+            'asetaminofen' => ['91000101', 'Paracetamol'],
+        ];
+
+        $known = self::matchAllergyCodebook($normalized, array_map(
+            fn (array $row) => [
+                'system' => self::KFA_SYSTEM,
+                'code' => $row[0],
+                'display' => $row[1],
+            ],
+            $book,
+        ));
+
+        return $known;
     }
 
     /**
@@ -628,48 +646,21 @@ final class SatuSehatFhirPayload
     }
 
     /**
-     * SNOMED CT yang terbit. System ATC WHOCC tidak diterima pada AllergyIntolerance.code.
+     * SNOMED yang ada di lampiran terminologi alergi SATUSEHAT. Bukan kode temuan obat.
      *
      * @return array<string, array{system: string, code: string, display: string}>
      */
     protected static function allergyCodebook(): array
     {
         return [
-            'amoksisilin' => self::snomedAllergen('294505008', 'Allergy to amoxicillin (finding)'),
-            'amoxicillin' => self::snomedAllergen('294505008', 'Allergy to amoxicillin (finding)'),
-            'ampisilin' => self::snomedAllergen('294506009', 'Allergy to ampicillin (finding)'),
-            'ampicillin' => self::snomedAllergen('294506009', 'Allergy to ampicillin (finding)'),
-            'penisilin' => self::snomedAllergen('91936005', 'Allergy to penicillin (finding)'),
-            'penicillin' => self::snomedAllergen('91936005', 'Allergy to penicillin (finding)'),
-            'sefalosporin' => self::snomedAllergen('294532003', 'Allergy to cephalosporin antibacterial (finding)'),
-            'cephalosporin' => self::snomedAllergen('294532003', 'Allergy to cephalosporin antibacterial (finding)'),
-            'klindamisin' => self::snomedAllergen('294561002', 'Allergy to clindamycin (finding)'),
-            'clindamycin' => self::snomedAllergen('294561002', 'Allergy to clindamycin (finding)'),
-            'metronidazol' => self::snomedAllergen('294567003', 'Allergy to metronidazole (finding)'),
-            'metronidazole' => self::snomedAllergen('294567003', 'Allergy to metronidazole (finding)'),
-            'eritromisin' => self::snomedAllergen('91931000', 'Allergy to erythromycin (finding)'),
-            'erythromycin' => self::snomedAllergen('91931000', 'Allergy to erythromycin (finding)'),
-            'siprofloksasin' => self::snomedAllergen('294487000', 'Allergy to ciprofloxacin (finding)'),
-            'ciprofloxacin' => self::snomedAllergen('294487000', 'Allergy to ciprofloxacin (finding)'),
-            'sulfonamid' => self::snomedAllergen('91939003', 'Allergy to sulfonamide (finding)'),
-            'sulfa' => self::snomedAllergen('91939003', 'Allergy to sulfonamide (finding)'),
-            'ibuprofen' => self::snomedAllergen('293619005', 'Allergy to ibuprofen (finding)'),
-            'asam mefenamat' => self::snomedAllergen('293623002', 'Allergy to mefenamic acid (finding)'),
-            'mefenamat' => self::snomedAllergen('293623002', 'Allergy to mefenamic acid (finding)'),
-            'parasetamol' => self::snomedAllergen('293584003', 'Allergy to paracetamol (finding)'),
-            'paracetamol' => self::snomedAllergen('293584003', 'Allergy to paracetamol (finding)'),
-            'asetaminofen' => self::snomedAllergen('293584003', 'Allergy to paracetamol (finding)'),
-            'aspirin' => self::snomedAllergen('293585002', 'Allergy to salicylate (finding)'),
-            'lidokain' => self::snomedAllergen('293722000', 'Allergy to lidocaine (finding)'),
-            'lidocaine' => self::snomedAllergen('293722000', 'Allergy to lidocaine (finding)'),
-            'gluten' => self::snomedAllergen('89811004', 'Gluten (substance)'),
+            'gluten' => self::snomedAllergen('89811004', 'Gluten'),
             'gandum' => self::snomedAllergen('89811004', 'Gluten (substance)'),
             'terigu' => self::snomedAllergen('89811004', 'Gluten (substance)'),
             'udang' => self::snomedAllergen('278840001', 'Shrimp (substance)'),
             'shrimp' => self::snomedAllergen('278840001', 'Shrimp (substance)'),
             'seafood' => self::snomedAllergen('44027008', 'Seafood (substance)'),
             'telur' => self::snomedAllergen('102263004', 'Eggs (edible) (substance)'),
-            'susu' => self::snomedAllergen('3718001', 'Cow\'s milk (substance)'),
+            'susu' => self::snomedAllergen('264295007', 'Cow\'s milk protein'),
             'kacang' => self::snomedAllergen('762952008', 'Peanut (substance)'),
             'lateks' => self::snomedAllergen('111088007', 'Latex (substance)'),
             'latex' => self::snomedAllergen('111088007', 'Latex (substance)'),

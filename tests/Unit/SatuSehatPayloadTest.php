@@ -272,13 +272,34 @@ class SatuSehatPayloadTest extends TestCase
             '2026-10-16T03:00:00Z',
         );
 
-        $payload = $built['payload'];
+        $this->assertNull($built['payload']);
+        $this->assertNotNull($built['note']);
+
+        $food = SatuSehatFhirPayload::allergyIntolerance(
+            [
+                'allergy_status' => 'present',
+                'allergy_detail' => 'Udang',
+                'allergy_category' => 'food',
+                'allergy_type' => 'allergy',
+                'allergy_clinical_status' => 'active',
+                'allergy_reaction' => 'Ruam kulit',
+                'allergy_severity' => 'moderate',
+                'allergy_note' => 'Muncul setelah makan',
+            ],
+            '10000004',
+            '88',
+            'patient-ihs',
+            'practitioner-ihs',
+            'encounter-1',
+            '2026-10-16T03:00:00Z',
+        );
+        $payload = $food['payload'];
         $this->assertSame('AllergyIntolerance', $payload['resourceType']);
-        $this->assertSame('Amoksisilin', $payload['code']['text']);
+        $this->assertSame('Udang', $payload['code']['text']);
         $this->assertSame('http://snomed.info/sct', $payload['code']['coding'][0]['system']);
-        $this->assertSame('294505008', $payload['code']['coding'][0]['code']);
+        $this->assertSame('278840001', $payload['code']['coding'][0]['code']);
         $this->assertSame('126485001', $payload['reaction'][0]['manifestation'][0]['coding'][0]['code']);
-        $this->assertSame(['medication'], $payload['category']);
+        $this->assertSame(['food'], $payload['category']);
         $this->assertSame('allergy', $payload['type']);
         $this->assertSame('Ruam kulit', $payload['reaction'][0]['manifestation'][0]['text']);
         $this->assertSame('moderate', $payload['reaction'][0]['severity']);

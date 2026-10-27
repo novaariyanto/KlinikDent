@@ -210,18 +210,19 @@ final class SatuSehatPayloadValidator
             );
         }
 
-        $allowedSystems = [
-            SatuSehatCodes::SNOMED,
-            SatuSehatFhirPayload::KFA_SYSTEM,
-        ];
+        $category = $payload['category'][0] ?? null;
+        $system = (string) $coding['system'];
+        $allowed = $category === 'medication'
+            ? [SatuSehatFhirPayload::KFA_SYSTEM]
+            : [SatuSehatCodes::SNOMED, SatuSehatFhirPayload::KFA_SYSTEM];
 
-        if (! in_array((string) $coding['system'], $allowedSystems, true)) {
+        if (! in_array($system, $allowed, true)) {
+            $rule = $category === 'medication' ? '11149' : '10078';
+
             throw IntegrationException::permanent(
-                'Validasi lokal gagal ['.$localKey.']: AllergyIntolerance.code.coding.system "'.$coding['system'].'" tidak diterima SATUSEHAT (RuleNumber: 10078).'
+                'Validasi lokal gagal ['.$localKey.']: AllergyIntolerance.code.coding.system "'.$system.'" tidak diterima SATUSEHAT (RuleNumber: '.$rule.').'
             );
         }
-
-        $category = $payload['category'][0] ?? null;
 
         if ($category !== null && ! in_array($category, SatuSehatFhirPayload::ALLERGY_CATEGORIES, true)) {
             throw IntegrationException::permanent(
