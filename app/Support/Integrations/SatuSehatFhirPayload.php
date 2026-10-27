@@ -895,6 +895,37 @@ final class SatuSehatFhirPayload
         ];
     }
 
+    /**
+     * Kelas lokasi kunjungan rawat jalan. upgradeClassIndicator wajib (aturan SATUSEHAT 10165).
+     * Klinik gigi tidak mencatat naik/turun kelas, jadi indikatornya kelas tetap.
+     *
+     * @return array<string, mixed>
+     */
+    public static function encounterLocationServiceClass(): array
+    {
+        return [
+            'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/ServiceClass',
+            'extension' => [
+                [
+                    'url' => 'value',
+                    'valueCodeableConcept' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.kemkes.go.id/CodeSystem/locationServiceClass-Outpatient',
+                        'reguler',
+                        'Kelas Reguler',
+                    )),
+                ],
+                [
+                    'url' => 'upgradeClassIndicator',
+                    'valueCodeableConcept' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
+                        'http://terminology.kemkes.go.id/CodeSystem/locationUpgradeClass',
+                        'kelas-tetap',
+                        'Kelas Tetap Perawatan',
+                    )),
+                ],
+            ],
+        ];
+    }
+
     public static function isReadyKind(PrescriptionItemKind|string|null $kind): bool
     {
         if ($kind instanceof PrescriptionItemKind) {

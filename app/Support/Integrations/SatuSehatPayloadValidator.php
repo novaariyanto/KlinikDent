@@ -26,6 +26,7 @@ final class SatuSehatPayloadValidator
             'Medication' => self::assertMedication($payload, $localKey),
             'ServiceRequest' => self::assertServiceRequest($payload, $localKey),
             'MedicationRequest' => self::assertMedicationRequest($payload, $localKey),
+            'Encounter' => self::assertEncounter($payload, $localKey),
             'AllergyIntolerance' => self::assertAllergyIntolerance($payload, $localKey),
             'CarePlan' => self::assertCarePlan($payload, $localKey),
             'Composition' => self::assertComposition($payload, $localKey),
@@ -163,6 +164,27 @@ final class SatuSehatPayloadValidator
         if ($system === '' || $code === '') {
             throw IntegrationException::permanent(
                 'Validasi lokal gagal ['.$localKey.']: MedicationRequest.dispenseRequest.quantity wajib punya system dan code (OrderableDrugForm/UCUM/SNOMED).'
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    protected static function assertEncounter(array $payload, string $localKey): void
+    {
+        $nested = $payload['location'][0]['extension'][0]['extension'] ?? null;
+        $urls = [];
+
+        foreach (is_array($nested) ? $nested : [] as $extension) {
+            if (is_array($extension) && filled($extension['url'] ?? null)) {
+                $urls[] = (string) $extension['url'];
+            }
+        }
+
+        if (! in_array('upgradeClassIndicator', $urls, true)) {
+            throw IntegrationException::permanent(
+                'Validasi lokal gagal ['.$localKey.']: Encounter.location[0].extension[0].ExtUrl:upgradeClassIndicator wajib diisi (RuleNumber: 10165).'
             );
         }
     }
@@ -376,6 +398,7 @@ final class SatuSehatPayloadValidator
             'AllergyIntolerance.reaction.manifestation',
             'CarePlan.description',
             'CarePlan.subject',
+            'Encounter.location[0].extension[0].ExtUrl:upgradeClassIndicator',
             'Composition.section',
             'Composition.type',
             'Composition.author',

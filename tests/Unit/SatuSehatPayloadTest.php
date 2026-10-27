@@ -421,6 +421,54 @@ class SatuSehatPayloadTest extends TestCase
         SatuSehatPayloadValidator::assert('Composition', $payload, 'composition:15');
     }
 
+    public function test_encounter_location_includes_upgrade_class_indicator(): void
+    {
+        $extension = SatuSehatFhirPayload::encounterLocationServiceClass();
+        $urls = array_column($extension['extension'], 'url');
+
+        $this->assertSame('https://fhir.kemkes.go.id/r4/StructureDefinition/ServiceClass', $extension['url']);
+        $this->assertContains('value', $urls);
+        $this->assertContains('upgradeClassIndicator', $urls);
+        $this->assertSame(
+            'kelas-tetap',
+            $extension['extension'][1]['valueCodeableConcept']['coding'][0]['code'],
+        );
+        $this->assertSame(
+            'http://terminology.kemkes.go.id/CodeSystem/locationUpgradeClass',
+            $extension['extension'][1]['valueCodeableConcept']['coding'][0]['system'],
+        );
+
+        SatuSehatPayloadValidator::assert('Encounter', [
+            'resourceType' => 'Encounter',
+            'location' => [[
+                'extension' => [$extension],
+            ]],
+        ], 'encounter:1');
+    }
+
+    public function test_encounter_without_upgrade_class_indicator_is_rejected(): void
+    {
+        $this->expectException(IntegrationException::class);
+        $this->expectExceptionMessage('upgradeClassIndicator');
+
+        SatuSehatPayloadValidator::assert('Encounter', [
+            'resourceType' => 'Encounter',
+            'location' => [[
+                'extension' => [[
+                    'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/ServiceClass',
+                    'extension' => [[
+                        'url' => 'value',
+                        'valueCodeableConcept' => ['coding' => [[
+                            'system' => 'http://terminology.kemkes.go.id/CodeSystem/locationServiceClass-Outpatient',
+                            'code' => 'reguler',
+                            'display' => 'Kelas Reguler',
+                        ]]],
+                    ]],
+                ]],
+            ]],
+        ], 'encounter:1');
+    }
+
     public function test_composition_without_clinical_sections_is_not_sent(): void
     {
         $this->assertNull(SatuSehatFhirPayload::compositionResume([

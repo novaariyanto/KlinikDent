@@ -1502,17 +1502,7 @@ class SatuSehatSync
                     'display' => $location['name'],
                 ],
                 'period' => $period,
-                'extension' => [[
-                    'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/ServiceClass',
-                    'extension' => [[
-                        'url' => 'value',
-                        'valueCodeableConcept' => SatuSehatCodes::codeable(SatuSehatCodes::coding(
-                            'http://terminology.kemkes.go.id/CodeSystem/locationServiceClass-Outpatient',
-                            'reguler',
-                            'Kelas Reguler',
-                        )),
-                    ]],
-                ]],
+                'extension' => [SatuSehatFhirPayload::encounterLocationServiceClass()],
             ]],
             'serviceProvider' => ['reference' => 'Organization/'.$organizationId],
         ];
