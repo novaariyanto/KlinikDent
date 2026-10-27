@@ -2,9 +2,19 @@
     @push('styles')
         <link href="{{ theme('libs/select2/css/select2.min.css') }}" rel="stylesheet" type="text/css">
         <style>
+            .main-content:has(select.js-wilayah-select),
+            .page-content:has(select.js-wilayah-select),
+            .card:has(select.js-wilayah-select),
+            .card-body:has(select.js-wilayah-select),
+            #new-patient-fields,
+            .mb-3:has(select.js-wilayah-select) {
+                overflow: visible !important;
+            }
             select.js-wilayah-select + .select2-container {
                 display: block !important;
                 width: 100% !important;
+                position: relative;
+                z-index: 3;
             }
             select.js-wilayah-select + .select2-container .select2-selection--single {
                 height: 38px;
@@ -19,16 +29,24 @@
             select.js-wilayah-select + .select2-container .select2-selection--single .select2-selection__placeholder {
                 color: #74788d;
             }
+            .select2-container--open {
+                z-index: 10050 !important;
+            }
             .select2-dropdown {
-                background-color: #fff;
-                color: #495057;
+                z-index: 10050 !important;
+                background-color: #fff !important;
+                color: #495057 !important;
+            }
+            .select2-results__options {
+                max-height: 240px;
             }
             .select2-container--default .select2-results__option {
-                color: #495057;
+                color: #495057 !important;
+                background-color: #fff;
             }
             .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
-                background-color: #556ee6;
-                color: #fff;
+                background-color: #556ee6 !important;
+                color: #fff !important;
             }
         </style>
     @endpush
@@ -71,21 +89,48 @@
             nikHint.className = 'form-text' + (isError ? ' text-danger' : (text ? ' text-success' : ''));
         }
 
+        function dropdownParentFor(select) {
+            var parent = $(select).closest('.mb-3');
+            return parent.length ? parent : $(document.body);
+        }
+
+        function revealSelect(select) {
+            select.classList.remove('select2-hidden-accessible');
+            select.removeAttribute('aria-hidden');
+            select.style.position = '';
+            select.style.width = '';
+            select.style.height = '';
+            select.style.clip = '';
+        }
+
         function initSearchable(select) {
             var $el = $(select);
             if ($el.data('select2')) {
                 $el.select2('destroy');
             }
-            $el.select2({
-                width: '100%',
-                dropdownParent: $(document.body),
-                placeholder: $el.data('placeholder') || 'Cari / pilih',
-                allowClear: true,
-                language: {
-                    noResults: function () { return 'Tidak ditemukan'; },
-                    searching: function () { return 'Mencari…'; }
-                }
-            });
+            try {
+                $el.select2({
+                    width: '100%',
+                    dropdownParent: dropdownParentFor(select),
+                    placeholder: $el.data('placeholder') || 'Cari / pilih',
+                    allowClear: true,
+                    language: {
+                        noResults: function () { return 'Tidak ditemukan'; },
+                        searching: function () { return 'Mencari…'; }
+                    }
+                });
+            } catch (error) {
+                revealSelect(select);
+                return;
+            }
+
+            var box = select.nextElementSibling;
+            if (! box || ! box.classList.contains('select2-container')) {
+                revealSelect(select);
+                return;
+            }
+            box.style.width = '100%';
+            box.style.display = 'block';
         }
 
         function optionMap(options) {
