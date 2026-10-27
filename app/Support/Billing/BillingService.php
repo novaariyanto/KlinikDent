@@ -7,7 +7,6 @@ use App\Enums\CashShiftStatus;
 use App\Enums\InvoiceItemSource;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
-use App\Enums\PrescriptionStatus;
 use App\Enums\RoleName;
 use App\Enums\WhatsAppEvent;
 use App\Models\CashierShift;
@@ -464,7 +463,6 @@ class BillingService
     public function unbilledMedicines(Visit $visit)
     {
         $itemIds = $visit->prescriptions
-            ->filter(fn ($prescription) => $prescription->status === PrescriptionStatus::Fulfilled)
             ->flatMap(fn ($prescription) => $prescription->items);
 
         if ($itemIds->isEmpty()) {

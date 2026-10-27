@@ -261,21 +261,19 @@ class CashierDesk
         if ($invoice->isVoid()) {
             $match = 'Tidak berlaku';
             $note = 'Tagihan dibatalkan.';
-        } elseif (! $fulfilled && ! $fullyDeclined) {
-            $match = 'Perlu pemeriksaan';
-            $note = 'Resep berstatus '.$prescription->status->label().'. Obat belum dihitung lunas sebagai penyerahan.';
-        } elseif ($fulfilled && ! $line && ! $fullyDeclined) {
-            $match = 'Perlu pemeriksaan';
-            $note = 'Obat sudah dipenuhi farmasi tetapi belum masuk tagihan.';
-        } elseif ($line && $fulfilled && ! $item->isCompound() && ($billed + $declined) !== $prescribed) {
-            $match = 'Tidak sesuai';
-            $note = 'Jumlah ditagih ('.$billed.') dan tidak diambil ('.$declined.') tidak sama dengan resep ('.$prescribed.').';
-        } elseif ($line && ! $fulfilled && $billed > 0) {
-            $match = 'Tidak sesuai';
-            $note = 'Ditagihkan padahal resep belum dipenuhi farmasi.';
         } elseif ($fullyDeclined) {
             $match = 'Tidak berlaku';
             $note = 'Obat tidak jadi diambil dan tidak dihitung pada sisa tagihan.';
+        } elseif (! $line) {
+            $match = 'Perlu pemeriksaan';
+            $note = 'Obat tercatat tetapi belum masuk tagihan.';
+        } elseif (! $item->isCompound() && ($billed + $declined) !== $prescribed) {
+            $match = 'Tidak sesuai';
+            $note = 'Jumlah ditagih ('.$billed.') dan tidak diambil ('.$declined.') tidak sama dengan resep ('.$prescribed.').';
+        } elseif (! $fulfilled) {
+            $note = 'Sudah masuk tagihan. Resep masih '.$prescription->status->label().', penyerahan belum dikonfirmasi.';
+        } else {
+            $note = 'Jumlah dan harga sudah masuk tagihan.';
         }
 
         $canDecline = ! $invoice->isVoid() && ! $confirmed && ! $fullyDeclined && ($billed > 0 || ! $fulfilled);

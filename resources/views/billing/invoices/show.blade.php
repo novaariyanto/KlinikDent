@@ -88,9 +88,14 @@
                         </tr>
                     </tfoot>
                 </x-table>
-                <p class="text-muted small mb-0">Diskon invoice, voucher, dan deposit pasien tidak dipakai pada tagihan ini. Obat dihitung setelah resep dipenuhi farmasi.</p>
+                <p class="text-muted small mb-0">Diskon invoice, voucher, dan deposit pasien tidak dipakai. Obat masuk tagihan begitu tercatat. Penyerahan dikonfirmasi terpisah, boleh sebelum atau sesudah pembayaran. Stok dipotong saat farmasi memenuhi resep.</p>
             </x-card>
 
+            @php
+                $pendingHandover = collect($review['medicines'])->contains(
+                    fn (array $row) => ! $row['confirmed'] && $row['billed'] > 0 && $row['match'] !== 'Tidak berlaku'
+                );
+            @endphp
             <div class="mb-3">
                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmServicesModal">Konfirmasi tindakan dan obat</button>
                 <span class="text-muted ms-2">
@@ -98,6 +103,9 @@
                     · {{ $review['summary']['medicine_confirmed'] }}/{{ $review['summary']['medicine_count'] }} obat
                     @if ($review['summary']['mismatch_count'] > 0)
                         · {{ $review['summary']['mismatch_count'] }} perlu diperiksa
+                    @endif
+                    @if ($pendingHandover)
+                        · obat belum diserahkan
                     @endif
                 </span>
             </div>
@@ -164,7 +172,7 @@
                                     <x-input name="notes" label="Catatan" :value="old('notes')" />
                                     <div class="form-check mb-3">
                                         <input class="form-check-input" type="checkbox" name="service_confirmed" value="1" id="service-confirmed" @checked(old('service_confirmed')) required>
-                                        <label class="form-check-label" for="service-confirmed">Saya sudah memeriksa tindakan, obat, dan selisih tagihan.</label>
+                                        <label class="form-check-label" for="service-confirmed">Saya sudah memeriksa isi tagihan. Penyerahan obat dicatat terpisah, sebelum atau sesudah pembayaran.</label>
                                     </div>
                                     <x-button type="submit" variant="success" icon="bx bx-money" id="pay-button">Proses pembayaran</x-button>
                                 </form>
@@ -238,6 +246,7 @@
     </x-modal>
 
     <x-modal id="confirmServicesModal" title="Konfirmasi tindakan dan obat" size="modal-xl">
+        <p class="small text-muted">Konfirmasi hanya mencatat penyerahan dan tidak mengubah total. Obat boleh diserahkan sebelum bayar maupun setelah lunas. Sebelum diserahkan, obat yang tidak diambil memakai tombol Tidak jadi diambil. Setelah lunas, selisih uang memakai pengembalian dana.</p>
         @if ($review['confirmed_by'])
             <p class="small text-muted">Konfirmasi terakhir: {{ $review['confirmed_by'] }} · {{ $review['confirmed_at'] }}</p>
         @endif
@@ -400,6 +409,9 @@
             <a class="btn btn-light" target="_blank" href="{{ route('billing.invoices.print', [$invoice, 'paper' => 'a4']) }}">A4</a>
         </div>
         <p class="small text-muted mt-3 mb-0">Angka pada struk mengikuti total tagihan terakhir. Baris obat yang tidak diambil tetap tercantum tanpa menambah total.</p>
+        @if ($pendingHandover)
+            <p class="small mb-0">Masih ada obat yang belum dikonfirmasi diserahkan. Catat penyerahannya lewat Konfirmasi tindakan dan obat, termasuk bila obat diberikan setelah pembayaran.</p>
+        @endif
     </x-modal>
 @endsection
 
@@ -580,13 +592,24 @@
                 if (button) button.disabled = true;
             });
 
-            @if (session('cashier_print'))
-                document.addEventListener('DOMContentLoaded', () => {
-                    const modal = document.getElementById('printModal');
+            const showModal = (id) => {
+                const open = () => {
+                    const modal = document.getElementById(id);
                     if (modal && window.bootstrap) {
                         window.bootstrap.Modal.getOrCreateInstance(modal).show();
                     }
-                });
+                };
+                if (document.readyState === 'loading') {
+                    document.addEventListener('DOMContentLoaded', open);
+                } else {
+                    open();
+                }
+            };
+
+            @if (session('cashier_print'))
+                showModal('printModal');
+            @elseif (! $invoice->isVoid() && ! $errors->any() && ($invoice->isOpen() || $pendingHandover))
+                showModal('confirmServicesModal');
             @endif
         })();
     </script>

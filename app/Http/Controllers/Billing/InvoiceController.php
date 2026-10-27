@@ -6,7 +6,6 @@ use App\Enums\BillingStatus;
 use App\Enums\InvoiceItemSource;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
-use App\Enums\PrescriptionStatus;
 use App\Enums\VisitStatus;
 use App\Http\Controllers\Billing\Concerns\ScopesBillingBranch;
 use App\Http\Controllers\Controller;
@@ -409,7 +408,6 @@ class InvoiceController extends Controller
                                 ->from('prescription_items')
                                 ->join('prescriptions', 'prescriptions.id', '=', 'prescription_items.prescription_id')
                                 ->whereColumn('prescriptions.visit_id', 'visits.id')
-                                ->where('prescriptions.status', PrescriptionStatus::Fulfilled->value)
                                 ->whereNotExists(function ($billed) {
                                     $billed->selectRaw('1')
                                         ->from('invoice_items')
