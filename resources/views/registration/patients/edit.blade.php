@@ -62,8 +62,7 @@
                             </button>
                             <div id="patient-ihs-hint" class="form-text mt-2"></div>
                             <p class="text-muted small mt-2 mb-0">
-                                Sama seperti pendaftaran baru: cari NIK di MPI; jika belum ada, daftarkan memakai alamat KTP
-                                (desa/kelurahan, RT, RW — Master Wilayah SATUSEHAT / Kemendagri) dari form di kiri.
+                                Cari IHS cukup dengan NIK 16 digit. Alamat hanya dipakai jika NIK belum terdaftar di MPI.
                             </p>
                             @if ($missingAddress !== [])
                                 <p class="text-warning small mt-2 mb-0">
@@ -116,7 +115,7 @@
         function collectPayload() {
             const payload = { branch_id: branchSelect ? branchSelect.value : '' };
             [
-                'name', 'dob', 'gender', 'address', 'address_city', 'address_postal_code',
+                'name', 'nik', 'dob', 'gender', 'address', 'address_city', 'address_postal_code',
                 'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw'
             ].forEach(function (name) {
                 const val = fieldValue(name);
@@ -131,18 +130,14 @@
                 return;
             }
 
-            const payload = collectPayload();
-            if (! fieldValue('village_code')) {
-                setIhsHint('Lengkapi desa/kelurahan (Master Wilayah SATUSEHAT / Kemendagri) sebelum Cari IHS. NIK hanya memetakan sampai kecamatan.', true);
-                const villageEl = document.getElementById('village_code');
-                if (villageEl && window.jQuery) window.jQuery(villageEl).select2('open');
+            const nik = fieldValue('nik').replace(/\D+/g, '');
+            if (nik.length !== 16) {
+                setIhsHint('NIK harus 16 digit.', true);
                 return;
             }
 
-            if (! fieldValue('rt') || ! fieldValue('rw')) {
-                setIhsHint('Isi RT dan RW sesuai KTP sebelum mendaftarkan IHS ke MPI.', true);
-                return;
-            }
+            const payload = collectPayload();
+            payload.nik = nik;
 
             ihsButton.disabled = true;
             setIhsHint('Mencari IHS di SATUSEHAT…', false);
@@ -174,10 +169,11 @@
             });
         });
 
-        @if (session('ihs_focus') || request()->boolean('ihs'))
-            setIhsHint(@json(session('error') ?: 'Lengkapi alamat KTP (desa/kelurahan, RT, RW) lalu klik Cari IHS SATUSEHAT.'), true);
-            const villageEl = document.getElementById('village_code');
-            if (villageEl) villageEl.focus();
+        @if (session('error'))
+            setIhsHint(@json(session('error')), true);
+        @elseif (session('ihs_focus') || request()->boolean('ihs'))
+            const nikNow = fieldValue('nik').replace(/\D+/g, '');
+            setIhsHint(nikNow.length === 16 ? 'NIK 16 digit. Klik Cari IHS SATUSEHAT.' : 'NIK harus 16 digit.', nikNow.length !== 16);
         @endif
     })();
 </script>

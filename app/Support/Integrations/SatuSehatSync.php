@@ -350,13 +350,6 @@ class SatuSehatSync
             );
         }
 
-        $client->assertMasterWilayahCodes(
-            (string) $patient->province_code,
-            (string) $patient->city_code,
-            (string) $patient->district_code,
-            (string) $patient->village_code,
-        );
-
         $extensions = [
             [
                 'url' => 'https://fhir.kemkes.go.id/r4/StructureDefinition/citizenshipStatus',

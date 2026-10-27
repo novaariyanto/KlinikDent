@@ -8,7 +8,6 @@ use App\Enums\MaritalStatus;
 use App\Http\Requests\Concerns\NormalizesWilayahCodes;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\Patient;
-use App\Rules\WilayahCode;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -54,10 +53,10 @@ class UpdatePatientRequest extends FormRequest
             'address' => ['nullable', 'string', 'max:1000'],
             'address_city' => ['nullable', 'string', 'max:100'],
             'address_postal_code' => ['nullable', 'string', 'max:10'],
-            'province_code' => ['nullable', 'string', 'max:10', new WilayahCode('province')],
-            'city_code' => ['nullable', 'string', 'max:10', new WilayahCode('city', 'province_code')],
-            'district_code' => ['nullable', 'string', 'max:10', new WilayahCode('district', 'city_code')],
-            'village_code' => ['nullable', 'string', 'max:20', new WilayahCode('village', 'district_code')],
+            'province_code' => ['nullable', 'string', 'max:10'],
+            'city_code' => ['nullable', 'string', 'max:10'],
+            'district_code' => ['nullable', 'string', 'max:10'],
+            'village_code' => ['nullable', 'string', 'max:20'],
             'rt' => ['nullable', 'string', 'max:5'],
             'rw' => ['nullable', 'string', 'max:5'],
             'default_payer_id' => [

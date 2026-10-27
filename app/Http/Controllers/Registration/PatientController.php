@@ -215,6 +215,7 @@ class PatientController extends Controller
 
         $data = $request->validate([
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
+            'nik' => ['nullable', 'digits:16'],
             'name' => ['nullable', 'string', 'max:255'],
             'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', 'string', 'in:male,female'],
@@ -228,6 +229,22 @@ class PatientController extends Controller
             'rt' => ['nullable', 'string', 'max:5'],
             'rw' => ['nullable', 'string', 'max:5'],
         ]);
+
+        $nik = preg_replace('/\D+/', '', (string) ($data['nik'] ?? $patient->nik)) ?? '';
+
+        if (strlen($nik) !== 16) {
+            $message = 'NIK harus 16 digit.';
+
+            if ($request->expectsJson()) {
+                return response()->json(['ok' => false, 'message' => $message], 422);
+            }
+
+            return back()->with('error', $message)->with('ihs_focus', true);
+        }
+
+        if ((string) $patient->nik !== $nik) {
+            $patient->forceFill(['nik' => $nik])->save();
+        }
 
         $this->applyIhsProfileToPatient($patient, $this->normalizeIhsProfile($data));
         $patient = $patient->fresh();
