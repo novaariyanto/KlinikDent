@@ -91,173 +91,10 @@
                 <p class="text-muted small mb-0">Diskon invoice, voucher, dan deposit pasien tidak dipakai pada tagihan ini. Obat dihitung setelah resep dipenuhi farmasi.</p>
             </x-card>
 
-            <x-card title="Konfirmasi tindakan dan obat">
-                <div class="row g-2 mb-3">
-                    <div class="col-6 col-md-4"><span class="text-muted d-block">Tindakan</span><strong>{{ $review['summary']['procedure_confirmed'] }}/{{ $review['summary']['procedure_count'] }} dikonfirmasi</strong></div>
-                    <div class="col-6 col-md-4"><span class="text-muted d-block">Obat</span><strong>{{ $review['summary']['medicine_confirmed'] }}/{{ $review['summary']['medicine_count'] }} dikonfirmasi</strong></div>
-                    <div class="col-12 col-md-4"><span class="text-muted d-block">Perlu diperiksa</span><strong>{{ $review['summary']['mismatch_count'] }}</strong></div>
-                </div>
-                @if ($review['confirmed_by'])
-                    <p class="small text-muted">Konfirmasi terakhir: {{ $review['confirmed_by'] }} · {{ $review['confirmed_at'] }}</p>
-                @endif
-
-                @if ($review['mismatches'] !== [])
-                    <div class="alert alert-warning">
-                        <strong>Periksa sebelum menerima uang.</strong>
-                        <ul class="mb-2 mt-2">
-                            @foreach ($review['mismatches'] as $mismatch)
-                                <li><span class="badge bg-warning text-dark">{{ $mismatch['level'] }}</span> {{ $mismatch['text'] }}</li>
-                            @endforeach
-                        </ul>
-                        <p class="mb-0">Kasir tidak mengubah rekam medis dari halaman ini. Koreksi tindakan lewat modul perawatan, koreksi resep lewat dokter atau farmasi.</p>
-                    </div>
-                @else
-                    <div class="alert alert-success mb-3">Tidak ada selisih jumlah atau harga antara layanan dan tagihan.</div>
-                @endif
-
-                <h6 class="mt-2">Tindakan</h6>
-                @if ($review['procedures'] === [])
-                    <p class="text-muted">Tidak ada tindakan pada kunjungan ini.</p>
-                @else
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Tindakan</th>
-                                    <th>Petugas</th>
-                                    <th>Tanggal</th>
-                                    <th>Qty</th>
-                                    <th>Harga</th>
-                                    <th>Total</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($review['procedures'] as $row)
-                                    <tr>
-                                        <td>{{ $row['name'] }}</td>
-                                        <td>{{ $row['performer'] }}</td>
-                                        <td>{{ $row['date'] }}</td>
-                                        <td>{{ $row['quantity'] }}</td>
-                                        <td>{{ number_format((float) $row['price'], 0, ',', '.') }}</td>
-                                        <td>{{ number_format((float) $row['total'], 0, ',', '.') }}</td>
-                                        <td>
-                                            <span class="badge bg-light text-dark">{{ $row['perform_status'] }}</span>
-                                            <span class="badge bg-light text-dark">{{ $row['billing'] }}</span>
-                                            <span class="{{ $row['confirmed'] ? 'badge bg-success' : 'badge bg-secondary' }}">{{ $row['confirm'] }}</span>
-                                            <span class="badge {{ $row['match'] === 'Sesuai' ? 'bg-success' : ($row['match'] === 'Tidak sesuai' ? 'bg-danger' : ($row['match'] === 'Tidak berlaku' ? 'bg-dark' : 'bg-warning text-dark')) }}">{{ $row['match'] }}</span>
-                                            <div class="small text-muted">{{ $row['note'] }}</div>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-
-                <h6>Obat</h6>
-                @if ($review['medicines'] === [])
-                    <p class="text-muted">Tidak ada obat pada kunjungan ini.</p>
-                @else
-                    <div class="table-responsive">
-                        <table class="table table-sm align-middle">
-                            <thead>
-                                <tr>
-                                    <th>Obat</th>
-                                    <th>Jumlah</th>
-                                    <th>Aturan</th>
-                                    <th>Nilai</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($review['medicines'] as $row)
-                                    <tr>
-                                        <td>
-                                            {{ $row['name'] }}
-                                            @if ($row['form'])<div class="small text-muted">{{ $row['form'] }}</div>@endif
-                                        </td>
-                                        <td>
-                                            Resep {{ $row['prescribed'] }}<br>
-                                            Tagih {{ $row['billed'] }}<br>
-                                            Tidak diambil {{ $row['declined'] }}
-                                        </td>
-                                        <td>{{ $row['sig'] }}</td>
-                                        <td>
-                                            {{ number_format((float) $row['unit_price'], 0, ',', '.') }}
-                                            <div class="small">{{ number_format((float) $row['total'], 0, ',', '.') }}</div>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-light text-dark">Resep {{ $row['rx_status'] }}</span>
-                                            <span class="badge bg-light text-dark">{{ $row['handover'] }}</span>
-                                            <span class="badge bg-light text-dark">{{ $row['billing'] }}</span>
-                                            <span class="{{ $row['confirmed'] ? 'badge bg-success' : 'badge bg-secondary' }}">{{ $row['confirm'] }}</span>
-                                            <span class="badge {{ $row['match'] === 'Sesuai' ? 'bg-success' : ($row['match'] === 'Tidak sesuai' ? 'bg-danger' : ($row['match'] === 'Tidak berlaku' ? 'bg-dark' : 'bg-warning text-dark')) }}">{{ $row['match'] }}</span>
-                                            <div class="small text-muted">{{ $row['note'] }}</div>
-                                        </td>
-                                        <td class="text-nowrap">
-                                            @if ($row['can_decline'])
-                                                @can('update', $invoice)
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-sm btn-outline-danger decline-medicine"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#declineModal"
-                                                        data-url="{{ route('billing.invoices.medicines.decline', [$invoice, $row['id']]) }}"
-                                                        data-name="{{ $row['name'] }}"
-                                                        data-prescribed="{{ $row['prescribed'] }}"
-                                                        data-billed="{{ $row['billed'] }}"
-                                                        data-handed="{{ $row['handed'] }}"
-                                                        data-max="{{ $row['decline_max'] }}"
-                                                        data-price="{{ $row['unit_price'] }}"
-                                                        data-paid="{{ $row['paid_lock'] ? '1' : '0' }}"
-                                                        data-block="{{ $row['block'] }}"
-                                                    >Tidak jadi diambil</button>
-                                                @endcan
-                                            @elseif ($row['block'])
-                                                <span class="small text-muted d-block">{{ $row['block'] }}</span>
-                                            @endif
-                                            <details class="mt-1">
-                                                <summary class="small">Detail resep</summary>
-                                                <div class="small text-muted">Dokter {{ $row['doctor'] }}. Diserahkan tercatat {{ $row['handed'] }}. Koreksi resep atau penggantian obat dilakukan dokter atau farmasi.</div>
-                                            </details>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                @endif
-
-                @can('update', $invoice)
-                    @if (collect($review['procedures'])->contains(fn ($row) => ! $row['confirmed']) || collect($review['medicines'])->contains(fn ($row) => ! $row['confirmed']))
-                        <form method="POST" action="{{ route('billing.invoices.confirm', $invoice) }}" class="mt-2">
-                            @csrf
-                            <p class="mb-2">Centang layanan yang benar-benar sudah diberikan. Konfirmasi ini terpisah dari pembayaran.</p>
-                            <div class="row">
-                                @foreach ($review['procedures'] as $row)
-                                    <div class="col-md-6">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="procedures[]" value="{{ $row['id'] }}" id="proc-{{ $row['id'] }}" @checked($row['confirmed']) @disabled($row['confirmed'])>
-                                            <label class="form-check-label" for="proc-{{ $row['id'] }}">Tindakan: {{ $row['name'] }}</label>
-                                        </div>
-                                    </div>
-                                @endforeach
-                                @foreach ($review['medicines'] as $row)
-                                    <div class="col-md-6">
-                                        <div class="form-check">
-                                            <input class="form-check-input" type="checkbox" name="medicines[]" value="{{ $row['id'] }}" id="med-{{ $row['id'] }}" @checked($row['confirmed']) @disabled($row['confirmed'])>
-                                            <label class="form-check-label" for="med-{{ $row['id'] }}">Obat diserahkan: {{ $row['name'] }}</label>
-                                        </div>
-                                    </div>
-                                @endforeach
-                            </div>
-                            <x-button type="submit" variant="primary" class="mt-3">Simpan konfirmasi</x-button>
-                        </form>
-                    @endif
-                @endcan
-            </x-card>
+            <div class="mb-3">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmServicesModal">Konfirmasi tindakan dan obat</button>
+                <span class="text-muted ms-2">{{ $review['summary']['procedure_confirmed'] }}/{{ $review['summary']['procedure_count'] }} tindakan · {{ $review['summary']['medicine_confirmed'] }}/{{ $review['summary']['medicine_count'] }} obat@if ($review['summary']['mismatch_count'] > 0) · {{ $review['summary']['mismatch_count'] }} perlu diperiksa @endif</span>
+            </div>
 
             <x-card title="Riwayat pembayaran">
                 @forelse ($invoice->payments as $payment)
@@ -392,6 +229,154 @@
             <p class="small text-muted">Resep tidak dihapus. Obat yang sudah dikonfirmasi diserahkan tidak memakai tombol ini.</p>
             <x-button type="submit" variant="danger" id="decline-submit">Simpan pembatalan</x-button>
         </form>
+    </x-modal>
+
+    <x-modal id="confirmServicesModal" title="Konfirmasi tindakan dan obat" size="modal-xl">
+        @if ($review['confirmed_by'])
+            <p class="small text-muted">Konfirmasi terakhir: {{ $review['confirmed_by'] }} · {{ $review['confirmed_at'] }}</p>
+        @endif
+        @if ($review['mismatches'] !== [])
+            <div class="alert alert-warning">
+                <ul class="mb-2">
+                    @foreach ($review['mismatches'] as $mismatch)
+                        <li><span class="badge bg-warning text-dark">{{ $mismatch['level'] }}</span> {{ $mismatch['text'] }}</li>
+                    @endforeach
+                </ul>
+                <p class="mb-0">Kasir tidak mengubah rekam medis dari halaman ini. Koreksi tindakan lewat modul perawatan, koreksi resep lewat dokter atau farmasi.</p>
+            </div>
+        @else
+            <div class="alert alert-success">Tidak ada selisih jumlah atau harga antara layanan dan tagihan.</div>
+        @endif
+
+        <h6>Tindakan</h6>
+        @if ($review['procedures'] === [])
+            <p class="text-muted">Tidak ada tindakan pada kunjungan ini.</p>
+        @else
+            <div class="table-responsive mb-3">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Tindakan</th>
+                            <th>Petugas</th>
+                            <th>Tanggal</th>
+                            <th>Qty</th>
+                            <th>Harga</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($review['procedures'] as $row)
+                            <tr>
+                                <td>{{ $row['name'] }}</td>
+                                <td>{{ $row['performer'] }}</td>
+                                <td>{{ $row['date'] }}</td>
+                                <td>{{ $row['quantity'] }}</td>
+                                <td>{{ number_format((float) $row['price'], 0, ',', '.') }}</td>
+                                <td>{{ number_format((float) $row['total'], 0, ',', '.') }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark">{{ $row['billing'] }}</span>
+                                    <span class="badge {{ $row['match'] === 'Sesuai' ? 'bg-success' : ($row['match'] === 'Tidak sesuai' ? 'bg-danger' : ($row['match'] === 'Tidak berlaku' ? 'bg-dark' : 'bg-warning text-dark')) }}">{{ $row['match'] }}</span>
+                                    <div class="small text-muted">{{ $row['note'] }}</div>
+                                </td>
+                                <td class="text-nowrap">
+                                    @if ($row['confirmed'])
+                                        <span class="badge bg-success">Dikonfirmasi</span>
+                                    @else
+                                        @can('update', $invoice)
+                                            <form method="POST" action="{{ route('billing.invoices.confirm', $invoice) }}" onsubmit="this.querySelector('button').disabled = true">
+                                                @csrf
+                                                <input type="hidden" name="procedures[]" value="{{ $row['id'] }}">
+                                                <button type="submit" class="btn btn-sm btn-primary">Konfirmasi</button>
+                                            </form>
+                                        @endcan
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+
+        <h6>Obat</h6>
+        @if ($review['medicines'] === [])
+            <p class="text-muted">Tidak ada obat pada kunjungan ini.</p>
+        @else
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                        <tr>
+                            <th>Obat</th>
+                            <th>Jumlah</th>
+                            <th>Aturan</th>
+                            <th>Nilai</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($review['medicines'] as $row)
+                            <tr>
+                                <td>
+                                    {{ $row['name'] }}
+                                    @if ($row['form'])<div class="small text-muted">{{ $row['form'] }}</div>@endif
+                                </td>
+                                <td>
+                                    Resep {{ $row['prescribed'] }}<br>
+                                    Tagih {{ $row['billed'] }}<br>
+                                    Tidak diambil {{ $row['declined'] }}
+                                </td>
+                                <td>{{ $row['sig'] }}</td>
+                                <td>
+                                    {{ number_format((float) $row['unit_price'], 0, ',', '.') }}
+                                    <div class="small">{{ number_format((float) $row['total'], 0, ',', '.') }}</div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-dark">Resep {{ $row['rx_status'] }}</span>
+                                    <span class="badge bg-light text-dark">{{ $row['handover'] }}</span>
+                                    <span class="badge {{ $row['match'] === 'Sesuai' ? 'bg-success' : ($row['match'] === 'Tidak sesuai' ? 'bg-danger' : ($row['match'] === 'Tidak berlaku' ? 'bg-dark' : 'bg-warning text-dark')) }}">{{ $row['match'] }}</span>
+                                    <div class="small text-muted">{{ $row['note'] }}</div>
+                                </td>
+                                <td class="text-nowrap">
+                                    @if ($row['confirmed'])
+                                        <span class="badge bg-success">Dikonfirmasi</span>
+                                    @else
+                                        @can('update', $invoice)
+                                            <form method="POST" action="{{ route('billing.invoices.confirm', $invoice) }}" class="d-inline" onsubmit="this.querySelector('button').disabled = true">
+                                                @csrf
+                                                <input type="hidden" name="medicines[]" value="{{ $row['id'] }}">
+                                                <button type="submit" class="btn btn-sm btn-primary">Konfirmasi diserahkan</button>
+                                            </form>
+                                        @endcan
+                                    @endif
+                                    @if ($row['can_decline'])
+                                        @can('update', $invoice)
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger decline-medicine"
+                                                data-url="{{ route('billing.invoices.medicines.decline', [$invoice, $row['id']]) }}"
+                                                data-name="{{ $row['name'] }}"
+                                                data-prescribed="{{ $row['prescribed'] }}"
+                                                data-billed="{{ $row['billed'] }}"
+                                                data-handed="{{ $row['handed'] }}"
+                                                data-max="{{ $row['decline_max'] }}"
+                                                data-price="{{ $row['unit_price'] }}"
+                                                data-paid="{{ $row['paid_lock'] ? '1' : '0' }}"
+                                                data-block="{{ $row['block'] }}"
+                                            >Tidak jadi diambil</button>
+                                        @endcan
+                                    @elseif ($row['block'])
+                                        <span class="small text-muted d-block">{{ $row['block'] }}</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
     </x-modal>
 
     <x-modal id="todayPatientsModal" title="Pasien hari ini" size="modal-lg">
@@ -559,6 +544,12 @@
                 button.addEventListener('click', () => {
                     declinePrice = Number(button.dataset.price || 0);
                     declineForm.action = button.dataset.url;
+                    if (window.bootstrap) {
+                        const confirmModal = document.getElementById('confirmServicesModal');
+                        const declineModal = document.getElementById('declineModal');
+                        if (confirmModal) window.bootstrap.Modal.getOrCreateInstance(confirmModal).hide();
+                        if (declineModal) window.bootstrap.Modal.getOrCreateInstance(declineModal).show();
+                    }
                     document.getElementById('decline-name').textContent = button.dataset.name || '';
                     document.getElementById('decline-prescribed').textContent = button.dataset.prescribed || '0';
                     document.getElementById('decline-billed').textContent = button.dataset.billed || '0';
