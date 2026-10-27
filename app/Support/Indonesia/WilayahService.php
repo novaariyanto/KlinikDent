@@ -21,8 +21,12 @@ class WilayahService
     {
         return Province::query()
             ->orderBy('name')
-            ->pluck('name', 'code')
-            ->map(fn ($name, $code) => $code.' — '.$name)
+            ->get(['code', 'name'])
+            ->mapWithKeys(function (Province $province) {
+                $code = trim((string) $province->code);
+
+                return [$code => $code.' — '.$province->name];
+            })
             ->all();
     }
 
@@ -41,7 +45,11 @@ class WilayahService
             ->where('province_code', $provinceCode)
             ->orderBy('name')
             ->get(['code', 'name'])
-            ->mapWithKeys(fn (City $city) => [$city->code => $city->code.' — '.$city->name])
+            ->mapWithKeys(function (City $city) {
+                $code = trim((string) $city->code);
+
+                return [$code => $code.' — '.$city->name];
+            })
             ->all();
     }
 
@@ -60,7 +68,11 @@ class WilayahService
             ->where('city_code', $cityCode)
             ->orderBy('name')
             ->get(['code', 'name'])
-            ->mapWithKeys(fn (District $district) => [$district->code => $district->code.' — '.$district->name])
+            ->mapWithKeys(function (District $district) {
+                $code = trim((string) $district->code);
+
+                return [$code => $code.' — '.$district->name];
+            })
             ->all();
     }
 
@@ -79,7 +91,11 @@ class WilayahService
             ->where('district_code', $districtCode)
             ->orderBy('name')
             ->get(['code', 'name'])
-            ->mapWithKeys(fn (Village $village) => [$village->code => $village->code.' — '.$village->name])
+            ->mapWithKeys(function (Village $village) {
+                $code = trim((string) $village->code);
+
+                return [$code => $code.' — '.$village->name];
+            })
             ->all();
     }
 

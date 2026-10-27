@@ -291,6 +291,17 @@ class PatientController extends Controller
         $districtCode = $this->wilayah->normalizeDistrictCode(old('district_code', $patient?->district_code));
         $villageCode = $this->wilayah->normalizeVillageCode(old('village_code', $patient?->village_code));
 
+        // NIK 16 digit tetap valid meski kode wilayah tidak wajib. Isi pilihan
+        // provinsi/kab/kota bila master mengenalinya, supaya select tidak kosong.
+        if ($patient && old('name') === null && $provinceCode === null && $cityCode === null) {
+            $derived = $this->wilayah->fromNik((string) $patient->nik);
+            if (($derived['ok'] ?? false) && filled($derived['province_code'] ?? null)) {
+                $provinceCode = $derived['province_code'];
+                $cityCode = $this->wilayah->normalizeCityCode($derived['city_code'] ?? null);
+                $districtCode = $districtCode ?: $this->wilayah->normalizeDistrictCode($derived['district_code'] ?? null);
+            }
+        }
+
         if ($patient) {
             $patient->province_code = $provinceCode ?? $patient->province_code;
             $patient->city_code = $cityCode ?? $patient->city_code;

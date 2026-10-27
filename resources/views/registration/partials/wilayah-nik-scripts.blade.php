@@ -1,6 +1,36 @@
 @once
     @push('styles')
         <link href="{{ theme('libs/select2/css/select2.min.css') }}" rel="stylesheet" type="text/css">
+        <style>
+            select.js-wilayah-select + .select2-container {
+                display: block !important;
+                width: 100% !important;
+            }
+            select.js-wilayah-select + .select2-container .select2-selection--single {
+                height: 38px;
+                border: 1px solid #ced4da;
+                background-color: #fff;
+            }
+            select.js-wilayah-select + .select2-container .select2-selection--single .select2-selection__rendered {
+                line-height: 36px;
+                padding-left: 12px;
+                color: #495057;
+            }
+            select.js-wilayah-select + .select2-container .select2-selection--single .select2-selection__placeholder {
+                color: #74788d;
+            }
+            .select2-dropdown {
+                background-color: #fff;
+                color: #495057;
+            }
+            .select2-container--default .select2-results__option {
+                color: #495057;
+            }
+            .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+                background-color: #556ee6;
+                color: #fff;
+            }
+        </style>
     @endpush
 
     @push('scripts')
@@ -29,7 +59,7 @@
         var syncingFromNik = false;
         var lastNikSynced = '';
 
-        if (! province || ! city || ! district || ! village || ! window.axios || ! $ || ! $.fn.select2) return;
+        if (! province || ! city || ! district || ! village || ! $ || ! $.fn.select2) return;
 
         function branchIdParam() {
             return branchSelect && branchSelect.value ? { branch_id: branchSelect.value } : {};
@@ -48,6 +78,7 @@
             }
             $el.select2({
                 width: '100%',
+                dropdownParent: $(document.body),
                 placeholder: $el.data('placeholder') || 'Cari / pilih',
                 allowClear: true,
                 language: {
@@ -57,26 +88,56 @@
             });
         }
 
+        function optionMap(options) {
+            var map = {};
+            if (! options) return map;
+            if (Array.isArray(options)) {
+                options.forEach(function (item, index) {
+                    if (item && typeof item === 'object') {
+                        var id = item.id != null ? item.id : (item.value != null ? item.value : index);
+                        map[String(id)] = String(item.text || item.label || item.name || '');
+                    } else if (item != null) {
+                        map[String(index)] = String(item);
+                    }
+                });
+                return map;
+            }
+            Object.keys(options).forEach(function (key) {
+                var value = options[key];
+                if (value && typeof value === 'object') {
+                    var id = value.id != null ? value.id : key;
+                    map[String(id)] = String(value.text || value.label || value.name || '');
+                } else {
+                    map[String(key)] = value == null ? '' : String(value);
+                }
+            });
+            return map;
+        }
+
         function fillSelect(select, options, selected) {
+            var $el = $(select);
+            if ($el.data('select2')) {
+                $el.select2('destroy');
+            }
+
             var placeholderText = select.getAttribute('data-placeholder') || 'Cari / pilih';
+            var map = optionMap(options);
+            var selectedValue = selected == null ? '' : String(selected);
             select.innerHTML = '';
             var empty = document.createElement('option');
             empty.value = '';
             empty.textContent = placeholderText;
             select.appendChild(empty);
 
-            Object.keys(options || {}).forEach(function (value) {
+            Object.keys(map).forEach(function (value) {
                 var option = document.createElement('option');
                 option.value = value;
-                option.textContent = options[value];
-                if (String(selected) === String(value)) option.selected = true;
+                option.textContent = map[value];
+                if (selectedValue !== '' && selectedValue === value) option.selected = true;
                 select.appendChild(option);
             });
 
-            if (selected) {
-                select.value = selected;
-            }
-
+            select.value = selectedValue && map[selectedValue] != null ? selectedValue : '';
             initSearchable(select);
         }
 
@@ -151,6 +212,10 @@
                 if (typeof done === 'function') done();
                 return;
             }
+            if (! window.axios) {
+                if (typeof done === 'function') done();
+                return;
+            }
             var params = Object.assign({
                 district_code: district.value,
                 city_code: city.value
@@ -167,7 +232,7 @@
         }
 
         function syncNikToWilayah() {
-            if (! nikInput) return;
+            if (! nikInput || ! window.axios) return;
             var nik = String(nikInput.value || '').replace(/\D+/g, '');
             if (nik.length !== 16) {
                 if (nik.length > 0) setNikHint('NIK harus 16 digit.', true);
@@ -195,7 +260,7 @@
         $(province).on('change', function () {
             if (syncingFromNik) return;
             clearBelow(1);
-            if (! this.value) return;
+            if (! this.value || ! window.axios) return;
             window.axios.get(urls.cities, { params: { province_code: this.value } }).then(function (response) {
                 fillSelect(city, response.data.options, '');
             });
@@ -210,7 +275,7 @@
                 var parts = label.split(' — ');
                 addressCity.value = parts.length > 1 ? parts.slice(1).join(' — ') : label;
             }
-            if (! this.value) return;
+            if (! this.value || ! window.axios) return;
             window.axios.get(urls.districts, { params: { city_code: this.value } }).then(function (response) {
                 fillSelect(district, response.data.options, '');
             });
