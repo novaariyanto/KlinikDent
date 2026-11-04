@@ -300,6 +300,7 @@ final class PermissionCatalog
             'visit.view',
             'queue.view',
             'queue.manage',
+            'examination.view',
             'pharmacy.view',
             'pharmacy.manage',
             'medicine.view',
@@ -374,6 +375,7 @@ final class PermissionCatalog
             'registration.cancel',
             'visit.view',
             'queue.view',
+            'examination.view',
             'schedule.view',
             'payer.view',
             'bpjs.view',
@@ -474,6 +476,7 @@ final class PermissionCatalog
     {
         return [
             'dashboard.view',
+            'examination.view',
             'prescription.view',
             'prescription.update',
             'pharmacy.view',
@@ -498,6 +501,7 @@ final class PermissionCatalog
         return [
             'dashboard.view',
             'patient.view',
+            'examination.view',
             'billing.view',
             'billing.create',
             'billing.update',
@@ -519,6 +523,7 @@ final class PermissionCatalog
     {
         return [
             'dashboard.view',
+            'examination.view',
             'finance.view',
             'finance.manage',
             'revenue.view',
@@ -548,6 +553,7 @@ final class PermissionCatalog
             'patient.view',
             'registration.view',
             'visit.view',
+            'examination.view',
             'medical_record.view',
             'finance.view',
             'revenue.view',

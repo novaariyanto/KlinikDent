@@ -249,14 +249,14 @@ class DashboardMetricsService
 
         return [
             'cards' => [
-                $this->card('Pasien hari ini', (string) $todayCounts['total'], $this->routeIf('examinations.index')),
+                $this->card('Pasien hari ini', (string) $todayCounts['total'], $this->routeIf('examinations.initial')),
                 $this->card('Menunggu', (string) $todayCounts['waiting']),
                 $this->card('Kunjungan bulan ini', (string) $monthCounts['total'], $this->routeIf('reports.personal')),
                 $this->card('Tindakan bulan ini', (string) $procedures->sum(fn ($row) => (int) $row->qty)),
                 $this->card('Pendapatan bulan ini', $this->money($revenue)),
             ],
             'links' => $this->links([
-                'Pemeriksaan' => 'examinations.index',
+                'Pemeriksaan' => 'examinations.initial',
                 'Laporan pribadi' => 'reports.personal',
             ]),
             'note' => null,
@@ -361,7 +361,7 @@ class DashboardMetricsService
             ],
             'links' => $this->links([
                 'Antrean' => 'queue.today',
-                'Pemeriksaan' => 'examinations.index',
+                'Pemeriksaan' => 'examinations.initial',
             ]),
             'note' => null,
         ];

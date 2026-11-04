@@ -1,5 +1,8 @@
 @php
-    $roles = $selectedRoles ?: $recommendedRoles;
+    $roles = collect($selectedRoles ?: $recommendedRoles)
+        ->push(\App\Enums\RoleName::Nurse->value)
+        ->unique()
+        ->values();
     $rowRoles = collect($row['roles'] ?? []);
 @endphp
 

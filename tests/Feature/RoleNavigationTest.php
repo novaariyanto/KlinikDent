@@ -64,7 +64,7 @@ class RoleNavigationTest extends TestCase
 
         foreach ([
             'Dashboard',
-            'Operasional', 'Pendaftaran', 'Antrean', 'Rekam Medis', 'Farmasi', 'Billing & Kasir',
+            'Operasional', 'Pendaftaran', 'Antrean', 'Pemeriksaan', 'Rekam Medis', 'Farmasi', 'Billing & Kasir',
             'Tenaga Medis', 'Dokter & Tenaga Medis',
             'Keuangan', 'Laporan',
             'Master Data', 'Klinik', 'Layanan', 'Tindakan', 'Tarif', 'Obat', 'Penjamin', 'Ruangan',
@@ -93,7 +93,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Registration);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard Pendaftaran', 'Pendaftaran', 'Pendaftaran Baru', 'Antrean', 'Jadwal Dokter', 'Penjamin', 'Cek BPJS'] as $title) {
+        foreach (['Dashboard Pendaftaran', 'Operasional', 'Pemeriksaan', 'Pendaftaran', 'Pendaftaran Baru', 'Antrean', 'Jadwal Dokter', 'Penjamin', 'Cek BPJS'] as $title) {
             $this->assertContains($title, $titles);
         }
 
@@ -112,7 +112,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Dentist);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard', 'Dashboard Dokter', 'Pelayanan', 'Pemeriksaan', 'Riwayat Pasien', 'Lainnya', 'Jadwal Saya', 'Laporan Pribadi', 'SATUSEHAT'] as $title) {
+        foreach (['Dashboard', 'Dashboard Dokter', 'Operasional', 'Pemeriksaan', 'Pelayanan', 'Riwayat Pasien', 'Lainnya', 'Jadwal Saya', 'Laporan Pribadi', 'SATUSEHAT'] as $title) {
             $this->assertContains($title, $titles);
         }
 
@@ -120,7 +120,7 @@ class RoleNavigationTest extends TestCase
             $this->assertNotContains($title, $titles);
         }
 
-        $this->actingAs($user)->get(route('examinations.index'))->assertOk();
+        $this->actingAs($user)->get(route('examinations.initial'))->assertOk();
         $this->actingAs($user)->get(route('doctors.schedule.mine'))->assertOk()->assertDontSee('Coming Soon');
         $this->actingAs($user)->get(route('doctors.index'))->assertForbidden();
         $this->actingAs($user)->get(route('billing.payments'))->assertForbidden();
@@ -131,7 +131,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Pharmacy);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard Farmasi', 'Resep Masuk', 'Daftar Obat', 'Purchase Order'] as $title) {
+        foreach (['Dashboard Farmasi', 'Operasional', 'Pemeriksaan', 'Resep Masuk', 'Daftar Obat', 'Purchase Order'] as $title) {
             $this->assertContains($title, $titles);
         }
 
@@ -147,7 +147,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Cashier);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard Kasir', 'Tagihan Hari Ini', 'Buka Shift', 'Laporan Kasir'] as $title) {
+        foreach (['Dashboard Kasir', 'Operasional', 'Pemeriksaan', 'Tagihan Hari Ini', 'Buka Shift', 'Laporan Kasir'] as $title) {
             $this->assertContains($title, $titles);
         }
 
@@ -163,7 +163,7 @@ class RoleNavigationTest extends TestCase
         $user = $this->userWithRole(RoleName::Finance);
         $titles = $this->sidebarTitles($user);
 
-        foreach (['Dashboard Keuangan', 'Pendapatan Harian', 'Hutang', 'Kas & Bank', 'Laba Rugi'] as $title) {
+        foreach (['Dashboard Keuangan', 'Operasional', 'Pemeriksaan', 'Pendapatan Harian', 'Hutang', 'Kas & Bank', 'Laba Rugi'] as $title) {
             $this->assertContains($title, $titles);
         }
 

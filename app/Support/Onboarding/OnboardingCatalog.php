@@ -48,6 +48,7 @@ final class OnboardingCatalog
                 RoleName::Registration->value,
                 RoleName::Cashier->value,
                 RoleName::Pharmacy->value,
+                RoleName::Nurse->value,
             ],
             OnboardingTemplate::Medium => RoleName::tenantValues(),
         };

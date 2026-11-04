@@ -261,6 +261,7 @@ final class MenuCatalog
             self::heading('owner.group.operational', 'Operasional', [
                 self::item('owner.registration', 'Pendaftaran', 'bx bx-user-plus', 'registration.index', 'registration.view', 'Manajemen pendaftaran pasien.'),
                 self::item('owner.queue', 'Antrean', 'bx bx-list-ol', 'queue.index', 'queue.view', 'Antrean pelayanan klinik.'),
+                self::item('owner.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
                 self::item('owner.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
                 self::item('owner.medical-letters', 'Surat Keterangan', 'bx bx-envelope', 'medical-letters.index', 'medical_record.view', 'Surat keterangan medis pasien.'),
                 self::item('owner.pharmacy', 'Farmasi', 'bx bx-package', 'pharmacy.index', 'pharmacy.view', 'Manajemen farmasi klinik.'),
@@ -330,6 +331,7 @@ final class MenuCatalog
     {
         return [
             self::item('manager.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan operasional klinik.'),
+            self::item('manager.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('manager.registration', 'Pendaftaran', 'bx bx-user-plus', null, 'registration.view', 'Operasional pendaftaran.', [
                 self::item('manager.registration.patients', 'Pasien', 'bx bx-user', 'registration.patients', 'patient.view', 'Manajemen data pasien klinik.'),
                 self::item('manager.registration.visits', 'Kunjungan', 'bx bx-calendar-check', 'registration.visits', 'visit.view', 'Kunjungan pasien.'),
@@ -397,6 +399,7 @@ final class MenuCatalog
     {
         return [
             self::item('registration.dashboard', 'Dashboard Pendaftaran', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja pendaftaran.'),
+            self::item('registration.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('registration.group', 'Pendaftaran', 'bx bx-user-plus', null, 'registration.view', 'Proses pendaftaran pasien.', [
                 self::item('registration.new', 'Pendaftaran Baru', 'bx bx-plus', 'registration.new', 'registration.create', 'Form pendaftaran pasien baru.'),
                 self::item('registration.patients', 'Pasien', 'bx bx-user', 'registration.patients', 'patient.view', 'Manajemen data pasien klinik.'),
@@ -431,8 +434,10 @@ final class MenuCatalog
             self::heading('dentist.group.dashboard', 'Dashboard', [
                 self::item('dentist.dashboard', 'Dashboard Dokter', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan pelayanan dokter.'),
             ]),
+            self::heading('dentist.group.operational', 'Operasional', [
+                self::item('dentist.care.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
+            ]),
             self::heading('dentist.group.care', 'Pelayanan', [
-                self::item('dentist.care.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.index', 'examination.view', 'Antrean, panggil pasien, dan buka pelayanan.'),
                 self::item('dentist.medical-letters', 'Surat Keterangan', 'bx bx-envelope', 'medical-letters.index', 'medical_record.view', 'Surat keterangan medis pasien.'),
                 self::item('dentist.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat kunjungan dan rekam medis pasien.'),
             ]),
@@ -451,12 +456,10 @@ final class MenuCatalog
     {
         return [
             self::item('assistant.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja asisten dokter.'),
+            self::item('assistant.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('assistant.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pasien.', [
                 self::item('assistant.queue.waiting', 'Pasien Menunggu', 'bx bx-time-five', 'queue.waiting', 'queue.view', 'Pasien yang menunggu dilayani.'),
                 self::item('assistant.queue.called', 'Pasien Dipanggil', 'bx bx-bell', 'queue.called', 'queue.view', 'Pasien yang sedang dipanggil.'),
-            ]),
-            self::item('assistant.care', 'Pelayanan', 'bx bx-plus-medical', null, 'examination.view', 'Pendampingan pelayanan dokter.', [
-                self::item('assistant.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             ]),
             self::item('assistant.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat pasien.'),
             self::item('assistant.schedule', 'Jadwal', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal pelayanan hari ini.'),
@@ -470,12 +473,10 @@ final class MenuCatalog
     {
         return [
             self::item('nurse.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja perawat.'),
+            self::item('nurse.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('nurse.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pasien.', [
                 self::item('nurse.queue.today', 'Antrean Hari Ini', 'bx bx-time-five', 'queue.today', 'queue.view', 'Antrean pelayanan hari ini.'),
                 self::item('nurse.queue.waiting', 'Pasien Menunggu', 'bx bx-user-voice', 'queue.waiting', 'queue.view', 'Pasien yang menunggu dilayani.'),
-            ]),
-            self::item('nurse.care', 'Pelayanan', 'bx bx-plus-medical', null, 'examination.view', 'Pelayanan keperawatan.', [
-                self::item('nurse.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             ]),
             self::item('nurse.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat pasien.'),
             self::item('nurse.schedule', 'Jadwal', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal pelayanan.'),
@@ -489,6 +490,7 @@ final class MenuCatalog
     {
         return [
             self::item('pharmacy.dashboard', 'Dashboard Farmasi', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja farmasi.'),
+            self::item('pharmacy.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('pharmacy.prescriptions', 'Resep', 'bx bx-receipt', null, 'prescription.view', 'Pengelolaan resep masuk.', [
                 self::item('pharmacy.prescriptions.incoming', 'Resep Masuk', 'bx bx-log-in-circle', 'pharmacy.prescriptions.incoming', 'prescription.view', 'Resep yang baru masuk.'),
                 self::item('pharmacy.prescriptions.processing', 'Diproses', 'bx bx-loader', 'pharmacy.prescriptions.processing', 'prescription.update', 'Resep yang sedang diproses.'),
@@ -529,6 +531,7 @@ final class MenuCatalog
     {
         return [
             self::item('cashier.dashboard', 'Dashboard Kasir', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja kasir.'),
+            self::item('cashier.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('cashier.transactions', 'Transaksi', 'bx bx-credit-card', null, 'billing.view', 'Transaksi pembayaran pasien.', [
                 self::item('cashier.invoices.today', 'Tagihan Hari Ini', 'bx bx-receipt', 'billing.invoices.today', 'billing.view', 'Tagihan pasien hari ini.'),
                 self::item('cashier.payments', 'Pembayaran', 'bx bx-money', 'billing.payments', 'payment.view', 'Penerimaan pembayaran.'),
@@ -554,6 +557,7 @@ final class MenuCatalog
     {
         return [
             self::item('finance.dashboard', 'Dashboard Keuangan', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan keuangan klinik.'),
+            self::item('finance.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('finance.revenue', 'Pendapatan', 'bx bx-dollar', null, 'revenue.view', 'Pendapatan klinik.', [
                 self::item('finance.revenue.daily', 'Pendapatan Harian', 'bx bx-calendar', 'finance.revenue.daily', 'revenue.view', 'Pendapatan harian klinik.'),
                 self::item('finance.revenue.monthly', 'Pendapatan Bulanan', 'bx bx-calendar-alt', 'finance.revenue.monthly', 'revenue.view', 'Pendapatan bulanan klinik.'),
@@ -593,6 +597,7 @@ final class MenuCatalog
     {
         return [
             self::item('auditor.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan tampilan auditor.'),
+            self::item('auditor.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('auditor.registration', 'Pendaftaran', 'bx bx-user-plus', null, 'registration.view', 'Riwayat pendaftaran.', [
                 self::item('auditor.registration.history', 'Riwayat', 'bx bx-history', 'registration.history', 'registration.view', 'Riwayat pendaftaran pasien.'),
             ]),

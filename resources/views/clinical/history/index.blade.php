@@ -3,7 +3,7 @@
 @section('title', 'Riwayat Pasien')
 
 @section('content')
-    <x-page-header title="Riwayat Pasien" :breadcrumb="['Pelayanan' => route('examinations.index'), 'Riwayat Pasien' => null]" />
+    <x-page-header title="Riwayat Pasien" :breadcrumb="['Pemeriksaan' => route('examinations.initial'), 'Riwayat Pasien' => null]" />
     <x-alert />
     <x-card title="Cari Pasien">
         <form method="GET" class="row g-2 mb-3">

@@ -3,7 +3,7 @@
 @section('title', 'Surat Keterangan Medis')
 
 @section('content')
-    <x-page-header title="Surat Keterangan Medis" :breadcrumb="['Pelayanan' => route('examinations.index'), 'Surat Keterangan' => null]" />
+    <x-page-header title="Surat Keterangan Medis" :breadcrumb="['Pemeriksaan' => route('examinations.initial'), 'Surat Keterangan' => null]" />
     <x-alert />
     <x-card title="Daftar surat">
         <form method="GET" action="{{ route('medical-letters.index') }}" class="row g-2 align-items-end mb-3">

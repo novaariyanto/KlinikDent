@@ -540,8 +540,8 @@ class Menu extends Model
         $alias = static::titleAlias($title);
 
         return match (true) {
-            in_array($alias, ['pendaftaran', 'antrean', 'jadwal', 'penjamin', 'cek bpjs', 'pasien'], true) => 'Operasional',
-            in_array($alias, ['pelayanan', 'pemeriksaan'], true) => 'Pelayanan',
+            in_array($alias, ['pendaftaran', 'antrean', 'jadwal', 'penjamin', 'cek bpjs', 'pasien', 'pemeriksaan'], true) => 'Operasional',
+            in_array($alias, ['pelayanan'], true) => 'Pelayanan',
             in_array($alias, ['transaksi', 'shift kasir', 'billing', 'billing & kasir'], true) => 'Kasir',
             in_array($alias, ['resep', 'obat', 'pembelian', 'farmasi'], true) => 'Farmasi',
             str_starts_with($alias, 'laporan') => 'Laporan',

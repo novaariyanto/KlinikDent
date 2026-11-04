@@ -72,7 +72,8 @@ class OwnerOnboardingTest extends TestCase
             ->assertSee('Dokter Gigi')
             ->assertSee('Pendaftaran')
             ->assertSee('Kasir')
-            ->assertSee('Farmasi');
+            ->assertSee('Farmasi')
+            ->assertSee('Perawat');
 
         $this->actingAs($owner)
             ->post(route('onboarding.step', 'roles'), [
