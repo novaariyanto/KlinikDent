@@ -366,6 +366,12 @@ class VisitController extends Controller
             ? 'NIK sudah terdaftar pada '.$visit->patient?->name.' (RM '.$visit->patient?->medical_record_number.'). Kunjungan dicatat pada rekam medis itu. Nomor antrean '.$queueNumber.'.'.$ihsNote
             : 'Pendaftaran berhasil. Nomor antrean '.$queueNumber.'.'.$ihsNote;
 
+        if ($request->input('from') === 'pelayanan') {
+            return redirect()
+                ->route('registration.visits.show', ['visit' => $visit, 'from' => 'pelayanan'])
+                ->with('success', $message);
+        }
+
         return redirect()
             ->route('registration.visits.show', $visit)
             ->with('success', $message);
@@ -374,7 +380,7 @@ class VisitController extends Controller
     public function show(Visit $visit): View
     {
         $this->authorize('view', $visit);
-        $visit->load(['patient', 'queue', 'doctor', 'room', 'payer', 'branch']);
+        $visit->load(['patient', 'queue', 'doctor', 'room', 'payer', 'branch', 'invoices', 'prescriptions']);
 
         return view('registration.visits.show', compact('visit'));
     }

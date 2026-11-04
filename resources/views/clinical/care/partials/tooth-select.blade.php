@@ -2,7 +2,7 @@
     $toothSelectId = $id ?? 'tooth_number';
     $toothSelectSelected = (string) ($selected ?? old('tooth_number', ''));
     $odoTeeth = ($teeth ?? collect())
-        ->filter(fn ($tooth) => $tooth->status && $tooth->status !== \App\Enums\ToothStatus::Healthy)
+        ->filter(fn ($tooth) => \App\Support\Clinical\ToothConditions::fromRecord($tooth) !== [])
         ->sortBy('tooth_number');
 @endphp
 
@@ -12,11 +12,7 @@
         <option value=""></option>
         @foreach ($odoTeeth as $tooth)
             @php
-                $surfaces = \App\Enums\ToothSurface::shortList($tooth->surfaces ?? []);
-                $label = $tooth->tooth_number.' — '.$tooth->status->label();
-                if ($surfaces !== '') {
-                    $label .= ' ('.$surfaces.')';
-                }
+                $label = $tooth->tooth_number.' — '.\App\Support\Clinical\ToothConditions::summary(\App\Support\Clinical\ToothConditions::fromRecord($tooth));
             @endphp
             <option value="{{ $tooth->tooth_number }}" @selected($toothSelectSelected === (string) $tooth->tooth_number)>{{ $label }}</option>
         @endforeach

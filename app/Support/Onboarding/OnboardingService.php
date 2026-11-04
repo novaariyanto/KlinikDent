@@ -489,7 +489,12 @@ class OnboardingService
                     'payer_id' => $payer->id,
                     'effective_date' => now()->toDateString(),
                 ],
-                ['price' => $item['price']]
+                [
+                    'price' => $item['price'],
+                    'bhp_amount' => $item['bhp_amount'],
+                    'doctor_fee' => $item['doctor_fee'],
+                    'clinic_fee' => $item['clinic_fee'],
+                ]
             );
         }
     }

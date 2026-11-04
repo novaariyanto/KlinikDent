@@ -3,7 +3,13 @@
 @section('title', $invoice->number)
 
 @section('content')
-    <x-page-header :title="'Kasir '.$invoice->number" :breadcrumb="['Tagihan' => route('billing.invoices'), $invoice->number => null]" />
+    @php
+        $fromPelayanan = request('from') === 'pelayanan';
+        $invoiceBreadcrumb = $fromPelayanan
+            ? ['Pelayanan' => route('examinations.initial'), $invoice->number => null]
+            : ['Tagihan' => route('billing.invoices'), $invoice->number => null];
+    @endphp
+    <x-page-header :title="'Kasir '.$invoice->number" :breadcrumb="$invoiceBreadcrumb" />
     <x-alert />
 
     @if (auth()->user()?->hasRole(\App\Enums\RoleName::Cashier) && ! $shift && $invoice->isOpen())
@@ -12,6 +18,21 @@
 
     @if (bccomp($overpaid, '0', 2) > 0)
         <div class="alert alert-warning">Kelebihan pembayaran Rp{{ number_format((float) $overpaid, 0, ',', '.') }}. Gunakan pengembalian dana. Riwayat pembayaran tidak dihapus.</div>
+    @endif
+
+    @php $prescription = $invoice->visit?->currentPharmacyPrescription(); @endphp
+    @if ($fromPelayanan || auth()->user()?->can('examination.view') || ($prescription && auth()->user()?->can('prescription.view') && auth()->user()?->can('pharmacy.view')))
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            @if ($fromPelayanan || auth()->user()?->can('examination.view'))
+                <x-button href="{{ route('examinations.initial') }}" variant="secondary" icon="bx bx-list-ul">Pemeriksaan</x-button>
+            @endif
+            @if ($invoice->visit && App\Support\Clinical\CareTabs::canAccessCare(auth()->user()))
+                <x-button href="{{ route('care.show', ['visit' => $invoice->visit, 'tab' => 'soap', 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-plus-medical">SOAP</x-button>
+            @endif
+            @if ($prescription && auth()->user()?->can('prescription.view') && auth()->user()?->can('pharmacy.view'))
+                <x-button href="{{ route('pharmacy.prescriptions.show', ['prescription' => $prescription, 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-package">Resep</x-button>
+            @endif
+        </div>
     @endif
 
     <x-card title="Cari pasien lain" class="mb-3">
@@ -53,10 +74,33 @@
                         </tr>
                     </thead>
                     <tbody>
+                        @php
+                            $procedureDiscount = '0.00';
+                            $procedureWaived = '0.00';
+                        @endphp
                         @forelse ($invoice->items as $item)
+                            @php
+                                $procedureDiscount = bcadd($procedureDiscount, bcmul((string) ($item->discount_amount ?? 0), (string) $item->quantity, 2), 2);
+                                $procedureWaived = bcadd($procedureWaived, bcmul((string) ($item->doctor_fee_waived ?? 0), (string) $item->quantity, 2), 2);
+                            @endphp
                             <tr>
                                 <td>{{ $item->source_type->label() }}</td>
-                                <td>{{ $item->description }}</td>
+                                <td>
+                                    {{ $item->description }}
+                                    @if ($item->adjustmentLabel())
+                                        <div><span class="badge {{ $item->adjustment_type->badgeClass() }}">{{ $item->adjustmentLabel() }}</span></div>
+                                    @endif
+                                    @if ($item->source_type->value === 'procedure' && ((float) $item->doctor_fee_original > 0 || (float) $item->bhp_amount > 0 || (float) $item->clinic_fee > 0))
+                                        <div class="text-muted small">
+                                            Jasa dokter Rp {{ number_format((float) $item->doctor_fee_charged, 0, ',', '.') }}
+                                            @if ((float) $item->doctor_fee_waived > 0)
+                                                (dibebaskan Rp {{ number_format((float) $item->doctor_fee_waived, 0, ',', '.') }})
+                                            @endif
+                                            · BHP Rp {{ number_format((float) $item->bhp_amount, 0, ',', '.') }}
+                                            · Jasa klinik Rp {{ number_format((float) $item->clinic_fee, 0, ',', '.') }}
+                                        </div>
+                                    @endif
+                                </td>
                                 <td>{{ $item->quantity }}</td>
                                 <td>{{ number_format((float) $item->unit_price, 0, ',', '.') }}</td>
                                 <td>{{ number_format((float) $item->subtotal, 0, ',', '.') }}</td>
@@ -71,8 +115,12 @@
                             <th>{{ number_format((float) $invoice->total_amount, 0, ',', '.') }}</th>
                         </tr>
                         <tr>
-                            <th colspan="4" class="text-end">Diskon</th>
-                            <th>0</th>
+                            <th colspan="4" class="text-end">Pembebasan jasa dokter</th>
+                            <th>{{ number_format((float) $procedureWaived, 0, ',', '.') }}</th>
+                        </tr>
+                        <tr>
+                            <th colspan="4" class="text-end">Diskon tindakan</th>
+                            <th>{{ number_format((float) $procedureDiscount, 0, ',', '.') }}</th>
                         </tr>
                         <tr>
                             <th colspan="4" class="text-end">Total</th>
@@ -88,7 +136,7 @@
                         </tr>
                     </tfoot>
                 </x-table>
-                <p class="text-muted small mb-0">Diskon invoice, voucher, dan deposit pasien tidak dipakai. Obat masuk tagihan begitu tercatat. Penyerahan dikonfirmasi terpisah, boleh sebelum atau sesudah pembayaran. Stok dipotong saat farmasi memenuhi resep.</p>
+                <p class="text-muted small mb-0">Pembebasan jasa dokter dan diskon tindakan sudah masuk harga baris, bukan potongan kedua. Diskon invoice, voucher, dan deposit pasien tidak dipakai. Obat masuk tagihan begitu tercatat. Penyerahan dikonfirmasi terpisah, boleh sebelum atau sesudah pembayaran. Stok dipotong saat farmasi memenuhi resep.</p>
             </x-card>
 
             @php
@@ -311,7 +359,25 @@
                     <tbody>
                         @foreach ($review['procedures'] as $row)
                             <tr>
-                                <td>{{ $row['name'] }}</td>
+                                <td>
+                                    {{ $row['name'] }}
+                                    @if (! empty($row['adjustment']) && $row['adjustment'] !== 'Normal')
+                                        <div><span class="badge bg-info">{{ $row['adjustment'] }}</span></div>
+                                    @endif
+                                    @if (! empty($row['reason']))
+                                        <div class="small text-muted">{{ $row['reason'] }}</div>
+                                    @endif
+                                    @if (isset($row['doctor_fee']))
+                                        <div class="small text-muted">
+                                            Jasa dokter {{ number_format((float) $row['doctor_fee_charged'], 0, ',', '.') }}
+                                            @if ((float) $row['doctor_fee_waived'] > 0)
+                                                / dibebaskan {{ number_format((float) $row['doctor_fee_waived'], 0, ',', '.') }}
+                                            @endif
+                                            · BHP {{ number_format((float) $row['bhp_amount'], 0, ',', '.') }}
+                                            · Klinik {{ number_format((float) $row['clinic_fee'], 0, ',', '.') }}
+                                        </div>
+                                    @endif
+                                </td>
                                 <td>{{ $row['performer'] }}</td>
                                 <td>{{ $row['date'] }}</td>
                                 <td>{{ $row['quantity'] }}</td>

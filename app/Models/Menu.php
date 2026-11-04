@@ -18,9 +18,9 @@ use Spatie\Permission\Models\Role;
 
 class Menu extends Model
 {
-    private const CATALOG_CACHE_KEY = 'sidebar.menus.v2';
+    private const CATALOG_CACHE_KEY = 'sidebar.menus.v5';
 
-    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys.v2';
+    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys.v5';
 
     protected $fillable = [
         'parent_id',
@@ -230,7 +230,9 @@ class Menu extends Model
         }
 
         $filtered = static::rememberFiltered($key, function () use ($user) {
-            return static::collapseDuplicateRoutes(static::filterVisible(static::catalog(), $user));
+            return static::organizeSidebar(
+                static::collapseDuplicateRoutes(static::filterVisible(static::catalog(), $user))
+            );
         });
 
         request()->attributes->set($key, $filtered);
@@ -279,7 +281,7 @@ class Menu extends Model
             $user->getAllPermissions()->pluck('name')->sort()->implode('|')
         );
 
-        return 'sidebar.for.v2.'.$fingerprint;
+        return 'sidebar.for.v5.'.$fingerprint;
     }
 
     /**
@@ -356,7 +358,8 @@ class Menu extends Model
     }
 
     /**
-     * Gabungkan sibling dengan route_name yang sama (mis. beberapa item Dashboard).
+     * Gabungkan sibling yang sama: route_name identik, atau grup/heading dengan judul sama.
+     * User multi-role (mis. Pendaftaran + Perawat) tidak melihat "Antrean" dua kali.
      *
      * @param  Collection<int, Menu>  $menus
      * @return Collection<int, Menu>
@@ -373,22 +376,22 @@ class Menu extends Model
                 $copy->setRelation('children', static::collapseDuplicateRoutes($copy->children));
             }
 
-            $route = $copy->route_name;
+            $key = static::collapseKey($copy);
 
-            if (! $route) {
+            if ($key === null) {
                 $result->push($copy);
 
                 continue;
             }
 
-            if (! isset($keepers[$route])) {
-                $keepers[$route] = $copy;
+            if (! isset($keepers[$key])) {
+                $keepers[$key] = $copy;
                 $result->push($copy);
 
                 continue;
             }
 
-            $keeper = $keepers[$route];
+            $keeper = $keepers[$key];
 
             if ($copy->children->isNotEmpty()) {
                 $keeper->setRelation(
@@ -397,12 +400,213 @@ class Menu extends Model
                 );
             }
 
-            if ($route === 'dashboard') {
+            if ($copy->route_name === 'dashboard' || $keeper->route_name === 'dashboard') {
                 $keeper->title = 'Dashboard';
+            } elseif (! filled($copy->route_name) && ! filled($keeper->route_name)) {
+                $keeper->title = static::canonicalTitle(static::titleAlias((string) $keeper->title), (string) $keeper->title);
             }
         }
 
         return $result->values();
+    }
+
+    /**
+     * Rapikan grup setelah collapse: serap item yatim, lalu buat heading jika belum ada.
+     *
+     * @param  Collection<int, Menu>  $menus
+     * @return Collection<int, Menu>
+     */
+    protected static function organizeSidebar(Collection $menus): Collection
+    {
+        $menus = static::absorbRelatedLeaves($menus);
+
+        if ($menus->contains(fn (self $menu) => $menu->type === MenuType::Heading)) {
+            return $menus->values();
+        }
+
+        return static::groupIntoHeadings($menus);
+    }
+
+    /**
+     * Masukkan leaf yang route/judulnya sudah tercakup grup sibling, agar tidak jadi menu terpisah.
+     *
+     * @param  Collection<int, Menu>  $menus
+     * @return Collection<int, Menu>
+     */
+    protected static function absorbRelatedLeaves(Collection $menus): Collection
+    {
+        $groups = $menus->filter(fn (self $menu) => $menu->type !== MenuType::Heading && $menu->children->isNotEmpty());
+        $kept = new Collection;
+
+        foreach ($menus as $menu) {
+            if ($menu->type === MenuType::Heading || $menu->children->isNotEmpty()) {
+                $kept->push($menu);
+
+                continue;
+            }
+
+            $host = $groups->first(function (self $group) use ($menu) {
+                if (static::titleAlias((string) $group->title) === static::titleAlias((string) $menu->title)) {
+                    return true;
+                }
+
+                if (! $menu->route_name) {
+                    return false;
+                }
+
+                return $group->children->contains(
+                    fn (self $child) => $child->route_name && $child->route_name === $menu->route_name
+                );
+            });
+
+            if (! $host) {
+                $kept->push($menu);
+
+                continue;
+            }
+
+            if ($menu->route_name && $host->children->contains(
+                fn (self $child) => $child->route_name === $menu->route_name
+            )) {
+                continue;
+            }
+
+            $host->setRelation('children', static::collapseDuplicateRoutes(
+                $host->children->push($menu)->values()
+            ));
+        }
+
+        return $kept->values();
+    }
+
+    /**
+     * @param  Collection<int, Menu>  $menus
+     * @return Collection<int, Menu>
+     */
+    protected static function groupIntoHeadings(Collection $menus): Collection
+    {
+        $order = ['Operasional', 'Pelayanan', 'Kasir', 'Farmasi', 'Laporan'];
+        $buckets = [
+            'dashboard' => new Collection,
+            'Operasional' => new Collection,
+            'Pelayanan' => new Collection,
+            'Kasir' => new Collection,
+            'Farmasi' => new Collection,
+            'Laporan' => new Collection,
+            '_rest' => new Collection,
+        ];
+
+        foreach ($menus as $menu) {
+            if ($menu->route_name === 'dashboard' || str_starts_with(static::titleAlias((string) $menu->title), 'dashboard')) {
+                $buckets['dashboard']->push($menu);
+
+                continue;
+            }
+
+            $group = static::headingForTitle((string) $menu->title);
+
+            if (
+                $group
+                && static::titleAlias((string) $menu->title) === static::titleAlias($group)
+                && $menu->children->isNotEmpty()
+            ) {
+                foreach ($menu->children as $child) {
+                    $buckets[$group]->push($child);
+                }
+
+                continue;
+            }
+
+            $buckets[$group ?? '_rest']->push($menu);
+        }
+
+        $result = $buckets['dashboard'];
+        $sort = 10;
+
+        foreach ($order as $title) {
+            if ($buckets[$title]->isEmpty()) {
+                continue;
+            }
+
+            $result->push(static::makeHeading($title, $buckets[$title], $sort));
+            $sort += 10;
+        }
+
+        return $result->concat($buckets['_rest'])->values();
+    }
+
+    protected static function headingForTitle(string $title): ?string
+    {
+        $alias = static::titleAlias($title);
+
+        return match (true) {
+            in_array($alias, ['pendaftaran', 'antrean', 'jadwal', 'penjamin', 'cek bpjs', 'pasien'], true) => 'Operasional',
+            in_array($alias, ['pelayanan', 'pemeriksaan'], true) => 'Pelayanan',
+            in_array($alias, ['transaksi', 'shift kasir', 'billing', 'billing & kasir'], true) => 'Kasir',
+            in_array($alias, ['resep', 'obat', 'pembelian', 'farmasi'], true) => 'Farmasi',
+            str_starts_with($alias, 'laporan') => 'Laporan',
+            default => null,
+        };
+    }
+
+    /**
+     * @param  Collection<int, Menu>  $children
+     */
+    protected static function makeHeading(string $title, Collection $children, int $sortOrder): self
+    {
+        $heading = new static([
+            'title' => $title,
+            'name' => 'sidebar.group.'.Str::slug($title),
+            'type' => MenuType::Heading,
+            'status' => UserStatus::Active,
+            'sort_order' => $sortOrder,
+            'permission' => null,
+            'route_name' => null,
+        ]);
+
+        $heading->setRelation('children', $children->values());
+        $heading->setRelation('roles', new Collection);
+
+        return $heading;
+    }
+
+    protected static function collapseKey(self $menu): ?string
+    {
+        if (filled($menu->route_name)) {
+            return 'route:'.$menu->route_name;
+        }
+
+        $alias = static::titleAlias((string) $menu->title);
+
+        if ($alias === '') {
+            return null;
+        }
+
+        if ($menu->type === MenuType::Heading) {
+            return 'heading:'.$alias;
+        }
+
+        return 'title:'.$alias;
+    }
+
+    protected static function titleAlias(string $title): string
+    {
+        $normalized = mb_strtolower(trim(preg_replace('/\s+/u', ' ', $title) ?? $title));
+
+        return match (true) {
+            str_starts_with($normalized, 'dashboard') => 'dashboard',
+            in_array($normalized, ['jadwal', 'jadwal dokter', 'jadwal saya'], true) => 'jadwal',
+            default => $normalized,
+        };
+    }
+
+    protected static function canonicalTitle(string $alias, string $fallback): string
+    {
+        return match ($alias) {
+            'jadwal' => 'Jadwal',
+            'dashboard' => 'Dashboard',
+            default => $fallback,
+        };
     }
 
     protected function userCanAccessRoute(User $user): bool

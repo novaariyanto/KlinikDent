@@ -62,7 +62,8 @@ class ClinicalCareSeeder extends Seeder
 
             $procedure = Procedure::withoutGlobalScopes()
                 ->where('tenant_id', $tenant->id)
-                ->where('code', 'KSL-01')
+                ->whereIn('code', ['ADM002', 'KSL-01'])
+                ->orderByRaw("CASE code WHEN 'ADM002' THEN 1 ELSE 2 END")
                 ->first();
 
             if ($procedure) {

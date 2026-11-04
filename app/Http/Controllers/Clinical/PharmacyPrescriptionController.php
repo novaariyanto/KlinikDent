@@ -46,6 +46,7 @@ class PharmacyPrescriptionController extends Controller
         $prescription->load([
             'visit.patient',
             'visit.branch',
+            'visit.invoices',
             'doctor',
             'items.medicine',
             'items.ingredients.medicine',

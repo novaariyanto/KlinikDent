@@ -43,8 +43,13 @@ class StoreSharingFeeRuleRequest extends FormRequest
                 Rule::exists('procedures', 'id')->where(fn ($q) => $q->where('tenant_id', $tenantId)),
             ],
             'calc_type' => ['required', Rule::enum(SharingFeeCalcType::class)],
-            'rate' => ['required', 'numeric', 'min:0'],
-            'material_deduction_type' => ['required', Rule::enum(SharingFeeMaterialDeductionType::class)],
+            'rate' => [
+                Rule::requiredIf($this->input('calc_type') !== SharingFeeCalcType::DoctorFee->value),
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+            'material_deduction_type' => ['nullable', Rule::enum(SharingFeeMaterialDeductionType::class)],
             'material_deduction_value' => ['nullable', 'numeric', 'min:0'],
             'priority' => ['required', 'integer', 'min:1', 'max:9999'],
             'effective_from' => ['required', 'date'],
@@ -56,9 +61,13 @@ class StoreSharingFeeRuleRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $isDoctorFee = $this->input('calc_type') === SharingFeeCalcType::DoctorFee->value;
+
         $this->merge([
             'is_active' => $this->boolean('is_active', true),
-            'material_deduction_value' => $this->input('material_deduction_value', 0),
+            'rate' => $isDoctorFee ? '100' : $this->input('rate'),
+            'material_deduction_type' => SharingFeeMaterialDeductionType::None->value,
+            'material_deduction_value' => 0,
             'doctor_user_id' => $this->normalizeScope($this->input('doctor_user_id')),
             'branch_id' => $this->normalizeScope($this->input('branch_id')),
             'procedure_id' => $this->normalizeScope($this->input('procedure_id')),
@@ -78,11 +87,6 @@ class StoreSharingFeeRuleRequest extends FormRequest
             if ($this->input('calc_type') === SharingFeeCalcType::Percentage->value
                 && (float) $this->input('rate') > 100) {
                 $validator->errors()->add('rate', 'Persentase fee tidak boleh lebih dari 100.');
-            }
-
-            if ($this->input('material_deduction_type') === SharingFeeMaterialDeductionType::Percent->value
-                && (float) $this->input('material_deduction_value') > 100) {
-                $validator->errors()->add('material_deduction_value', 'Potongan persen tidak boleh lebih dari 100.');
             }
         });
     }

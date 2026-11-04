@@ -2,6 +2,8 @@
 
 namespace App\Support\Clinical;
 
+use App\Enums\ToothSurface;
+
 final class FdiTeeth
 {
     /**
@@ -108,15 +110,45 @@ final class FdiTeeth
         $anterior = self::isAnterior($number);
 
         $label = match ($surface) {
-            'occlusal' => $anterior ? 'Incisal' : 'Occlusal',
+            'occlusal', 'incisal' => $anterior ? 'Incisal' : 'Occlusal',
             'mesial' => 'Mesial',
             'distal' => 'Distal',
             'buccal' => $anterior ? 'Labial' : 'Buccal',
-            'palatal' => $upper ? 'Palatal' : 'Lingual',
+            'palatal', 'lingual' => $upper ? 'Palatal' : 'Lingual',
             default => $surface,
         };
 
         return $number.' — '.$label;
+    }
+
+    /**
+     * Permukaan yang berlaku: anterior pakai Insisal, posterior Oklusal; rahang atas Palatal, bawah Lingual.
+     *
+     * @return list<ToothSurface>
+     */
+    public static function surfaces(string $number): array
+    {
+        return [
+            ToothSurface::Mesial,
+            ToothSurface::Distal,
+            self::isAnterior($number) ? ToothSurface::Incisal : ToothSurface::Occlusal,
+            ToothSurface::Buccal,
+            self::isUpper($number) ? ToothSurface::Palatal : ToothSurface::Lingual,
+        ];
+    }
+
+    /**
+     * Petakan kunci lama (occlusal/palatal untuk semua gigi) ke permukaan yang berlaku pada gigi ini.
+     */
+    public static function canonicalSurface(string $number, string $surface): ?string
+    {
+        $surface = match ($surface) {
+            'occlusal', 'incisal' => self::isAnterior($number) ? 'incisal' : 'occlusal',
+            'palatal', 'lingual' => self::isUpper($number) ? 'palatal' : 'lingual',
+            default => $surface,
+        };
+
+        return ToothSurface::tryFrom($surface)?->value;
     }
 
     public static function quadrant(string $number): int

@@ -9,9 +9,20 @@
         <div class="form-check mb-3">
             <input class="form-check-input" type="radio" name="mode" id="mode-template" value="template" @checked(old('mode', 'template') === 'template')>
             <label class="form-check-label" for="mode-template">
-                Gunakan contoh layanan
-                <div class="text-muted small">Konsultasi, Pemeriksaan Gigi, Scaling, Tambal Gigi, Pencabutan Gigi, Kontrol</div>
+                Gunakan master tarif klinik gigi
+                <div class="text-muted small">
+                    {{ count(\App\Support\Onboarding\DentalTariffCatalog::items()) }} tindakan dari referensi tarif KlinikDent,
+                    lengkap dengan jasa dokter, BHP, dan jasa klinik.
+                </div>
             </label>
+            <div class="mt-2 ps-1">
+                @foreach (collect(\App\Support\Onboarding\DentalTariffCatalog::items())->groupBy('service') as $service => $rows)
+                    <div class="small mb-1">
+                        <span class="fw-semibold">{{ $service }}</span>
+                        <span class="text-muted">— {{ $rows->pluck('procedure')->join(', ') }}</span>
+                    </div>
+                @endforeach
+            </div>
         </div>
         <div class="form-check">
             <input class="form-check-input" type="radio" name="mode" id="mode-empty" value="empty" @checked(old('mode') === 'empty')>

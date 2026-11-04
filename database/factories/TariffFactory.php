@@ -20,6 +20,9 @@ class TariffFactory extends Factory
             'procedure_id' => Procedure::factory(),
             'payer_id' => null,
             'price' => fake()->randomFloat(2, 50000, 1500000),
+            'doctor_fee' => 0,
+            'bhp_amount' => 0,
+            'clinic_fee' => 0,
             'effective_date' => now()->toDateString(),
         ];
     }

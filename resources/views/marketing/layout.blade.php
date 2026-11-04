@@ -7,7 +7,7 @@
     <meta name="description" content="@yield('description', 'Kelola pasien, rekam medis, odontogram, pemeriksaan, tindakan, billing, dan operasional klinik gigi dalam satu sistem.')">
     <link rel="canonical" href="@yield('canonical', url('/'))">
     <meta name="robots" content="index,follow">
-    <meta name="theme-color" content="#0b1c2c">
+    <meta name="theme-color" content="#00796b">
     <meta property="og:type" content="website">
     <meta property="og:locale" content="id_ID">
     <meta property="og:site_name" content="{{ $appName }}">

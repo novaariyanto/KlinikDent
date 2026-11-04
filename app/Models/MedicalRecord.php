@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\AssessmentKind;
+use App\Enums\AssessmentStatus;
 use App\Models\Concerns\ScopedByVisitTenant;
 use Database\Factories\MedicalRecordFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -19,6 +21,10 @@ class MedicalRecord extends Model
      */
     protected $fillable = [
         'visit_id',
+        'assessment_kind',
+        'assessment_status',
+        'assessment_completed_at',
+        'assessment_completed_by',
         'chief_complaint',
         'anamnesis',
         'clinical_notes',
@@ -28,6 +34,7 @@ class MedicalRecord extends Model
         'dental_exam',
         'systemic_history',
         'plan_instructions',
+        'follow_up_review',
         'control_date',
         'followup_date',
         'finalized_at',
@@ -41,10 +48,15 @@ class MedicalRecord extends Model
     {
         return [
             'visit_id' => 'integer',
+            'assessment_kind' => AssessmentKind::class,
+            'assessment_status' => AssessmentStatus::class,
+            'assessment_completed_at' => 'datetime',
+            'assessment_completed_by' => 'integer',
             'vital_signs' => 'array',
             'dental_exam' => 'array',
             'systemic_history' => 'array',
             'plan_instructions' => 'array',
+            'follow_up_review' => 'array',
             'control_date' => 'date',
             'followup_date' => 'date',
             'finalized_at' => 'datetime',
@@ -79,6 +91,11 @@ class MedicalRecord extends Model
     public function amendments(): HasMany
     {
         return $this->hasMany(MedicalRecordAmendment::class);
+    }
+
+    public function assessmentCompleter(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assessment_completed_by');
     }
 
     public function finalizer(): BelongsTo

@@ -3,7 +3,13 @@
 @section('title', $title)
 
 @section('content')
-    <x-page-header :title="$title" :breadcrumb="['Billing' => route('billing.invoices'), $title => null]" />
+    @php
+        $fromPelayanan = request('from') === 'pelayanan';
+        $invoiceListBreadcrumb = $fromPelayanan
+            ? ['Pelayanan' => route('examinations.initial'), $title => null]
+            : ['Billing' => route('billing.invoices'), $title => null];
+    @endphp
+    <x-page-header :title="$title" :breadcrumb="$invoiceListBreadcrumb" />
     <x-alert />
 
     @if ($showUnbilled && $unbilled->isNotEmpty())
@@ -28,6 +34,9 @@
                                     <form method="POST" action="{{ route('billing.invoices.generate') }}">
                                         @csrf
                                         <input type="hidden" name="visit_id" value="{{ $visit->id }}">
+                                        @if ($fromPelayanan)
+                                            <input type="hidden" name="from" value="pelayanan">
+                                        @endif
                                         <x-button type="submit" variant="success">Buat tagihan</x-button>
                                     </form>
                                 @endcan
@@ -41,6 +50,9 @@
 
     <x-card :title="$title">
         <form method="GET" class="row g-2 align-items-end mb-3">
+            @if ($fromPelayanan)
+                <input type="hidden" name="from" value="pelayanan">
+            @endif
             <div class="col-md-4">
                 <label class="form-label" for="q">Cari nomor / pasien</label>
                 <input id="q" type="text" name="q" value="{{ request('q') }}" class="form-control">
@@ -80,7 +92,7 @@
                         <td>{{ number_format((float) $invoice->remainingAmount(), 0, ',', '.') }}</td>
                         <td><span class="{{ $invoice->status->badgeClass() }}">{{ $invoice->status->label() }}</span></td>
                         <td class="text-end">
-                            <x-button href="{{ route('billing.invoices.show', $invoice) }}" variant="light">Buka</x-button>
+                            <x-button href="{{ route('billing.invoices.show', array_filter(['invoice' => $invoice, 'from' => $fromPelayanan ? 'pelayanan' : null])) }}" variant="light">Buka</x-button>
                         </td>
                     </tr>
                 @empty

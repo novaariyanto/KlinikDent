@@ -16,6 +16,8 @@ class DocumentSequenceGenerator
 
     public const TYPE_INVOICE = 'invoice';
 
+    public const TYPE_MEDICAL_LETTER = 'medical_letter';
+
     public function nextMedicalRecord(Tenant $tenant, Branch $branch): string
     {
         $year = now()->year;
@@ -35,6 +37,15 @@ class DocumentSequenceGenerator
         }
 
         return $this->next((int) $branch->tenant_id, (int) $branch->id, self::TYPE_QUEUE, $period);
+    }
+
+    public function nextMedicalLetter(int $tenantId, int $branchId): string
+    {
+        $year = now()->year;
+        $number = $this->next($tenantId, $branchId, self::TYPE_MEDICAL_LETTER, (string) $year);
+        $branchCode = str_pad((string) $branchId, 2, '0', STR_PAD_LEFT);
+
+        return sprintf('SKM-%s-%s-%s', $branchCode, $year, str_pad((string) $number, 6, '0', STR_PAD_LEFT));
     }
 
     public function nextInvoice(Tenant $tenant, Branch $branch): string

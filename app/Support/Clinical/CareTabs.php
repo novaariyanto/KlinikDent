@@ -13,7 +13,7 @@ final class CareTabs
     {
         return [
             'record' => ['label' => 'Rekam Medis', 'permission' => 'medical_record.view'],
-            'exam' => ['label' => 'Pemeriksaan Awal', 'permission' => 'examination.view'],
+            'exam' => ['label' => 'Pemeriksaan', 'permission' => 'examination.view'],
             'vitals' => ['label' => 'Tanda Vital', 'permission' => 'vital_sign.view'],
             'anamnesis' => ['label' => 'Anamnesis', 'permission' => 'anamnesis.view'],
             'notes' => ['label' => 'Catatan', 'permission' => 'care_note.view'],
@@ -49,24 +49,20 @@ final class CareTabs
     {
         $sections = [];
 
-        if ($user->can('medical_record.view') || $user->can('anamnesis.view')) {
-            $sections['keluhan'] = ['label' => 'Keluhan', 'icon' => 'bx bx-user-voice'];
-        }
-
-        if ($user->can('vital_sign.view') || $user->can('anamnesis.view') || $user->can('medical_record.view')) {
-            $sections['screening'] = ['label' => 'Screening', 'icon' => 'bx bx-heart'];
-        }
-
-        if ($user->can('examination.view')) {
-            $sections['pemeriksaan'] = ['label' => 'Pemeriksaan', 'icon' => 'bx bx-search-alt'];
+        if (
+            $user->can('medical_record.view')
+            || $user->can('anamnesis.view')
+            || $user->can('vital_sign.view')
+            || $user->can('diagnosis.view')
+            || $user->can('prescription.view')
+            || $user->can('care_note.view')
+            || $user->can('examination.view')
+        ) {
+            $sections['soap'] = ['label' => 'SOAP', 'icon' => 'bx bx-notepad'];
         }
 
         if ($user->can('odontogram.view')) {
             $sections['odontogram'] = ['label' => 'Odontogram', 'icon' => 'bx bx-grid-alt'];
-        }
-
-        if ($user->can('diagnosis.view')) {
-            $sections['diagnosis'] = ['label' => 'Diagnosis', 'icon' => 'bx bx-check-shield'];
         }
 
         if ($user->can('procedure.view')) {
@@ -78,11 +74,11 @@ final class CareTabs
         }
 
         if ($user->can('referral.view')) {
-            $sections['rujukan'] = ['label' => 'Rujukan', 'icon' => 'bx bx-share-alt'];
+            $sections['rujukan'] = ['label' => 'Rujukan', 'icon' => 'bx bx-transfer'];
         }
 
-        if ($user->can('medical_record.view') || $user->can('care_note.view')) {
-            $sections['instruksi'] = ['label' => 'Instruksi', 'icon' => 'bx bx-edit-alt'];
+        if ($user->can('medical_record.view') || $user->can('referral.view') || $user->can('care_note.view')) {
+            $sections['ringkasan'] = ['label' => 'Ringkasan pulang', 'icon' => 'bx bx-file'];
         }
 
         return $sections;
@@ -99,36 +95,38 @@ final class CareTabs
     public static function resolveSection(User $user, string $requested): string
     {
         $aliases = [
-            'keluhan' => 'keluhan',
-            'soap' => 'keluhan',
-            'subjective' => 'keluhan',
-            'record' => 'keluhan',
-            'anamnesis' => 'keluhan',
-            'history' => 'keluhan',
-            'screening' => 'screening',
-            'objective' => 'screening',
-            'vitals' => 'screening',
-            'systemic' => 'screening',
-            'pemeriksaan' => 'pemeriksaan',
-            'exam' => 'pemeriksaan',
+            'keluhan' => 'soap',
+            'soap' => 'soap',
+            'subjective' => 'soap',
+            'record' => 'soap',
+            'anamnesis' => 'soap',
+            'history' => 'soap',
+            'screening' => 'soap',
+            'objective' => 'soap',
+            'vitals' => 'soap',
+            'systemic' => 'soap',
+            'diagnosis' => 'soap',
+            'assessment' => 'soap',
+            'resep' => 'resep',
+            'prescriptions' => 'resep',
+            'instruksi' => 'soap',
+            'notes' => 'soap',
+            'lab' => 'soap',
+            'lab-gigi' => 'soap',
+            'pemeriksaan' => 'soap',
+            'exam' => 'soap',
             'odontogram' => 'odontogram',
-            'diagnosis' => 'diagnosis',
-            'assessment' => 'diagnosis',
             'tindakan' => 'tindakan',
             'plan' => 'tindakan',
             'procedures' => 'tindakan',
-            'resep' => 'resep',
-            'prescriptions' => 'resep',
             'rujukan' => 'rujukan',
             'referrals' => 'rujukan',
-            'instruksi' => 'instruksi',
-            'notes' => 'instruksi',
-            'lab' => 'lab',
-            'lab-gigi' => 'lab',
-            'surat' => 'surat',
-            'dokumen' => 'surat',
-            'adendum' => 'adendum',
-            'kunci' => 'adendum',
+            'surat' => 'ringkasan',
+            'dokumen' => 'ringkasan',
+            'adendum' => 'ringkasan',
+            'kunci' => 'ringkasan',
+            'ringkasan' => 'ringkasan',
+            'pulang' => 'ringkasan',
         ];
 
         $sections = self::flow($user);

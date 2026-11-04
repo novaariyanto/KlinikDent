@@ -59,6 +59,33 @@ class ClinicalDocumentService
         ]);
     }
 
+    /**
+     * Dokumen baru tanpa deduplikasi nomor; penanda tangan bukan dokter kunjungan.
+     */
+    public function issueStandalone(
+        Visit $visit,
+        ClinicalDocumentType $type,
+        string $number,
+        array $payload,
+        ?string $signaturePath = null,
+    ): ClinicalDocument {
+        $visit->loadMissing('patient');
+
+        return ClinicalDocument::query()->create([
+            'tenant_id' => $visit->tenant_id,
+            'visit_id' => $visit->id,
+            'type' => $type,
+            'number' => $number,
+            'verification_code' => $this->code(),
+            'patient_initials' => $this->initials($visit->patient?->name),
+            'payload' => $payload,
+            'status' => ClinicalDocumentStatus::Valid,
+            'signed_at' => now(),
+            'signature_path' => $signaturePath,
+            'signature_provider' => 'visual',
+        ]);
+    }
+
     public function signatureSrc(?string $path): ?string
     {
         if (! $path || ! Storage::disk('public')->exists($path)) {

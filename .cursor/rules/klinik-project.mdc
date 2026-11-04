@@ -7,4 +7,4 @@ alwaysApply: true
 - **Jangan** jalankan Pest/PHPUnit otomatis; verifikasi manual (lintas modul, transaksi, edge case).
 - Jangan lakukan pengecekan manual melalui browser kecuali diminta secara eksplisit.
 - UI baru/form: tiru `resources/views/pages/pendaftaran/` (master, breadcrumb, card, alert; DataTables/Yajra jika setara; AJAX jQuery seperti file existing). Cari contoh serupa sebelum komponen baru.
-- UI/UX: se-modern mungkin dalam template existing; hierarki/jarak jelas; feedback loading/sukses/error. Hindari animasi/aksen/gradien berlebihan; utamakan kejelasan alur.
+- UI/UX: ikuti `.cursor/rules/ui-ux.mdc`. Warna dari Material Palette (teal/cyan), kontras tinggi, tanpa hitam, bold hanya pada informasi penting. Jangan kembali ke palet pastel Skote (`#556ee6`).

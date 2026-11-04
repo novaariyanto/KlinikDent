@@ -210,6 +210,14 @@ class CashierDesk
         $price = (string) ($item->unit_price ?? $record->price_at_time);
         $qty = (int) $record->quantity;
 
+        $adjustment = $item?->adjustmentLabel() ?: $record->adjustmentLabel();
+        $components = $item?->component_snapshot ?: [
+            'doctor_fee' => $record->doctor_fee_at_time,
+            'bhp_amount' => $record->bhp_amount_at_time,
+            'clinic_fee' => $record->clinic_fee_at_time,
+            'doctor_fee_waived' => $item?->doctor_fee_waived ?? $record->waivedLineTotal(),
+        ];
+
         return [
             'id' => (int) $record->id,
             'name' => $name,
@@ -224,6 +232,14 @@ class CashierDesk
             'confirm' => $confirmed ? 'Dikonfirmasi' : 'Belum dikonfirmasi',
             'match' => $match,
             'note' => $note,
+            'adjustment' => $adjustment,
+            'reason' => $record->waiver_reason,
+            'doctor_fee' => (string) ($item->doctor_fee_original ?? $record->doctor_fee_at_time ?? '0'),
+            'doctor_fee_charged' => (string) ($item->doctor_fee_charged ?? '0'),
+            'doctor_fee_waived' => (string) ($item->doctor_fee_waived ?? '0'),
+            'bhp_amount' => (string) ($item->bhp_amount ?? $record->bhp_amount_at_time ?? '0'),
+            'clinic_fee' => (string) ($item->clinic_fee ?? $record->clinic_fee_at_time ?? '0'),
+            'components' => $components,
         ];
     }
 

@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <title>Starter Kit Klinik Gigi — {{ $appName }}</title>
     <style>
-        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #102033; line-height: 1.45; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 12px; color: #455a64; line-height: 1.45; }
         h1 { font-size: 18px; margin: 0 0 8px; }
         h2 { font-size: 14px; margin: 18px 0 6px; }
         p, li { color: #3a4b5c; }

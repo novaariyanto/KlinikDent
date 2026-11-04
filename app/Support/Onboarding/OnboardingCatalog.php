@@ -84,18 +84,20 @@ final class OnboardingCatalog
     }
 
     /**
-     * @return list<array{name: string, category: string, code: string, procedure: string, price: int}>
+     * @return list<array{name: string, category: string, code: string, procedure: string, price: int, bhp_amount: int, doctor_fee: int, clinic_fee: int}>
      */
     public static function serviceTemplate(): array
     {
-        return [
-            ['name' => 'Konsultasi', 'category' => 'konsultasi', 'code' => 'KSL-01', 'procedure' => 'Konsultasi', 'price' => 150000],
-            ['name' => 'Pemeriksaan Gigi', 'category' => 'konsultasi', 'code' => 'PMK-01', 'procedure' => 'Pemeriksaan Gigi', 'price' => 200000],
-            ['name' => 'Scaling', 'category' => 'preventif', 'code' => 'SCL-01', 'procedure' => 'Scaling', 'price' => 350000],
-            ['name' => 'Tambal Gigi', 'category' => 'restorasi', 'code' => 'TBL-01', 'procedure' => 'Tambal Gigi', 'price' => 400000],
-            ['name' => 'Pencabutan Gigi', 'category' => 'bedah', 'code' => 'CBT-01', 'procedure' => 'Pencabutan Gigi', 'price' => 500000],
-            ['name' => 'Kontrol', 'category' => 'konsultasi', 'code' => 'KTR-01', 'procedure' => 'Kontrol', 'price' => 100000],
-        ];
+        return array_map(fn (array $item) => [
+            'name' => $item['service'],
+            'category' => $item['category'],
+            'code' => $item['code'],
+            'procedure' => $item['procedure'],
+            'price' => $item['price'],
+            'bhp_amount' => $item['bhp_amount'],
+            'doctor_fee' => $item['doctor_fee'],
+            'clinic_fee' => $item['clinic_fee'],
+        ], DentalTariffCatalog::items());
     }
 
     /**

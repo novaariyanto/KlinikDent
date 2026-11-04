@@ -21,6 +21,8 @@ use App\Models\Visit;
 use App\Support\Billing\BillingException;
 use App\Support\Billing\BillingService;
 use App\Support\Billing\CashierDesk;
+use App\Support\Clinical\PrintChrome;
+use App\Support\Clinical\PrintSheet;
 use App\Support\ClinicSettings;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
@@ -181,40 +183,36 @@ class InvoiceController extends Controller
             'patient',
             'payer',
             'branch',
-            'visit.doctor',
+            'visit.patient',
+            'visit.doctor.doctorProfile',
+            'visit.branch',
+            'visit.room',
+            'visit.payer',
+            'visit.queue',
+            'visit.medicalRecord',
         ]);
 
         $tenantId = (int) $invoice->tenant_id;
-        $settings = ClinicSettings::current($tenantId);
-        $printedAt = now();
         $cashierName = $invoice->payments->sortByDesc('id')->first()?->cashier?->name;
+        $sheet = $invoice->visit ? PrintSheet::for($invoice->visit) : null;
 
         $pdf = Pdf::loadView('billing.invoices.print', [
+            ...PrintChrome::variables($tenantId, $invoice->branch),
             'title' => 'Tagihan '.$invoice->number,
             'invoice' => $invoice,
-            'clinicName' => ClinicSettings::name($tenantId),
-            'clinicTagline' => $settings['tagline'] ?: null,
-            'clinicLegalName' => $settings['legal_name'] ?: null,
-            'clinicAddressLines' => ClinicSettings::addressLines($tenantId) ?: array_values(array_filter([
-                $invoice->branch?->address,
-            ])),
-            'clinicPhone' => $settings['phone'] ?: $invoice->branch?->phone,
-            'clinicEmail' => $settings['email'] ?: null,
-            'clinicWebsite' => $settings['website'] ?: null,
-            'clinicLicense' => $settings['license_number'] ?: null,
-            'clinicNpwp' => $settings['npwp'] ?: null,
-            'picName' => $settings['pic_name'] ?: null,
-            'picSip' => $settings['pic_sip'] ?: null,
-            'printCity' => $settings['print_city'] ?: ($settings['city'] ?: $invoice->branch?->name),
-            'printFooter' => $settings['print_footer'] ?: null,
             'branch' => $invoice->branch,
             'visit' => $invoice->visit,
             'patient' => $invoice->patient,
-            'logoSrc' => ClinicSettings::printLogoSrc($tenantId),
-            'printedAt' => $printedAt,
-            'printedDateLabel' => $this->indonesianDate($printedAt),
-            'invoiceDateLabel' => $this->indonesianDate($invoice->created_at ?? $printedAt),
+            'sheet' => $sheet,
+            'invoiceDateLabel' => $this->indonesianDate($invoice->created_at ?? now()),
             'cashierName' => $cashierName,
+            'documentHash' => hash('sha256', implode('|', [
+                'INV',
+                (string) $invoice->number,
+                (string) $invoice->total_amount,
+                (string) $invoice->paid_amount,
+                (string) $invoice->updated_at?->toIso8601String(),
+            ])),
         ]);
 
         $paper = $request->query('paper', 'a4');
@@ -273,7 +271,12 @@ class InvoiceController extends Controller
             return back()->with('error', 'Tidak ada item yang dapat ditagih (tindakan unbilled atau resep terpenuhi).');
         }
 
-        return redirect()->route('billing.invoices.show', $invoice)->with('success', 'Tagihan '.$invoice->number.' siap.');
+        $params = ['invoice' => $invoice];
+        if ($request->input('from') === 'pelayanan') {
+            $params['from'] = 'pelayanan';
+        }
+
+        return redirect()->route('billing.invoices.show', $params)->with('success', 'Tagihan '.$invoice->number.' siap.');
     }
 
     public function pay(StorePaymentRequest $request, Invoice $invoice): RedirectResponse

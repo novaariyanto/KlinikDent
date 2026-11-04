@@ -51,6 +51,7 @@ final class MenuCatalog
             'settings.index',
             'settings.clinic',
             'logs.index',
+            'medical-letters.index',
             'subscription.index',
             'subscription.invoices',
             'integrations.index',
@@ -127,6 +128,8 @@ final class MenuCatalog
             'finance.sharing-fees.rules.index',
             'finance.sharing-fees.settlements.index',
             'finance.sharing-fees.reports.doctors',
+            'finance.doctor-fee-waivers.settings.index',
+            'finance.doctor-fee-waivers.logs.index',
             'finance.receivables',
             'finance.payables',
             'finance.cash-bank',
@@ -259,6 +262,7 @@ final class MenuCatalog
                 self::item('owner.registration', 'Pendaftaran', 'bx bx-user-plus', 'registration.index', 'registration.view', 'Manajemen pendaftaran pasien.'),
                 self::item('owner.queue', 'Antrean', 'bx bx-list-ol', 'queue.index', 'queue.view', 'Antrean pelayanan klinik.'),
                 self::item('owner.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
+                self::item('owner.medical-letters', 'Surat Keterangan', 'bx bx-envelope', 'medical-letters.index', 'medical_record.view', 'Surat keterangan medis pasien.'),
                 self::item('owner.pharmacy', 'Farmasi', 'bx bx-package', 'pharmacy.index', 'pharmacy.view', 'Manajemen farmasi klinik.'),
                 self::item('owner.billing', 'Billing & Kasir', 'bx bx-credit-card', 'billing.index', 'billing.view', 'Tagihan dan kasir klinik.'),
             ]),
@@ -271,6 +275,10 @@ final class MenuCatalog
                     self::item('owner.finance.sharing-fees.rules', 'Aturan Fee', 'bx bx-slider-alt', 'finance.sharing-fees.rules.index', 'sharing_fee.view', 'Konfigurasi aturan sharing fee.'),
                     self::item('owner.finance.sharing-fees.settlements', 'Settlement', 'bx bx-list-check', 'finance.sharing-fees.settlements.index', 'sharing_fee.view', 'Settlement sharing fee.'),
                     self::item('owner.finance.sharing-fees.reports', 'Laporan Fee', 'bx bx-bar-chart', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee per dokter.'),
+                ]),
+                self::item('owner.finance.doctor-fee-waivers', 'Pembebasan Jasa Dokter', 'bx bx-gift', null, 'finance.view', 'Kebijakan dan histori pembebasan jasa dokter.', [
+                    self::item('owner.finance.doctor-fee-waivers.settings', 'Kebijakan Dokter', 'bx bx-slider-alt', 'finance.doctor-fee-waivers.settings.index', 'procedure.manage_doctor_fee_waiver_policy', 'Dokter yang boleh membebaskan jasa.'),
+                    self::item('owner.finance.doctor-fee-waivers.logs', 'Histori Pembebasan', 'bx bx-history', 'finance.doctor-fee-waivers.logs.index', 'finance.view', 'Riwayat pembebasan dan diskon tindakan.'),
                 ]),
                 self::item('owner.reports', 'Laporan', 'bx bx-bar-chart-alt-2', 'reports.index', 'report.view', 'Laporan klinik.'),
             ]),
@@ -350,6 +358,10 @@ final class MenuCatalog
                     self::item('manager.finance.sharing-fees.settlements', 'Settlement', 'bx bx-list-check', 'finance.sharing-fees.settlements.index', 'sharing_fee.view', 'Settlement sharing fee.'),
                     self::item('manager.finance.sharing-fees.reports', 'Laporan Fee', 'bx bx-bar-chart', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee per dokter.'),
                 ]),
+                self::item('manager.finance.doctor-fee-waivers', 'Pembebasan Jasa Dokter', 'bx bx-gift', null, 'finance.view', 'Kebijakan dan histori pembebasan jasa dokter.', [
+                    self::item('manager.finance.doctor-fee-waivers.settings', 'Kebijakan Dokter', 'bx bx-slider-alt', 'finance.doctor-fee-waivers.settings.index', 'procedure.manage_doctor_fee_waiver_policy', 'Dokter yang boleh membebaskan jasa.'),
+                    self::item('manager.finance.doctor-fee-waivers.logs', 'Histori Pembebasan', 'bx bx-history', 'finance.doctor-fee-waivers.logs.index', 'finance.view', 'Riwayat pembebasan dan diskon tindakan.'),
+                ]),
             ]),
             self::item('manager.reports', 'Laporan', 'bx bx-bar-chart-alt-2', null, 'report.view', 'Laporan operasional klinik.', [
                 self::item('manager.reports.visits', 'Kunjungan', 'bx bx-calendar-check', 'reports.visits', 'report.view', 'Laporan kunjungan.'),
@@ -421,6 +433,7 @@ final class MenuCatalog
             ]),
             self::heading('dentist.group.care', 'Pelayanan', [
                 self::item('dentist.care.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.index', 'examination.view', 'Antrean, panggil pasien, dan buka pelayanan.'),
+                self::item('dentist.medical-letters', 'Surat Keterangan', 'bx bx-envelope', 'medical-letters.index', 'medical_record.view', 'Surat keterangan medis pasien.'),
                 self::item('dentist.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat kunjungan dan rekam medis pasien.'),
             ]),
             self::heading('dentist.group.other', 'Lainnya', [
@@ -443,11 +456,7 @@ final class MenuCatalog
                 self::item('assistant.queue.called', 'Pasien Dipanggil', 'bx bx-bell', 'queue.called', 'queue.view', 'Pasien yang sedang dipanggil.'),
             ]),
             self::item('assistant.care', 'Pelayanan', 'bx bx-plus-medical', null, 'examination.view', 'Pendampingan pelayanan dokter.', [
-                self::item('assistant.care.initial', 'Pemeriksaan Awal', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan awal pasien.'),
-                self::item('assistant.care.anamnesis', 'Anamnesis', 'bx bx-comment-detail', 'examinations.anamnesis', 'anamnesis.view', 'Anamnesis pasien.'),
-                self::item('assistant.care.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
-                self::item('assistant.care.odontogram', 'Odontogram', 'bx bx-grid-alt', 'odontogram.index', 'odontogram.view', 'Odontogram pasien.'),
-                self::item('assistant.care.procedures', 'Tindakan', 'bx bx-first-aid', 'procedures.index', 'procedure.view', 'Tindakan medis.'),
+                self::item('assistant.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             ]),
             self::item('assistant.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat pasien.'),
             self::item('assistant.schedule', 'Jadwal', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal pelayanan hari ini.'),
@@ -466,10 +475,7 @@ final class MenuCatalog
                 self::item('nurse.queue.waiting', 'Pasien Menunggu', 'bx bx-user-voice', 'queue.waiting', 'queue.view', 'Pasien yang menunggu dilayani.'),
             ]),
             self::item('nurse.care', 'Pelayanan', 'bx bx-plus-medical', null, 'examination.view', 'Pelayanan keperawatan.', [
-                self::item('nurse.care.initial', 'Pemeriksaan Awal', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan awal pasien.'),
-                self::item('nurse.care.vitals', 'Tanda Vital', 'bx bx-heart', 'examinations.vitals', 'vital_sign.view', 'Pencatatan tanda vital.'),
-                self::item('nurse.care.anamnesis', 'Anamnesis', 'bx bx-comment-detail', 'examinations.anamnesis', 'anamnesis.view', 'Anamnesis pasien.'),
-                self::item('nurse.care.notes', 'Catatan Pelayanan', 'bx bx-note', 'examinations.notes', 'care_note.view', 'Catatan pelayanan perawat.'),
+                self::item('nurse.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             ]),
             self::item('nurse.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat pasien.'),
             self::item('nurse.schedule', 'Jadwal', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal pelayanan.'),
@@ -563,6 +569,10 @@ final class MenuCatalog
                 self::item('finance.sharing-fees.settlements', 'Settlement', 'bx bx-list-check', 'finance.sharing-fees.settlements.index', 'sharing_fee.view', 'Settlement sharing fee.'),
                 self::item('finance.sharing-fees.reports', 'Laporan Fee', 'bx bx-bar-chart', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee per dokter.'),
             ]),
+            self::item('finance.doctor-fee-waivers', 'Pembebasan Jasa Dokter', 'bx bx-gift', null, 'finance.view', 'Kebijakan dan histori pembebasan jasa dokter.', [
+                self::item('finance.doctor-fee-waivers.settings', 'Kebijakan Dokter', 'bx bx-slider-alt', 'finance.doctor-fee-waivers.settings.index', 'procedure.manage_doctor_fee_waiver_policy', 'Dokter yang boleh membebaskan jasa.'),
+                self::item('finance.doctor-fee-waivers.logs', 'Histori Pembebasan', 'bx bx-history', 'finance.doctor-fee-waivers.logs.index', 'finance.view', 'Riwayat pembebasan dan diskon tindakan.'),
+            ]),
             self::item('finance.receivables', 'Piutang', 'bx bx-wallet', 'finance.receivables', 'receivable.view', 'Piutang klinik.'),
             self::item('finance.payables', 'Hutang', 'bx bx-credit-card', 'finance.payables', 'payable.view', 'Hutang klinik.'),
             self::item('finance.cash-bank', 'Kas & Bank', 'bx bx-bank', 'finance.cash-bank', 'cash_bank.view', 'Kas dan rekening bank klinik.'),
@@ -591,11 +601,13 @@ final class MenuCatalog
             ]),
             self::item('auditor.medical-record', 'Rekam Medis', 'bx bx-folder-open', null, 'medical_record.view', 'Rekam medis.', [
                 self::item('auditor.medical-record.history', 'Riwayat', 'bx bx-history', 'medical-record.index', 'medical_record.view', 'Riwayat rekam medis.'),
+                self::item('auditor.medical-letters', 'Surat Keterangan', 'bx bx-envelope', 'medical-letters.index', 'medical_record.view', 'Daftar surat keterangan medis.'),
             ]),
             self::item('auditor.finance', 'Keuangan', 'bx bx-wallet', null, 'finance.view', 'Informasi keuangan.', [
                 self::item('auditor.finance.revenue', 'Pendapatan', 'bx bx-dollar', 'finance.revenue.daily', 'revenue.view', 'Pendapatan klinik.'),
                 self::item('auditor.finance.expenses', 'Pengeluaran', 'bx bx-minus-circle', 'finance.expenses', 'expense.view', 'Pengeluaran klinik.'),
                 self::item('auditor.finance.sharing-fees', 'Sharing Fee', 'bx bx-share-alt', 'finance.sharing-fees.reports.doctors', 'sharing_fee.view', 'Laporan sharing fee dokter.'),
+                self::item('auditor.finance.doctor-fee-waivers', 'Histori Pembebasan', 'bx bx-gift', 'finance.doctor-fee-waivers.logs.index', 'finance.view', 'Riwayat pembebasan jasa dokter.'),
             ]),
             self::item('auditor.reports', 'Laporan', 'bx bx-bar-chart-alt-2', null, 'report.view', 'Laporan klinik.', [
                 self::item('auditor.reports.operational', 'Operasional', 'bx bx-cog', 'reports.operational', 'report.view', 'Laporan operasional.'),

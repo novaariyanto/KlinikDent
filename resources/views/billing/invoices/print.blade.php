@@ -12,38 +12,32 @@
         .void-note { margin: 0 0 10px; padding: 6px 8px; border: 0.8px solid #222; font-size: 11px; }
     </style>
 
-    <table style="width: 100%; margin-bottom: 12px;">
-        <tr>
-            <td style="text-align: center; font-size: 13px; font-weight: bold; text-transform: uppercase; text-decoration: underline; padding-bottom: 4px;">
-                Tagihan
-            </td>
-        </tr>
-        <tr>
-            <td style="text-align: center; font-size: 10.5px; padding-bottom: 8px;">
-                Nomor: {{ $invoice->number }}
-            </td>
-        </tr>
-    </table>
+    <div class="doc-title">Tagihan</div>
+    <p class="doc-number">Nomor: {{ $invoice->number }}</p>
 
     @if ($invoice->isVoid())
         <p class="void-note"><strong>Dibatalkan.</strong> {{ $invoice->void_reason }}</p>
     @endif
 
+    @include('clinical.care.print.partials.identity')
+
     <div class="section">
-        <table class="section-head"><tr><td>Identitas</td></tr></table>
+        <table class="section-head"><tr><td>Tagihan</td></tr></table>
         <table class="facts">
-            <tr>
-                <th>Nama pasien</th>
-                <td>{{ $invoice->patient?->name ?: '-' }}</td>
-            </tr>
-            <tr>
-                <th>Nomor rekam medis</th>
-                <td>{{ $invoice->patient?->medical_record_number ?: '-' }}</td>
-            </tr>
-            <tr>
-                <th>Penjamin</th>
-                <td>{{ $invoice->payer?->name ?: '-' }}</td>
-            </tr>
+            @unless (isset($sheet))
+                <tr>
+                    <th>Nama pasien</th>
+                    <td>{{ $invoice->patient?->name ?: '-' }}</td>
+                </tr>
+                <tr>
+                    <th>Nomor rekam medis</th>
+                    <td>{{ $invoice->patient?->medical_record_number ?: '-' }}</td>
+                </tr>
+                <tr>
+                    <th>Penjamin</th>
+                    <td>{{ $invoice->payer?->name ?: '-' }}</td>
+                </tr>
+            @endunless
             <tr>
                 <th>Cabang</th>
                 <td>{{ $invoice->branch?->name ?: '-' }}</td>
@@ -75,7 +69,12 @@
                 @forelse ($invoice->items as $item)
                     <tr>
                         <td>{{ $item->source_type->label() }}</td>
-                        <td>{{ $item->description }}</td>
+                        <td>
+                            {{ $item->description }}
+                            @if ($item->adjustmentLabel())
+                                <div>{{ $item->adjustmentLabel() }}</div>
+                            @endif
+                        </td>
                         <td class="num">{{ $item->quantity }}</td>
                         <td class="num">{{ number_format((float) $item->unit_price, 0, ',', '.') }}</td>
                         <td class="num">{{ number_format((float) $item->subtotal, 0, ',', '.') }}</td>
@@ -88,6 +87,26 @@
             </tbody>
         </table>
         <table class="totals">
+            @php
+                $printWaived = '0.00';
+                $printDiscount = '0.00';
+                foreach ($invoice->items as $printItem) {
+                    $printWaived = bcadd($printWaived, bcmul((string) ($printItem->doctor_fee_waived ?? 0), (string) $printItem->quantity, 2), 2);
+                    $printDiscount = bcadd($printDiscount, bcmul((string) ($printItem->discount_amount ?? 0), (string) $printItem->quantity, 2), 2);
+                }
+            @endphp
+            @if (bccomp($printWaived, '0', 2) > 0)
+                <tr>
+                    <td>Pembebasan jasa dokter</td>
+                    <td class="num">Rp {{ number_format((float) $printWaived, 0, ',', '.') }}</td>
+                </tr>
+            @endif
+            @if (bccomp($printDiscount, '0', 2) > 0)
+                <tr>
+                    <td>Diskon tindakan</td>
+                    <td class="num">Rp {{ number_format((float) $printDiscount, 0, ',', '.') }}</td>
+                </tr>
+            @endif
             <tr>
                 <td>Total</td>
                 <td class="num">Rp {{ number_format((float) $invoice->total_amount, 0, ',', '.') }}</td>
@@ -136,9 +155,9 @@
             <td></td>
             <td>
                 <div class="block">
-                    {{ $printCity ?: $branch?->name }}, {{ $printedDateLabel ?? $printedAt->format('d-m-Y') }}<br>
+                    {{ strtoupper((string) ($printCity ?: $branch?->name)) }}, {{ $printedDateLabel ?? $printedAt->format('d-M-Y') }}<br>
                     Kasir
-                    <div class="space"></div>
+                    <!-- <div class="space"></div> -->
                     <div class="name">{{ $cashierName ?: '........................' }}</div>
                     <div class="role">Petugas kasir</div>
                 </div>

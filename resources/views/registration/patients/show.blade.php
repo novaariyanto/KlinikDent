@@ -97,6 +97,11 @@
         </div>
         <div class="col-lg-7">
             <x-card title="Riwayat Kunjungan">
+                @can('medical_record.view')
+                    <div class="mb-3">
+                        <x-button href="{{ route('medical-letters.index', ['patient_id' => $patient->id]) }}" variant="light" icon="bx bx-envelope">Surat keterangan</x-button>
+                    </div>
+                @endcan
                 <x-table>
                     <thead>
                         <tr>
@@ -104,18 +109,23 @@
                             <th>Antrean</th>
                             <th>Dokter</th>
                             <th>Status</th>
+                            @can('medical_record.update')<th></th>@endcan
                         </tr>
                     </thead>
                     <tbody>
+                        @php($visitCols = auth()->user()?->can('medical_record.update') ? 5 : 4)
                         @forelse ($patient->visits as $visit)
                             <tr>
                                 <td><a href="{{ route('registration.visits.show', $visit) }}">{{ $visit->visit_date?->format('d M Y') }}</a></td>
                                 <td>{{ $visit->queue?->displayNumber() ?: '-' }}</td>
                                 <td>{{ $visit->doctor?->name ?: '-' }}</td>
                                 <td><span class="{{ $visit->status->badgeClass() }}">{{ $visit->status->label() }}</span></td>
+                                @can('medical_record.update')
+                                    <td class="text-end"><a href="{{ route('care.letters.create', $visit) }}">Buat surat</a></td>
+                                @endcan
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="text-muted">Belum ada kunjungan.</td></tr>
+                            <tr><td colspan="{{ $visitCols ?? 4 }}" class="text-muted">Belum ada kunjungan.</td></tr>
                         @endforelse
                     </tbody>
                 </x-table>

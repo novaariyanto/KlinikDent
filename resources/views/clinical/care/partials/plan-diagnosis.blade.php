@@ -1,9 +1,12 @@
-<section class="care-section" id="diagnosis">
-    <div class="care-section__head d-flex justify-content-between align-items-start gap-2">
+@php($embedded = $embedded ?? false)
+<section class="care-section{{ $embedded ? ' care-section--embedded' : '' }}" id="diagnosis">
+    <div class="{{ $embedded ? 'd-flex justify-content-end mb-2' : 'care-section__head d-flex justify-content-between align-items-start gap-2' }}">
+        @unless ($embedded)
         <div>
             <h5 class="care-section__title">Diagnosis</h5>
             <p class="care-section__hint">Cari kode atau nama ICD-10, lalu tambahkan. Gigi opsional dari temuan odontogram.</p>
         </div>
+        @endunless
         @can('diagnosis.manage')
             @if ($writable)
                 <x-button type="button" data-bs-toggle="modal" data-bs-target="#diagnosis-create-modal" icon="bx bx-plus">Tambah</x-button>
@@ -16,6 +19,7 @@
                 <tr>
                     <th>Kode</th>
                     <th>Diagnosa</th>
+                    <th>Jenis</th>
                     <th>Gigi</th>
                     @can('diagnosis.manage')<th></th>@endcan
                 </tr>
@@ -23,8 +27,9 @@
             <tbody>
                 @forelse ($visit->diagnoses as $diagnosis)
                     <tr>
-                        <td>{{ $diagnosis->code }}</td>
-                        <td>{{ $diagnosis->description }}</td>
+                        <td>{{ $diagnosis->code ?: '-' }}</td>
+                        <td>{{ $diagnosis->description }}@if ($diagnosis->clinical_note)<div class="text-muted">{{ $diagnosis->clinical_note }}</div>@endif</td>
+                        <td>{{ $diagnosis->kind?->label() }} · {{ $diagnosis->rank?->label() }}</td>
                         <td>{{ $diagnosis->tooth_number ?: '-' }}</td>
                         @can('diagnosis.manage')
                             <td class="text-end text-nowrap">
@@ -42,7 +47,7 @@
                     @can('diagnosis.manage')
                         @if ($writable)
                             <tr id="dx-edit-{{ $diagnosis->id }}" hidden>
-                                <td colspan="4">
+                                <td colspan="5">
                                     <form action="{{ route('care.diagnosis.update', [$visit, $diagnosis]) }}" method="POST" class="care-inline-form" data-icd-form>
                                         @csrf
                                         @method('PUT')
@@ -69,6 +74,9 @@
                                                     'selected' => $diagnosis->tooth_number,
                                                 ])
                                             </div>
+                                            <div class="col-12">
+                                                @include('clinical.care.partials.diagnosis-meta', ['diagnosis' => $diagnosis, 'prefix' => 'edit-'.$diagnosis->id])
+                                            </div>
                                         </div>
                                         <x-button type="submit" icon="bx bx-save">Simpan diagnosis</x-button>
                                     </form>
@@ -77,7 +85,7 @@
                         @endif
                     @endcan
                 @empty
-                    <tr><td colspan="4" class="text-muted">Belum ada diagnosis.</td></tr>
+                    <tr><td colspan="5" class="text-muted">Belum ada diagnosis.</td></tr>
                 @endforelse
             </tbody>
         </x-table>
@@ -113,6 +121,9 @@
                                     'id' => 'diagnosis-tooth-create',
                                     'selected' => $reopenDiagnosis ? old('tooth_number') : '',
                                 ])
+                            </div>
+                            <div class="col-12">
+                                @include('clinical.care.partials.diagnosis-meta', ['prefix' => 'create'])
                             </div>
                         </div>
                         <div class="text-end">

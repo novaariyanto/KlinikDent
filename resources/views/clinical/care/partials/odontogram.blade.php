@@ -77,31 +77,73 @@
                     <form action="{{ route('care.tooth.update', $visit) }}" method="POST" id="odontogram-form" class="odo-form">
                         @csrf
                         @method('PUT')
-                        <div class="odo-form__title">Gigi <span data-odo-number>—</span></div>
+                        <div class="odo-form__head">
+                            <div>
+                                <div class="odo-form__title">Gigi <span data-odo-number>—</span></div>
+                                <div class="odo-form__kind" data-odo-kind></div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-light" data-odo-reset disabled>
+                                <i class="bx bx-reset"></i> Sehat / reset
+                            </button>
+                        </div>
                         <input type="hidden" name="tooth_number" required>
                         <input type="hidden" name="status" value="healthy">
-                        <p class="care-section__hint mb-2">Pilih gigi, lalu kondisi. Permukaan muncul jika karies atau tumpatan.</p>
-                        <div class="odo-legend odo-status-picks">
-                            @foreach ($toothStatusMeta as $value => $meta)
-                                <label class="odo-legend__item">
-                                    <input type="radio" name="odo_status" value="{{ $value }}" data-whole="{{ $meta['whole'] ? '1' : '0' }}" data-surface="{{ ! empty($meta['needsSurface']) ? '1' : '0' }}" @checked($value === 'healthy')>
-                                    <i style="background: {{ $meta['color'] }}">{{ $meta['symbol'] }}</i>
-                                    <span>{{ $value === 'healthy' ? 'Sehat / reset' : $meta['label'] }}</span>
-                                </label>
-                            @endforeach
-                        </div>
-                        <div class="odo-surface-picks mt-3" data-odo-surfaces hidden>
-                            <div class="form-label">Permukaan</div>
-                            @foreach (\App\Enums\ToothSurface::cases() as $surface)
-                                <label>
-                                    <input type="checkbox" name="surfaces[]" value="{{ $surface->value }}">
-                                    {{ $surface->short() }}
-                                    <small>{{ $surface->label() }}</small>
-                                </label>
-                            @endforeach
-                        </div>
+                        <input type="hidden" name="conditions" value="[]">
+                        <p class="care-section__hint mb-2" data-odo-guide>Pilih gigi pada chart, lalu tambahkan satu atau beberapa kondisi.</p>
+
+                        <fieldset class="odo-fieldset" data-odo-fieldset disabled>
+                            <div class="odo-current" data-odo-current></div>
+
+                            <div class="odo-editor" data-odo-editor hidden>
+                                <div class="odo-editor__head">
+                                    <i data-odo-editor-swatch></i>
+                                    <strong data-odo-editor-label></strong>
+                                    <button type="button" class="btn btn-sm btn-link p-0 ms-auto" data-odo-editor-close>Selesai</button>
+                                </div>
+                                <div class="odo-surface-picks" data-odo-editor-surfaces>
+                                    <div class="form-label mb-1">Permukaan</div>
+                                    <div class="odo-surface-grid">
+                                        @foreach (\App\Enums\ToothSurface::cases() as $surface)
+                                            <label data-surface-option="{{ $surface->value }}">
+                                                <input type="checkbox" value="{{ $surface->value }}" data-odo-surface>
+                                                <b>{{ $surface->short() }}</b>
+                                                <small>{{ $surface->label() }}</small>
+                                            </label>
+                                        @endforeach
+                                    </div>
+                                    <div class="odo-editor__warn" data-odo-surface-warn hidden>Pilih minimal satu permukaan agar kondisi tersimpan.</div>
+                                </div>
+                                <div class="odo-editor__detail" data-odo-editor-detail></div>
+                                <div class="odo-editor__note">
+                                    <label class="form-label mb-1" for="odo-condition-note" data-odo-note-label>Catatan tambahan</label>
+                                    <input type="text" id="odo-condition-note" class="form-control form-control-sm" maxlength="255" data-odo-note>
+                                </div>
+                            </div>
+
+                            <div class="odo-picker" data-odo-picker>
+                                <input type="search" class="form-control form-control-sm" placeholder="Cari kondisi atau kode (mis. KP, karies, GTS)" aria-label="Cari kondisi gigi" data-odo-search>
+                                <div class="odo-picker__list">
+                                    @foreach (\App\Enums\ToothStatus::groups() as $groupKey => $groupLabel)
+                                        <div class="odo-picker__group" data-odo-group>
+                                            <div class="odo-picker__title">{{ $groupLabel }}</div>
+                                            <div class="odo-picker__grid">
+                                                @foreach ($toothStatusMeta as $value => $meta)
+                                                    @continue($meta['group'] !== $groupKey)
+                                                    <button type="button" class="odo-pick" data-odo-pick="{{ $value }}" title="{{ $meta['label'] }}">
+                                                        <i style="background: {{ $meta['color'] }}">{{ $meta['symbol'] }}</i>
+                                                        <span>{{ $meta['label'] }}</span>
+                                                    </button>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                    <div class="odo-picker__empty" data-odo-search-empty hidden>Kondisi tidak ditemukan.</div>
+                                </div>
+                            </div>
+                        </fieldset>
+
                         <div class="mt-3">
-                            <x-input name="notes" label="Catatan" :value="old('notes')" />
+                            <x-input name="notes" label="Catatan gigi" :value="old('notes')" />
                         </div>
                         <x-button type="submit" icon="bx bx-save">Simpan gigi</x-button>
                     </form>
@@ -125,143 +167,293 @@
     var chart = document.querySelector('.odo-chart');
     if (!chart) return;
     var hint = chart.querySelector('[data-odo-hint]');
-    var surfacesWrap = document.querySelector('[data-odo-surfaces]');
     var numberLabel = document.querySelector('[data-odo-number]');
-    var notesInput = form ? form.querySelector('[name="notes"]') : null;
     var findingsBody = document.querySelector('[data-odo-findings]');
     var board = document.querySelector('[data-odo-board]');
-    var notesTimer;
     var meta = @json($toothStatusMeta);
-    var canEdit = {{ $writable && auth()->user()?->can('odontogram.manage') ? 'true' : 'false' }};
-    var ns = 'http://www.w3.org/2000/svg';
+    var surfaceShort = @json(collect(\App\Enums\ToothSurface::cases())->mapWithKeys(fn ($s) => [$s->value => $s->short()]));
     var csrf = document.querySelector('meta[name="csrf-token"]');
     var token = csrf ? csrf.getAttribute('content') : '';
 
-    function selectedSurfaces(tooth) {
-        try { return JSON.parse(tooth.dataset.surfaces || '{}'); } catch (e) { return {}; }
+    var el = form ? {
+        number: form.querySelector('[name="tooth_number"]'),
+        status: form.querySelector('[name="status"]'),
+        conditions: form.querySelector('[name="conditions"]'),
+        notes: form.querySelector('[name="notes"]'),
+        kind: form.querySelector('[data-odo-kind]'),
+        guide: form.querySelector('[data-odo-guide]'),
+        reset: form.querySelector('[data-odo-reset]'),
+        fieldset: form.querySelector('[data-odo-fieldset]'),
+        current: form.querySelector('[data-odo-current]'),
+        editor: form.querySelector('[data-odo-editor]'),
+        editorSwatch: form.querySelector('[data-odo-editor-swatch]'),
+        editorLabel: form.querySelector('[data-odo-editor-label]'),
+        editorSurfaces: form.querySelector('[data-odo-editor-surfaces]'),
+        surfaceWarn: form.querySelector('[data-odo-surface-warn]'),
+        detail: form.querySelector('[data-odo-editor-detail]'),
+        note: form.querySelector('[data-odo-note]'),
+        noteLabel: form.querySelector('[data-odo-note-label]'),
+        search: form.querySelector('[data-odo-search]'),
+        searchEmpty: form.querySelector('[data-odo-search-empty]')
+    } : null;
+
+    var state = { tooth: null, conditions: [], editing: null, clicked: null };
+    var timers = {};
+
+    function debounce(key, fn, wait) {
+        clearTimeout(timers[key]);
+        timers[key] = setTimeout(fn, wait);
     }
 
-    function syncSurfaces(status) {
-        var info = meta[status] || {};
-        if (surfacesWrap) surfacesWrap.hidden = !info.needsSurface;
+    function parseConditions(tooth) {
+        try { return JSON.parse(tooth.dataset.conditions || '[]') || []; } catch (e) { return []; }
     }
 
-    function svgEl(name, attrs) {
-        var node = document.createElementNS(ns, name);
-        Object.keys(attrs).forEach(function (key) { node.setAttribute(key, attrs[key]); });
-        return node;
+    function toothInfo(tooth) {
+        var kind = tooth.dataset.kind || 'molar';
+        var anterior = kind === 'incisor' || kind === 'canine';
+        var upper = tooth.classList.contains('is-upper');
+        return {
+            number: tooth.dataset.number,
+            kind: kind,
+            anterior: anterior,
+            upper: upper,
+            primary: tooth.classList.contains('is-primary'),
+            surfaces: ['mesial', 'distal', anterior ? 'incisal' : 'occlusal', 'buccal', upper ? 'palatal' : 'lingual']
+        };
     }
 
-    function paintOverlay(svg, status) {
-        svg.querySelectorAll('.odo-overlay').forEach(function (node) { node.remove(); });
-        if (status === 'extracted' || status === 'missing') {
-            var g = svgEl('g', { 'class': 'odo-overlay odo-overlay--x' + (status === 'missing' ? ' is-missing' : '') });
-            g.appendChild(svgEl('line', { x1: '7', y1: '7', x2: '93', y2: '93' }));
-            g.appendChild(svgEl('line', { x1: '93', y1: '7', x2: '7', y2: '93' }));
-            svg.appendChild(g);
-        } else if (status === 'crown') {
-            svg.appendChild(svgEl('rect', { 'class': 'odo-overlay odo-overlay--crown', x: '3.5', y: '3.5', width: '93', height: '93' }));
-            svg.appendChild(svgEl('rect', { 'class': 'odo-overlay odo-overlay--crown-inner', x: '7', y: '7', width: '86', height: '86' }));
-        } else if (status === 'root_canal') {
-            svg.appendChild(svgEl('polygon', { 'class': 'odo-overlay odo-overlay--rct', points: '50,38 61,62 39,62' }));
-        } else if (status === 'fracture') {
-            svg.appendChild(svgEl('polyline', { 'class': 'odo-overlay odo-overlay--fracture', points: '22,8 38,32 28,52 46,72 40,92' }));
-        } else if (status === 'implant') {
-            svg.appendChild(svgEl('circle', { 'class': 'odo-overlay odo-overlay--implant', cx: '50', cy: '50', r: '11' }));
-        } else if (status === 'bridge') {
-            svg.appendChild(svgEl('line', { 'class': 'odo-overlay odo-overlay--bridge', x1: '4', y1: '10', x2: '96', y2: '10' }));
-            svg.appendChild(svgEl('line', { 'class': 'odo-overlay odo-overlay--bridge', x1: '4', y1: '90', x2: '96', y2: '90' }));
-        } else if (status === 'impacted') {
-            svg.appendChild(svgEl('polygon', { 'class': 'odo-overlay odo-overlay--impacted', points: '50,14 64,38 36,38' }));
-        } else if (status === 'mobility') {
-            var text = svgEl('text', { 'class': 'odo-overlay odo-overlay--mobility', x: '50', y: '56' });
-            text.textContent = 'M';
-            svg.appendChild(text);
+    function canonical(info, key) {
+        if (key === 'occlusal' || key === 'incisal') return info.anterior ? 'incisal' : 'occlusal';
+        if (key === 'palatal' || key === 'lingual') return info.upper ? 'palatal' : 'lingual';
+        return key;
+    }
+
+    function available(code, info) {
+        var m = meta[code];
+        if (!m || code === 'healthy' || !info) return false;
+        if (m.scope === 'adult' && info.primary) return false;
+        if (m.scope === 'primary' && !info.primary) return false;
+        return !m.kinds || m.kinds.indexOf(info.kind) !== -1;
+    }
+
+    function findCondition(code) {
+        for (var i = 0; i < state.conditions.length; i++) {
+            if (state.conditions[i].code === code) return state.conditions[i];
         }
+        return null;
     }
 
-    function applyVisual(tooth, status, surfaces, notes) {
-        var info = meta[status] || {};
-        var color = info.color || '#ffffff';
-        var fillSurfaces = !!info.needsSurface;
-        tooth.dataset.status = status;
-        tooth.dataset.surfaces = JSON.stringify(fillSurfaces ? surfaces : {});
-        if (typeof notes === 'string') tooth.dataset.notes = notes;
-        else if (notesInput) tooth.dataset.notes = notesInput.value || '';
-        tooth.title = tooth.dataset.number + ' — ' + (info.label || status);
-        Object.keys(meta).forEach(function (key) {
-            tooth.classList.toggle('is-' + key, key === status && status !== 'healthy');
-        });
-        tooth.querySelectorAll('.odo-surf').forEach(function (surf) {
-            var key = surf.dataset.surface;
-            surf.style.setProperty('--surf', fillSurfaces && surfaces[key] ? color : '#ffffff');
-        });
-        var svg = tooth.querySelector('.odo-svg');
-        if (svg) paintOverlay(svg, status);
+    function isPending(cond) {
+        return !!(meta[cond.code] && meta[cond.code].needsSurface && !cond.surfaces.length);
     }
 
-    function selectTooth(el, surface) {
-        chart.querySelectorAll('.odo-tooth.is-selected').forEach(function (n) { n.classList.remove('is-selected'); });
-        chart.querySelectorAll('.odo-surf.is-selected').forEach(function (n) { n.classList.remove('is-selected'); });
-        el.classList.add('is-selected');
-        if (surface) surface.classList.add('is-selected');
-        if (!form) return;
-        form.querySelector('[name="tooth_number"]').value = el.dataset.number;
-        if (numberLabel) numberLabel.textContent = el.dataset.number;
-        var status = el.dataset.status || 'healthy';
-        form.querySelector('[name="status"]').value = status;
-        var radio = form.querySelector('[name="odo_status"][value="' + status + '"]');
-        if (radio) radio.checked = true;
-        if (notesInput) notesInput.value = el.dataset.notes || '';
-        syncSurfaces(status);
-        var current = selectedSurfaces(el);
-        var picked = Object.keys(current);
-        if (surface && picked.indexOf(surface.dataset.surface) === -1) {
-            picked.push(surface.dataset.surface);
+    function describe(cond) {
+        var parts = [];
+        if (cond.surfaces && cond.surfaces.length) {
+            parts.push(cond.surfaces.map(function (s) { return surfaceShort[s] || ''; }).join(''));
         }
-        form.querySelectorAll('[name="surfaces[]"]').forEach(function (box) {
-            box.checked = picked.indexOf(box.value) !== -1;
+        var field = meta[cond.code] && meta[cond.code].detail;
+        var value = field && cond.detail ? cond.detail[field.key] : null;
+        if (field && value) {
+            parts.push(field.type === 'number' ? value + ' ' + (field.unit || '') : (field.options[value] || value));
+        }
+        return parts.join(' · ').trim();
+    }
+
+    function swatch(code) {
+        var i = document.createElement('i');
+        i.style.background = (meta[code] && meta[code].color) || '#9E9E9E';
+        i.textContent = (meta[code] && meta[code].symbol) || '';
+        return i;
+    }
+
+    function renderCurrent() {
+        el.current.innerHTML = '';
+        if (!state.tooth) return;
+        if (!state.conditions.length) {
+            var empty = document.createElement('div');
+            empty.className = 'odo-current__empty';
+            empty.textContent = 'Gigi sehat. Tambahkan kondisi dari daftar di bawah.';
+            el.current.appendChild(empty);
+            return;
+        }
+        state.conditions.forEach(function (cond) {
+            var row = document.createElement('div');
+            row.className = 'odo-current__item' + (state.editing === cond.code ? ' is-editing' : '') + (isPending(cond) ? ' is-pending' : '');
+            var main = document.createElement('button');
+            main.type = 'button';
+            main.className = 'odo-current__main';
+            main.setAttribute('data-odo-current-edit', cond.code);
+            main.appendChild(swatch(cond.code));
+            var text = document.createElement('span');
+            var label = document.createElement('strong');
+            label.textContent = meta[cond.code] ? meta[cond.code].label : cond.code;
+            text.appendChild(label);
+            var extra = isPending(cond) ? 'pilih permukaan' : describe(cond);
+            if (extra) {
+                var small = document.createElement('small');
+                small.textContent = extra;
+                text.appendChild(small);
+            }
+            main.appendChild(text);
+            var remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'odo-current__remove';
+            remove.setAttribute('data-odo-current-remove', cond.code);
+            remove.setAttribute('aria-label', 'Hapus kondisi ' + label.textContent);
+            remove.innerHTML = '<i class="bx bx-x"></i>';
+            row.appendChild(main);
+            row.appendChild(remove);
+            el.current.appendChild(row);
         });
     }
 
-    function findingRow(tooth) {
-        var article = document.createElement('article');
-        article.className = 'odo-finding';
-        article.setAttribute('data-finding-row', tooth.number);
-        var notes = tooth.notes ? '<p class="odo-finding__notes"></p>' : '';
-        var surfaces = tooth.surface_labels ? '<span></span>' : '';
-        var actions = canEdit
-            ? '<div class="odo-finding__actions"><button type="button" class="btn btn-sm btn-soft-primary" data-odo-edit="' + tooth.number + '">Ubah</button><button type="button" class="btn btn-sm btn-soft-danger" data-odo-delete="' + tooth.number + '">Hapus</button></div>'
-            : '';
-        article.innerHTML =
-            '<div class="odo-finding__num"></div>' +
-            '<div class="odo-finding__body">' +
-                '<div class="odo-finding__status"><i></i><strong></strong>' + surfaces + '</div>' +
-                notes +
-            '</div>' +
-            actions;
-        article.querySelector('.odo-finding__num').textContent = tooth.number;
-        article.querySelector('.odo-finding__status i').style.background = tooth.color || '#adb5bd';
-        article.querySelector('.odo-finding__status strong').textContent = tooth.status_label || tooth.status;
-        var surfEl = article.querySelector('.odo-finding__status span');
-        if (surfEl) surfEl.textContent = tooth.surface_labels;
-        var notesEl = article.querySelector('.odo-finding__notes');
-        if (notesEl) notesEl.textContent = tooth.notes;
-        return article;
+    function renderPicker() {
+        var info = state.tooth ? toothInfo(state.tooth) : null;
+        var q = (el.search.value || '').trim().toLowerCase();
+        var visibleTotal = 0;
+        form.querySelectorAll('[data-odo-group]').forEach(function (group) {
+            var visible = 0;
+            group.querySelectorAll('[data-odo-pick]').forEach(function (btn) {
+                var code = btn.getAttribute('data-odo-pick');
+                var show = (!info || available(code, info)) && (!q || (meta[code].search || '').indexOf(q) !== -1);
+                btn.hidden = !show;
+                btn.classList.toggle('is-active', !!findCondition(code));
+                btn.classList.toggle('is-editing', state.editing === code);
+                if (show) visible++;
+            });
+            group.hidden = visible === 0;
+            visibleTotal += visible;
+        });
+        el.searchEmpty.hidden = visibleTotal > 0;
+    }
+
+    function renderDetail(cond) {
+        el.detail.innerHTML = '';
+        var field = meta[cond.code].detail;
+        if (!field) return;
+        var wrap = document.createElement('div');
+        var label = document.createElement('div');
+        label.className = 'form-label mb-1';
+        label.textContent = field.label;
+        wrap.appendChild(label);
+        var value = (cond.detail || {})[field.key] || '';
+
+        if (field.type === 'choice') {
+            var group = document.createElement('div');
+            group.className = 'odo-choice';
+            Object.keys(field.options).forEach(function (key) {
+                var opt = document.createElement('label');
+                var input = document.createElement('input');
+                input.type = 'radio';
+                input.name = 'odo_detail_choice';
+                input.value = key;
+                input.checked = value === key;
+                input.setAttribute('data-odo-detail', field.key);
+                var span = document.createElement('span');
+                span.textContent = field.options[key];
+                opt.appendChild(input);
+                opt.appendChild(span);
+                group.appendChild(opt);
+            });
+            wrap.appendChild(group);
+        } else if (field.type === 'select') {
+            var select = document.createElement('select');
+            select.className = 'form-select form-select-sm';
+            select.setAttribute('data-odo-detail', field.key);
+            select.appendChild(new Option('— Pilih —', ''));
+            Object.keys(field.options).forEach(function (key) {
+                select.appendChild(new Option(field.options[key], key, false, value === key));
+            });
+            wrap.appendChild(select);
+        } else if (field.type === 'number') {
+            var box = document.createElement('div');
+            box.className = 'input-group input-group-sm';
+            var input = document.createElement('input');
+            input.type = 'number';
+            input.className = 'form-control';
+            input.min = field.min;
+            input.max = field.max;
+            input.step = field.step;
+            input.inputMode = 'decimal';
+            input.value = value;
+            input.setAttribute('data-odo-detail', field.key);
+            var unit = document.createElement('span');
+            unit.className = 'input-group-text';
+            unit.textContent = field.unit || '';
+            box.appendChild(input);
+            box.appendChild(unit);
+            wrap.appendChild(box);
+        }
+        el.detail.appendChild(wrap);
+    }
+
+    function renderEditor() {
+        var cond = state.editing ? findCondition(state.editing) : null;
+        el.editor.hidden = !cond;
+        if (!cond) return;
+        var m = meta[cond.code];
+        var info = toothInfo(state.tooth);
+        var sw = swatch(cond.code);
+        el.editorSwatch.replaceWith(sw);
+        el.editorSwatch = sw;
+        el.editorLabel.textContent = m.label;
+        el.editorSurfaces.hidden = !m.needsSurface;
+        el.editorSurfaces.querySelectorAll('[data-surface-option]').forEach(function (label) {
+            var key = label.getAttribute('data-surface-option');
+            label.hidden = info.surfaces.indexOf(key) === -1;
+            label.querySelector('input').checked = cond.surfaces.indexOf(key) !== -1;
+        });
+        el.surfaceWarn.hidden = !isPending(cond);
+        renderDetail(cond);
+        el.noteLabel.textContent = m.noteLabel || 'Catatan tambahan';
+        el.note.value = cond.note || '';
+    }
+
+    function render() {
+        if (!el) return;
+        renderCurrent();
+        renderEditor();
+        renderPicker();
+    }
+
+    function commit() {
+        if (!form || !state.tooth) return;
+        var saved = state.conditions.filter(function (c) { return !isPending(c); });
+        el.conditions.value = JSON.stringify(saved);
+        el.status.value = saved.length ? saved[0].code : 'healthy';
+        if (!window.careSave) return;
+        window.careSave(form).then(applyPayload);
+    }
+
+    function replaceTooth(number, html) {
+        var old = chart.querySelector('.odo-tooth[data-number="' + number + '"]');
+        if (!old || !html) return null;
+        var holder = document.createElement('div');
+        holder.innerHTML = html.trim();
+        var fresh = holder.firstElementChild;
+        if (!fresh) return null;
+        if (old.classList.contains('is-selected')) fresh.classList.add('is-selected');
+        old.replaceWith(fresh);
+        if (state.tooth === old) state.tooth = fresh;
+        return fresh;
     }
 
     function upsertFinding(tooth) {
         if (!findingsBody) return;
-        var empty = findingsBody.querySelector('[data-odo-empty]');
         var row = findingsBody.querySelector('[data-finding-row="' + tooth.number + '"]');
-        if (tooth.status === 'healthy') {
+        var empty = findingsBody.querySelector('[data-odo-empty]');
+        if (!tooth.row_html) {
             if (row) row.remove();
-        } else if (row) {
-            row.replaceWith(findingRow(tooth));
         } else {
-            findingsBody.appendChild(findingRow(tooth));
+            var holder = document.createElement('div');
+            holder.innerHTML = tooth.row_html.trim();
+            var fresh = holder.firstElementChild;
+            if (row) row.replaceWith(fresh);
+            else findingsBody.appendChild(fresh);
+            if (empty) empty.remove();
         }
-        if (empty) empty.remove();
         if (!findingsBody.querySelector('[data-finding-row]')) {
             findingsBody.innerHTML = '<div class="odo-board__empty" data-odo-empty>Belum ada temuan. Klik gigi pada chart untuk mencatat kondisi.</div>';
         }
@@ -270,43 +462,72 @@
     }
 
     function applyPayload(data) {
-        if (data && data.tooth) {
-            upsertFinding(data.tooth);
-            if (window.careSyncOdoToothOption) window.careSyncOdoToothOption(data.tooth);
-        }
+        if (!data || !data.tooth) return;
+        replaceTooth(data.tooth.number, data.tooth.html);
+        upsertFinding(data.tooth);
+        if (window.careSyncOdoToothOption) window.careSyncOdoToothOption(data.tooth);
     }
 
-    function saveTooth() {
-        if (!form || !form.querySelector('[name="tooth_number"]').value) return;
-        var tooth = chart.querySelector('.odo-tooth.is-selected');
-        var status = form.querySelector('[name="status"]').value;
-        var info = meta[status] || {};
-        var surfaces = {};
-        if (info.needsSurface) {
-            form.querySelectorAll('[name="surfaces[]"]:checked').forEach(function (box) {
-                surfaces[box.value] = status;
-            });
-        }
-        if (tooth) applyVisual(tooth, status, surfaces);
-        if (!window.careSave) return;
-        window.careSave(form).then(applyPayload);
+    function kindLabel(info) {
+        var names = { incisor: 'Insisivus', canine: 'Kaninus', premolar: 'Premolar', molar: 'Molar' };
+        return names[info.kind] + ' · ' + (info.primary ? 'gigi sulung' : 'gigi permanen') + ' · rahang ' + (info.upper ? 'atas' : 'bawah');
     }
 
-    function resetInspector(number) {
+    function selectTooth(tooth, surface) {
+        chart.querySelectorAll('.odo-tooth.is-selected').forEach(function (n) { n.classList.remove('is-selected'); });
+        chart.querySelectorAll('.odo-surf.is-selected').forEach(function (n) { n.classList.remove('is-selected'); });
+        tooth.classList.add('is-selected');
+        if (surface) surface.classList.add('is-selected');
         if (!form) return;
-        var radio = form.querySelector('[name="odo_status"][value="healthy"]');
-        form.querySelector('[name="tooth_number"]').value = number || '';
-        form.querySelector('[name="status"]').value = 'healthy';
-        if (radio) radio.checked = true;
-        if (notesInput) notesInput.value = '';
-        form.querySelectorAll('[name="surfaces[]"]').forEach(function (box) { box.checked = false; });
-        syncSurfaces('healthy');
-        if (numberLabel) numberLabel.textContent = number || '—';
+        var info = toothInfo(tooth);
+        state.tooth = tooth;
+        state.conditions = parseConditions(tooth).map(function (c) {
+            return { code: c.code, surfaces: (c.surfaces || []).slice(), detail: Object.assign({}, c.detail || {}), note: c.note || '' };
+        });
+        state.clicked = surface ? canonical(info, surface.dataset.surface) : null;
+        state.editing = null;
+        if (state.clicked) {
+            var hit = state.conditions.filter(function (c) { return c.surfaces.indexOf(state.clicked) !== -1; }).pop();
+            if (hit) state.editing = hit.code;
+        }
+        el.number.value = info.number;
+        if (numberLabel) numberLabel.textContent = info.number;
+        el.kind.textContent = kindLabel(info);
+        el.notes.value = tooth.dataset.notes || '';
+        el.fieldset.disabled = false;
+        el.reset.disabled = false;
+        el.guide.hidden = true;
+        render();
+    }
+
+    function pick(code) {
+        if (!state.tooth || !meta[code]) return;
+        if (findCondition(code)) {
+            state.editing = code;
+            render();
+            return;
+        }
+        var info = toothInfo(state.tooth);
+        var m = meta[code];
+        var cond = { code: code, surfaces: [], detail: {}, note: '' };
+        if (m.detail && m.detail['default']) cond.detail[m.detail.key] = m.detail['default'];
+        if (m.needsSurface && state.clicked && info.surfaces.indexOf(state.clicked) !== -1) cond.surfaces.push(state.clicked);
+        state.conditions.push(cond);
+        state.editing = code;
+        render();
+        if (!isPending(cond)) commit();
+    }
+
+    function removeCondition(code) {
+        state.conditions = state.conditions.filter(function (c) { return c.code !== code; });
+        if (state.editing === code) state.editing = null;
+        render();
+        commit();
     }
 
     function deleteFinding(number) {
         if (!board || !number) return;
-        if (!window.confirm('Hapus temuan gigi ' + number + '? Status gigi kembali ke sehat.')) return;
+        if (!window.confirm('Hapus temuan gigi ' + number + '? Semua kondisi gigi ini dihapus dan status kembali ke sehat.')) return;
         var statusEl = document.querySelector('[data-care-save]');
         if (statusEl) statusEl.textContent = 'Menghapus…';
         fetch(board.getAttribute('data-odo-destroy') + '/' + number, {
@@ -320,20 +541,38 @@
             if (!res.ok) throw new Error('delete failed');
             return res.json();
         }).then(function (data) {
-            var tooth = chart.querySelector('.odo-tooth[data-number="' + number + '"]');
-            if (tooth) applyVisual(tooth, 'healthy', {}, '');
-            if (form && form.querySelector('[name="tooth_number"]').value === number) resetInspector(number);
             applyPayload(data);
+            if (form && state.tooth && state.tooth.dataset.number === number) {
+                selectTooth(state.tooth);
+            }
             if (statusEl) statusEl.textContent = '✓ Tersimpan';
         }).catch(function () {
             if (statusEl) statusEl.textContent = 'Gagal menghapus';
         });
     }
 
-    chart.querySelectorAll('.odo-tooth').forEach(function (tooth) {
-        tooth.addEventListener('click', function (e) {
-            selectTooth(tooth, e.target.closest('.odo-surf'));
-        });
+    function toggleSurface(surface) {
+        var cond = findCondition(state.editing);
+        if (!cond || !meta[cond.code].needsSurface) return false;
+        var info = toothInfo(state.tooth);
+        var key = canonical(info, surface.dataset.surface);
+        var picked = cond.surfaces.indexOf(key) === -1
+            ? cond.surfaces.concat([key])
+            : cond.surfaces.filter(function (s) { return s !== key; });
+        cond.surfaces = info.surfaces.filter(function (s) { return picked.indexOf(s) !== -1; });
+        surface.style.setProperty('--surf', cond.surfaces.indexOf(key) !== -1 ? meta[cond.code].color : '#ffffff');
+        state.clicked = key;
+        render();
+        commit();
+        return true;
+    }
+
+    chart.addEventListener('click', function (e) {
+        var tooth = e.target.closest('.odo-tooth');
+        if (!tooth) return;
+        var surface = e.target.closest('.odo-surf');
+        if (form && surface && tooth === state.tooth && toggleSurface(surface)) return;
+        selectTooth(tooth, surface);
     });
 
     document.addEventListener('click', function (e) {
@@ -351,32 +590,94 @@
     });
 
     if (form) {
-        form.querySelectorAll('[name="odo_status"]').forEach(function (radio) {
-            radio.addEventListener('change', function () {
-                form.querySelector('[name="status"]').value = radio.value;
-                syncSurfaces(radio.value);
-                if (radio.dataset.surface !== '1') {
-                    form.querySelectorAll('[name="surfaces[]"]').forEach(function (box) { box.checked = false; });
-                    saveTooth();
-                    return;
-                }
-                if (form.querySelector('[name="surfaces[]"]:checked')) saveTooth();
-            });
+        form.addEventListener('click', function (e) {
+            var pickBtn = e.target.closest('[data-odo-pick]');
+            if (pickBtn) return pick(pickBtn.getAttribute('data-odo-pick'));
+            var editCond = e.target.closest('[data-odo-current-edit]');
+            if (editCond) {
+                var code = editCond.getAttribute('data-odo-current-edit');
+                state.editing = state.editing === code ? null : code;
+                return render();
+            }
+            var removeCond = e.target.closest('[data-odo-current-remove]');
+            if (removeCond) return removeCondition(removeCond.getAttribute('data-odo-current-remove'));
+            if (e.target.closest('[data-odo-editor-close]')) {
+                state.editing = null;
+                return render();
+            }
         });
-        form.querySelectorAll('[name="surfaces[]"]').forEach(function (box) {
-            box.addEventListener('change', saveTooth);
+
+        el.reset.addEventListener('click', function () {
+            if (!state.tooth) return;
+            if (state.conditions.length && !window.confirm('Reset gigi ' + state.tooth.dataset.number + ' ke sehat? Semua kondisi gigi ini dihapus.')) return;
+            state.conditions = [];
+            state.editing = null;
+            render();
+            commit();
         });
-        if (notesInput) {
-            notesInput.addEventListener('input', function () {
-                clearTimeout(notesTimer);
-                notesTimer = setTimeout(saveTooth, 600);
+
+        el.editorSurfaces.addEventListener('change', function (e) {
+            var cond = findCondition(state.editing);
+            if (!cond || !e.target.matches('[data-odo-surface]')) return;
+            var info = toothInfo(state.tooth);
+            cond.surfaces = info.surfaces.filter(function (key) {
+                var box = el.editorSurfaces.querySelector('[data-odo-surface][value="' + key + '"]');
+                return box && box.checked;
             });
-        }
+            el.surfaceWarn.hidden = !isPending(cond);
+            renderCurrent();
+            commit();
+        });
+
+        el.detail.addEventListener('change', function (e) {
+            var cond = findCondition(state.editing);
+            var key = e.target.getAttribute('data-odo-detail');
+            if (!cond || !key) return;
+            if (e.target.value === '') delete cond.detail[key];
+            else cond.detail[key] = e.target.value;
+            renderCurrent();
+            commit();
+        });
+
+        el.detail.addEventListener('input', function (e) {
+            if (e.target.type !== 'number') return;
+            var cond = findCondition(state.editing);
+            var key = e.target.getAttribute('data-odo-detail');
+            if (!cond || !key) return;
+            cond.detail[key] = e.target.value;
+            debounce('detail', function () { renderCurrent(); commit(); }, 600);
+        });
+
+        el.note.addEventListener('input', function () {
+            var cond = findCondition(state.editing);
+            if (!cond) return;
+            cond.note = el.note.value;
+            if (!isPending(cond)) debounce('note', commit, 600);
+        });
+
+        el.notes.addEventListener('input', function () {
+            debounce('notes', commit, 600);
+        });
+
+        el.search.addEventListener('input', renderPicker);
+        el.search.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') {
+                el.search.value = '';
+                renderPicker();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                var first = form.querySelector('[data-odo-pick]:not([hidden])');
+                if (first) pick(first.getAttribute('data-odo-pick'));
+            }
+        });
+
         form.addEventListener('submit', function (e) {
             if (!window.careSave) return;
             e.preventDefault();
-            saveTooth();
+            commit();
         });
+
+        renderPicker();
     }
 
     chart.addEventListener('pointerover', function (e) {
@@ -386,3 +687,4 @@
 })();
 </script>
 @endpush
+

@@ -26,11 +26,7 @@
         </div>
 
         <div class="d-flex">
-            <div class="dropdown d-none d-lg-inline-block ms-1">
-                <button type="button" class="btn header-item noti-icon waves-effect" data-toggle="fullscreen">
-                    <i class="bx bx-fullscreen"></i>
-                </button>
-            </div>
+            @include('layouts.partials.topbar-tools')
 
             <div class="dropdown d-inline-block">
                 <button type="button" class="btn header-item waves-effect" id="page-header-user-dropdown"

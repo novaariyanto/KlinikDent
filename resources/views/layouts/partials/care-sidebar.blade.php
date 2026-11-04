@@ -8,9 +8,9 @@
 
 <aside class="doctor-sidebar" aria-label="Antrean pelayanan">
     <div class="doctor-sidebar__header">
-        <a href="{{ route('dashboard') }}" class="doctor-sidebar__home">
+        <a href="{{ request('from') === 'pelayanan' ? route('examinations.initial') : route('dashboard') }}" class="doctor-sidebar__home">
             <i class="bx bx-left-arrow-alt" aria-hidden="true"></i>
-            <span>Menu Utama</span>
+            <span>{{ request('from') === 'pelayanan' ? 'Pemeriksaan' : 'Menu Utama' }}</span>
         </a>
     </div>
 
@@ -79,7 +79,7 @@
                         ));
                     @endphp
                     <a
-                        href="{{ route('care.show', array_filter(['visit' => $item, 'tab' => $section ?? null])) }}"
+                        href="{{ route('care.show', array_filter(['visit' => $item, 'tab' => $section ?? null, 'from' => request('from') === 'pelayanan' ? 'pelayanan' : null])) }}"
                         class="patient-queue-item{{ $isActive ? ' is-active' : '' }}"
                         data-queue-item
                         data-search="{{ $search }}"

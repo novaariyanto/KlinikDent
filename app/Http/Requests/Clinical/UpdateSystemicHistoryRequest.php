@@ -46,6 +46,10 @@ class UpdateSystemicHistoryRequest extends FormRequest
             'rhesus' => ['nullable', 'string', Rule::in(['positive', 'negative'])],
             'pregnancy_status' => ['nullable', 'string', Rule::in(['pregnant', 'not_pregnant'])],
             'other_detail' => ['nullable', 'string', 'max:255'],
+            'family_history' => ['nullable', 'string', 'max:2000'],
+            'dental_history' => ['nullable', 'string', 'max:2000'],
+            'drug_allergy' => ['nullable', 'string', 'max:1000'],
+            'material_allergy' => ['nullable', 'string', 'max:1000'],
             'none' => ['nullable', 'boolean'],
         ];
     }

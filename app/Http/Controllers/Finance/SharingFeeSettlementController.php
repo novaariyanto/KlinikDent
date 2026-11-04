@@ -80,7 +80,7 @@ class SharingFeeSettlementController extends Controller
         $excluded = count($result['exclusions']);
         $message = "Berhasil membuat/memperbarui {$count} settlement draft.";
         if ($excluded > 0) {
-            $message .= " {$excluded} item dikecualikan (Belum memiliki aturan Sharing Fee).";
+            $message .= " {$excluded} item dikecualikan.";
         }
 
         return redirect()

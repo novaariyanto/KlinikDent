@@ -3,7 +3,7 @@
 namespace App\Support\Finance\SharingFee;
 
 use App\Enums\SharingFeeCalcType;
-use App\Enums\SharingFeeMaterialDeductionType;
+use App\Models\InvoiceItem;
 use App\Models\SharingFeeRule;
 
 class SharingFeeCalculator
@@ -15,55 +15,91 @@ class SharingFeeCalculator
      *     fee_base: string,
      *     fee_amount: string,
      *     calc_type: string,
-     *     rate: string
+     *     rate: string,
+     *     base_source: string
+     * }
+     */
+    public function calculateFromInvoiceItem(SharingFeeRule $rule, InvoiceItem $item): array
+    {
+        $quantity = max(1, (int) $item->quantity);
+
+        if ($item->usesDoctorFeeSharing()) {
+            $calc = $this->calculate($rule, $item->sharingDoctorFeeTotal(), $quantity);
+            $calc['material_deduction'] = $item->sharingBhpTotal();
+            $calc['base_source'] = 'doctor_fee';
+
+            return $calc;
+        }
+
+        $legacyRule = $rule;
+        $calcType = $rule->calc_type instanceof SharingFeeCalcType
+            ? $rule->calc_type
+            : SharingFeeCalcType::from((string) $rule->calc_type);
+
+        if ($calcType === SharingFeeCalcType::DoctorFee) {
+            $legacyRule = new SharingFeeRule([
+                'calc_type' => SharingFeeCalcType::Percentage,
+                'rate' => '40',
+            ]);
+        }
+
+        $calc = $this->calculate($legacyRule, $item->sharingFeeBase(), $quantity);
+        $calc['base_source'] = 'subtotal';
+        $calc['legacy_fallback'] = $calcType === SharingFeeCalcType::DoctorFee;
+
+        return $calc;
+    }
+
+    /**
+     * @return array{
+     *     gross_base: string,
+     *     material_deduction: string,
+     *     fee_base: string,
+     *     fee_amount: string,
+     *     calc_type: string,
+     *     rate: string,
+     *     base_source: string
      * }
      */
     public function calculate(SharingFeeRule $rule, string $grossBase, int $quantity): array
     {
         $grossBase = $this->normalize($grossBase);
         $quantity = max(1, $quantity);
-
-        $deduction = $this->materialDeduction($rule, $grossBase, $quantity);
-        $feeBase = bcsub($grossBase, $deduction, 2);
-
-        if (bccomp($feeBase, '0', 2) < 0) {
-            $feeBase = '0.00';
-        }
+        $feeBase = $grossBase;
 
         $calcType = $rule->calc_type instanceof SharingFeeCalcType
             ? $rule->calc_type
             : SharingFeeCalcType::from((string) $rule->calc_type);
 
-        $rate = $this->normalize((string) $rule->rate, 4);
+        $rate = $calcType === SharingFeeCalcType::DoctorFee
+            ? '100.0000'
+            : $this->normalize((string) $rule->rate, 4);
 
         $feeAmount = match ($calcType) {
+            SharingFeeCalcType::DoctorFee => $feeBase,
             SharingFeeCalcType::Percentage => bcdiv(bcmul($feeBase, $rate, 4), '100', 2),
             SharingFeeCalcType::Fixed => bcmul($rate, (string) $quantity, 2),
         };
 
         return [
             'gross_base' => $grossBase,
-            'material_deduction' => $deduction,
+            'material_deduction' => '0.00',
             'fee_base' => $feeBase,
             'fee_amount' => $feeAmount,
             'calc_type' => $calcType->value,
             'rate' => $rate,
+            'base_source' => 'doctor_fee',
         ];
     }
 
+    /**
+     * Potongan bahan tidak dipakai lagi: BHP sudah terpisah di tarif.
+     *
+     * @deprecated
+     */
     public function materialDeduction(SharingFeeRule $rule, string $grossBase, int $quantity): string
     {
-        $type = $rule->material_deduction_type instanceof SharingFeeMaterialDeductionType
-            ? $rule->material_deduction_type
-            : SharingFeeMaterialDeductionType::from((string) ($rule->material_deduction_type ?? 'none'));
-
-        $value = $this->normalize((string) ($rule->material_deduction_value ?? '0'), 4);
-
-        return match ($type) {
-            SharingFeeMaterialDeductionType::None => '0.00',
-            SharingFeeMaterialDeductionType::Percent => bcdiv(bcmul($grossBase, $value, 4), '100', 2),
-            SharingFeeMaterialDeductionType::Fixed => bcmul($value, (string) max(1, $quantity), 2),
-        };
+        return '0.00';
     }
 
     public function normalize(string $amount, int $scale = 2): string

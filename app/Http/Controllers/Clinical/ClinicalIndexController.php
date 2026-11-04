@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Enums\InvoiceStatus;
 use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Visit;
@@ -24,7 +25,18 @@ class ClinicalIndexController extends Controller
 
         $visitsQuery = Visit::query()
             ->visibleTo($request->user())
-            ->with(['patient', 'queue', 'doctor', 'room', 'medicalRecord'])
+            ->with([
+                'patient',
+                'queue',
+                'doctor',
+                'room',
+                'payer',
+                'medicalRecord',
+                'invoices' => fn ($query) => $query
+                    ->where('status', '!=', InvoiceStatus::Void)
+                    ->latest('id'),
+                'prescriptions' => fn ($query) => $query->latest('id'),
+            ])
             ->whereDate('visit_date', '>=', $filters['date_from'])
             ->whereDate('visit_date', '<=', $filters['date_to'])
             ->when($filters['status'], fn ($query) => $query->where('visits.status', $filters['status']))
@@ -39,7 +51,7 @@ class ClinicalIndexController extends Controller
                 });
             });
 
-        if ($request->routeIs('examinations.index')) {
+        if ($request->routeIs('examinations.*')) {
             $visitsQuery
                 ->leftJoin('queues', 'queues.visit_id', '=', 'visits.id')
                 ->orderByRaw("CASE visits.status WHEN 'waiting' THEN 1 WHEN 'in-service' THEN 2 WHEN 'done' THEN 3 ELSE 4 END")
@@ -130,30 +142,15 @@ class ClinicalIndexController extends Controller
                 'permission' => 'referral.view',
                 'tab' => 'notes',
             ],
-            $request->routeIs('examinations.vitals') => [
-                'title' => 'Tanda Vital',
-                'permission' => 'vital_sign.view',
-                'tab' => 'vitals',
-            ],
-            $request->routeIs('examinations.anamnesis') => [
-                'title' => 'Anamnesis',
-                'permission' => 'anamnesis.view',
-                'tab' => 'anamnesis',
-            ],
-            $request->routeIs('examinations.notes') => [
-                'title' => 'Catatan Pelayanan',
-                'permission' => 'care_note.view',
-                'tab' => 'notes',
-            ],
-            $request->routeIs('examinations.initial') => [
-                'title' => 'Pemeriksaan Awal',
+            $request->routeIs('examinations.*') => [
+                'title' => 'Pemeriksaan',
                 'permission' => 'examination.view',
-                'tab' => 'exam',
+                'tab' => 'soap',
             ],
             default => [
                 'title' => 'Pemeriksaan',
                 'permission' => 'examination.view',
-                'tab' => 'exam',
+                'tab' => 'soap',
             ],
         };
     }

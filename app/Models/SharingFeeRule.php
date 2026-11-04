@@ -13,6 +13,8 @@ class SharingFeeRule extends Model
 {
     use BelongsToTenant;
 
+    public bool $implicit = false;
+
     /**
      * @var list<string>
      */
@@ -89,6 +91,21 @@ class SharingFeeRule extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public static function implicitDoctorFee(): self
+    {
+        $rule = new self([
+            'calc_type' => SharingFeeCalcType::DoctorFee,
+            'rate' => '100',
+            'material_deduction_type' => SharingFeeMaterialDeductionType::None,
+            'material_deduction_value' => '0',
+            'priority' => 0,
+            'is_active' => true,
+        ]);
+        $rule->implicit = true;
+
+        return $rule;
+    }
+
     public function isGeneral(): bool
     {
         return $this->doctor_user_id === null
@@ -149,16 +166,17 @@ class SharingFeeRule extends Model
     {
         return [
             'id' => $this->id,
+            'implicit' => $this->implicit,
             'doctor_user_id' => $this->doctor_user_id,
             'branch_id' => $this->branch_id,
             'procedure_id' => $this->procedure_id,
-            'coverage' => $this->coverageSummary(),
+            'coverage' => $this->implicit ? 'Mengikuti jasa dokter tarif' : $this->coverageSummary(),
             'calc_type' => $this->calc_type?->value ?? $this->calc_type,
-            'rate' => (string) $this->rate,
+            'rate' => $this->implicit ? '100' : (string) $this->rate,
             'material_deduction_type' => $this->material_deduction_type?->value ?? $this->material_deduction_type,
             'material_deduction_value' => (string) $this->material_deduction_value,
             'priority' => (int) $this->priority,
-            'specificity_rank' => $this->specificityRank(),
+            'specificity_rank' => $this->implicit ? 0 : $this->specificityRank(),
             'effective_from' => $this->effective_from?->toDateString(),
             'effective_to' => $this->effective_to?->toDateString(),
         ];

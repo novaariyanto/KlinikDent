@@ -6,6 +6,8 @@ use App\Models\Branch;
 use App\Models\CashAccount;
 use App\Models\CashierShift;
 use App\Models\Diagnosis;
+use App\Models\DoctorFeeWaiverLog;
+use App\Models\DoctorFeeWaiverSetting;
 use App\Models\Doctor;
 use App\Models\DoctorSchedule;
 use App\Models\Expense;
@@ -93,6 +95,8 @@ class AppServiceProvider extends ServiceProvider
         Route::bind('expenseCategory', fn (string $value) => ExpenseCategory::withoutGlobalScopes()->findOrFail($value));
         Route::bind('sharingFeeRule', fn (string $value) => SharingFeeRule::withoutGlobalScopes()->findOrFail($value));
         Route::bind('sharingFeeSettlement', fn (string $value) => SharingFeeSettlement::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('doctorFeeWaiverSetting', fn (string $value) => DoctorFeeWaiverSetting::withoutGlobalScopes()->findOrFail($value));
+        Route::bind('doctorFeeWaiverLog', fn (string $value) => DoctorFeeWaiverLog::withoutGlobalScopes()->findOrFail($value));
         Route::bind('cashAccount', fn (string $value) => CashAccount::withoutGlobalScopes()->findOrFail($value));
         Route::bind('medicine', fn (string $value) => Medicine::withoutGlobalScopes()->findOrFail($value));
         Route::bind('medicineStock', fn (string $value) => MedicineStock::withoutGlobalScopes()->findOrFail($value));

@@ -13,7 +13,7 @@ class UpdateCareNotesRequest extends FormRequest
         /** @var Visit $visit */
         $visit = $this->route('visit');
 
-        return $this->user()?->can('care_note.manage')
+        return ($this->user()?->can('care_note.manage') || $this->user()?->can('medical_record.update'))
             && $this->user()?->can('view', $visit)
             && $visit->status !== VisitStatus::Cancelled;
     }

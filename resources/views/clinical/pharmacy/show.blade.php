@@ -1,9 +1,26 @@
 @extends('layouts.app')
 
+@php
+    $fromPelayanan = request('from') === 'pelayanan';
+    $rxBreadcrumb = $fromPelayanan
+        ? ['Pelayanan' => route('examinations.initial'), 'Resep #'.$prescription->id => null]
+        : ['Resep Masuk' => route('pharmacy.prescriptions.incoming'), 'Detail' => null];
+    $invoice = $prescription->visit?->currentInvoice();
+    $canOpenExam = $fromPelayanan || auth()->user()?->can('examination.view');
+    $canOpenSoap = $prescription->visit && App\Support\Clinical\CareTabs::canAccessCare(auth()->user());
+    $canOpenCashier = $invoice && auth()->user()?->can('viewAny', App\Models\Invoice::class);
+    $canFulfill = $prescription->isSent()
+        && auth()->user()?->can('prescription.update')
+        && (auth()->user()?->can('pharmacy.manage') || auth()->user()?->can('stock.manage'));
+    $backUrl = $fromPelayanan
+        ? route('examinations.initial')
+        : route($prescription->isSent() ? 'pharmacy.prescriptions.incoming' : 'pharmacy.prescriptions.completed');
+@endphp
+
 @section('title', 'Detail Resep')
 
 @section('content')
-    <x-page-header title="Resep #{{ $prescription->id }}" :breadcrumb="['Resep Masuk' => route('pharmacy.prescriptions.incoming'), 'Detail' => null]" />
+    <x-page-header title="Resep #{{ $prescription->id }}" :breadcrumb="$rxBreadcrumb" />
     <x-alert />
     @include('clinical.pharmacy.partials.nav', ['current' => $prescription->isSent() ? 'pharmacy.prescriptions.incoming' : 'pharmacy.prescriptions.completed'])
     <x-card title="Resep">
@@ -77,9 +94,18 @@
                 @endforeach
             </tbody>
         </x-table>
-        <div class="mt-3 d-flex gap-2">
-            <x-button href="{{ route($prescription->isSent() ? 'pharmacy.prescriptions.incoming' : 'pharmacy.prescriptions.completed') }}" variant="secondary">Kembali</x-button>
-            @if ($prescription->isSent() && auth()->user()?->can('prescription.update') && (auth()->user()?->can('pharmacy.manage') || auth()->user()?->can('stock.manage')))
+        <div class="mt-3 d-flex flex-wrap gap-2">
+            @if ($canOpenExam)
+                <x-button href="{{ route('examinations.initial') }}" variant="secondary" icon="bx bx-list-ul">Pemeriksaan</x-button>
+            @endif
+            @if ($canOpenSoap)
+                <x-button href="{{ route('care.show', ['visit' => $prescription->visit, 'tab' => 'soap', 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-plus-medical">SOAP</x-button>
+            @endif
+            @if ($canOpenCashier)
+                <x-button href="{{ route('billing.invoices.show', ['invoice' => $invoice, 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-receipt">Kasir</x-button>
+            @endif
+            <x-button href="{{ $backUrl }}" variant="secondary">Kembali</x-button>
+            @if ($canFulfill)
                 @if ($stockShort)
                     <x-button type="button" variant="success" disabled>Stok tidak cukup</x-button>
                 @else

@@ -19,10 +19,17 @@ final class CareProgress
         $systemic = $record?->systemic_history ?? [];
         $exam = $record?->dental_exam ?? [];
 
+        $complaint = filled($record?->chief_complaint) || filled($record?->anamnesis);
+        $plan = self::instructionComplete($record);
+        $prescriptions = $visit->prescriptions->contains(fn ($prescription) => $prescription->items->isNotEmpty());
+
         return [
-            'keluhan' => filled($record?->chief_complaint) || filled($record?->anamnesis),
-            'screening' => self::screeningComplete($vitals, $systemic),
-            'pemeriksaan' => self::examComplete($exam, $record?->initial_examination),
+            'soap' => $complaint
+                || self::screeningComplete($vitals, $systemic)
+                || self::examComplete($exam, $record?->initial_examination)
+                || $visit->diagnoses->isNotEmpty()
+                || $prescriptions
+                || $plan,
             'odontogram' => $teeth->contains(function ($tooth) {
                 $status = $tooth->status ?? null;
 
@@ -30,11 +37,10 @@ final class CareProgress
                     ? $status !== ToothStatus::Healthy
                     : filled($status) && $status !== ToothStatus::Healthy->value;
             }),
-            'diagnosis' => $visit->diagnoses->isNotEmpty(),
             'tindakan' => $visit->procedureRecords->isNotEmpty(),
-            'resep' => $visit->prescriptions->contains(fn ($prescription) => $prescription->items->isNotEmpty()),
+            'resep' => $prescriptions,
             'rujukan' => $visit->referrals->isNotEmpty(),
-            'instruksi' => self::instructionComplete($record),
+            'ringkasan' => $visit->referrals->isNotEmpty() || $plan,
         ];
     }
 

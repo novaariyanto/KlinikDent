@@ -115,9 +115,9 @@ class SharingFeeSettlementService
 
             if ($settlements->isEmpty()) {
                 $hint = $exclusions !== []
-                    ? ' Semua item masuk pengecualian (Belum memiliki aturan Sharing Fee).'
+                    ? ' Semua item masuk pengecualian.'
                     : '';
-                throw new SharingFeeException('Tidak ada item dengan aturan sharing fee yang cocok untuk dihitung.'.$hint);
+                throw new SharingFeeException('Tidak ada jasa dokter yang dapat dihitung untuk periode ini.'.$hint);
             }
 
             return ['settlements' => $settlements, 'exclusions' => $exclusions];
@@ -342,20 +342,30 @@ class SharingFeeSettlementService
             );
 
             if (! $rule) {
+                if (! $item->usesDoctorFeeSharing()) {
+                    $exclusions[] = [
+                        'invoice_item_id' => $item->id,
+                        'invoice_number' => (string) $invoice->number,
+                        'description' => (string) $item->description,
+                        'reason' => 'Belum memiliki aturan Sharing Fee (tarif lama tanpa jasa dokter)',
+                    ];
+                    continue;
+                }
+
+                $rule = SharingFeeRule::implicitDoctorFee();
+            }
+
+            if ($item->usesDoctorFeeSharing() && bccomp($item->sharingDoctorFeeTotal(), '0', 2) === 0) {
                 $exclusions[] = [
                     'invoice_item_id' => $item->id,
                     'invoice_number' => (string) $invoice->number,
                     'description' => (string) $item->description,
-                    'reason' => 'Belum memiliki aturan Sharing Fee',
+                    'reason' => 'Jasa dokter dibebaskan (tidak dihitung sharing fee)',
                 ];
                 continue;
             }
 
-            $calc = $this->calculator->calculate(
-                $rule,
-                (string) $item->subtotal,
-                (int) $item->quantity,
-            );
+            $calc = $this->calculator->calculateFromInvoiceItem($rule, $item);
 
             SharingFeeSettlementItem::query()->create([
                 'tenant_id' => $settlement->tenant_id,
@@ -363,7 +373,7 @@ class SharingFeeSettlementService
                 'invoice_id' => $invoice->id,
                 'invoice_item_id' => $item->id,
                 'procedure_id' => $procedureId,
-                'rule_id' => $rule->id,
+                'rule_id' => $rule->implicit ? null : $rule->id,
                 'invoice_number' => (string) $invoice->number,
                 'item_description' => (string) $item->description,
                 'quantity' => (int) $item->quantity,
@@ -375,7 +385,10 @@ class SharingFeeSettlementService
                 'rate' => $calc['rate'],
                 'fee_amount' => $calc['fee_amount'],
                 'rule_priority' => (int) $rule->priority,
-                'rule_snapshot' => $rule->toSnapshot(),
+                'rule_snapshot' => $rule->toSnapshot() + [
+                    'base_source' => $calc['base_source'] ?? 'doctor_fee',
+                    'bhp_amount' => $calc['material_deduction'],
+                ],
             ]);
             $added++;
         }

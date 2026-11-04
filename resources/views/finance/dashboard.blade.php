@@ -44,7 +44,7 @@
 
     @can('sharing_fee.view')
         <x-card title="Sharing Fee">
-            <p class="text-muted mb-3">Hitung, setujui, dan bayar jasa pelayanan dokter berdasarkan tindakan pada invoice lunas.</p>
+            <p class="text-muted mb-3">Hitung, setujui, dan bayar jasa dokter sesuai komponen tarif pada invoice lunas.</p>
             <div class="d-flex flex-wrap gap-2">
                 <a href="{{ route('finance.sharing-fees.rules.index') }}" class="btn btn-soft-primary btn-sm">Aturan Fee</a>
                 <a href="{{ route('finance.sharing-fees.settlements.index') }}" class="btn btn-soft-primary btn-sm">Settlement</a>

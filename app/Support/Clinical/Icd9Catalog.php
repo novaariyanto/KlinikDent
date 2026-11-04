@@ -4,6 +4,10 @@ namespace App\Support\Clinical;
 
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Sumber master: https://github.com/LuChang-CS/icd_hierarchical_structure (ICD-9-CM procedure).
+ * File: database/master_icd9_cm.json (leaf codes, Bahasa Inggris).
+ */
 final class Icd9Catalog
 {
     /**
@@ -18,9 +22,10 @@ final class Icd9Catalog
         }
 
         $path = database_path('master_icd9_cm.json');
+        $mtime = is_file($path) ? (string) filemtime($path) : '0';
 
         /** @var list<array{code: string, description: string}> $items */
-        $items = Cache::remember('icd9_catalog:'.(is_file($path) ? filemtime($path) : '0'), now()->addDay(), function () use ($path) {
+        $items = Cache::remember('icd9_catalog:luchang:'.$mtime, now()->addDays(7), function () use ($path) {
             if (! is_file($path)) {
                 return [];
             }
@@ -70,14 +75,37 @@ final class Icd9Catalog
         return $options;
     }
 
+    public static function has(string $code): bool
+    {
+        return self::description($code) !== null;
+    }
+
     public static function description(string $code): ?string
     {
-        foreach (self::all() as $item) {
-            if ($item['code'] === $code) {
-                return $item['description'];
+        static $index;
+
+        if (! is_array($index)) {
+            $index = [];
+            foreach (self::all() as $item) {
+                $index[$item['code']] = $item['description'];
             }
         }
 
-        return null;
+        return $index[$code] ?? null;
+    }
+
+    public static function label(string $code): string
+    {
+        $description = self::description($code);
+
+        return $description !== null ? $code.' — '.$description : $code;
+    }
+
+    /**
+     * @return array{results: list<array{id: string, text: string, code: string, description: string}>, pagination: array{more: bool}}
+     */
+    public static function search(string $query, int $limit = 30, int $page = 1): array
+    {
+        return IcdSearch::paginate(self::all(), $query, $limit, $page);
     }
 }

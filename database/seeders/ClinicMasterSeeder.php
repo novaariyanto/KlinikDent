@@ -12,6 +12,7 @@ use App\Models\Room;
 use App\Models\Service;
 use App\Models\Tariff;
 use App\Models\Tenant;
+use App\Support\Onboarding\DentalTariffCatalog;
 use Illuminate\Database\Seeder;
 
 class ClinicMasterSeeder extends Seeder
@@ -25,36 +26,21 @@ class ClinicMasterSeeder extends Seeder
 
     protected function seedForTenant(Tenant $tenant): void
     {
-        $services = [
-            ['name' => 'Konsultasi', 'category' => 'konsultasi'],
-            ['name' => 'Perawatan Preventif', 'category' => 'preventif'],
-            ['name' => 'Bedah Mulut', 'category' => 'bedah'],
-        ];
-
         $serviceModels = [];
-
-        foreach ($services as $service) {
-            $serviceModels[$service['name']] = Service::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id, 'name' => $service['name']],
-                ['category' => $service['category'], 'is_active' => true]
-            );
-        }
-
-        $procedures = [
-            ['code' => 'KSL-01', 'name' => 'Konsultasi Dokter Gigi', 'category' => 'konsultasi', 'service' => 'Konsultasi', 'price' => 150000],
-            ['code' => 'SCL-01', 'name' => 'Scaling', 'category' => 'preventif', 'service' => 'Perawatan Preventif', 'price' => 350000],
-            ['code' => 'CBT-01', 'name' => 'Cabut Gigi', 'category' => 'bedah', 'service' => 'Bedah Mulut', 'price' => 500000],
-        ];
-
         $procedureModels = [];
 
-        foreach ($procedures as $procedure) {
-            $procedureModels[$procedure['code']] = Procedure::query()->updateOrCreate(
-                ['tenant_id' => $tenant->id, 'code' => $procedure['code']],
+        foreach (DentalTariffCatalog::items() as $item) {
+            $serviceModels[$item['service']] ??= Service::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'name' => $item['service']],
+                ['category' => $item['category'], 'is_active' => true]
+            );
+
+            $procedureModels[$item['code']] = Procedure::query()->updateOrCreate(
+                ['tenant_id' => $tenant->id, 'code' => $item['code']],
                 [
-                    'name' => $procedure['name'],
-                    'category' => $procedure['category'],
-                    'service_id' => $serviceModels[$procedure['service']]->id,
+                    'name' => $item['procedure'],
+                    'category' => $item['category'],
+                    'service_id' => $serviceModels[$item['service']]->id,
                     'is_active' => true,
                 ]
             );
@@ -110,8 +96,14 @@ class ClinicMasterSeeder extends Seeder
             }
         }
 
-        foreach ($procedureModels as $procedure) {
-            $price = collect($procedures)->firstWhere('code', $procedure->code)['price'] ?? 100000;
+        foreach (DentalTariffCatalog::items() as $item) {
+            $procedure = $procedureModels[$item['code']];
+            $components = [
+                'price' => $item['price'],
+                'bhp_amount' => $item['bhp_amount'],
+                'doctor_fee' => $item['doctor_fee'],
+                'clinic_fee' => $item['clinic_fee'],
+            ];
 
             Tariff::query()->updateOrCreate(
                 [
@@ -121,7 +113,7 @@ class ClinicMasterSeeder extends Seeder
                     'payer_id' => null,
                     'effective_date' => now()->toDateString(),
                 ],
-                ['price' => $price]
+                $components
             );
 
             Tariff::query()->updateOrCreate(
@@ -132,7 +124,12 @@ class ClinicMasterSeeder extends Seeder
                     'payer_id' => $payerModels['BPJS Kesehatan']->id,
                     'effective_date' => now()->toDateString(),
                 ],
-                ['price' => round($price * 0.8, 2)]
+                [
+                    'price' => round($item['price'] * 0.8, 2),
+                    'bhp_amount' => round($item['bhp_amount'] * 0.8, 2),
+                    'doctor_fee' => round($item['doctor_fee'] * 0.8, 2),
+                    'clinic_fee' => round($item['clinic_fee'] * 0.8, 2),
+                ]
             );
         }
     }

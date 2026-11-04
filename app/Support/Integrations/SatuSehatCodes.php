@@ -87,6 +87,8 @@ final class SatuSehatCodes
         'distal' => ['46053002', 'Distal'],
         'buccal' => ['302990001', 'Buccalis'],
         'palatal' => ['255579002', 'Palatal-lingual'],
+        'lingual' => ['255579002', 'Palatal-lingual'],
+        'incisal' => ['257885003', 'Occlusion-action'],
     ];
 
     /**
@@ -98,6 +100,9 @@ final class SatuSehatCodes
         'healthy' => ['system' => self::SNOMED, 'code' => '162005007', 'display' => 'No tooth problem', 'component' => 'finding'],
         'caries' => ['system' => self::SNOMED, 'code' => '80967001', 'display' => 'Dental caries', 'component' => 'finding'],
         'filling' => ['system' => self::SNOMED, 'code' => '287451003', 'display' => 'Tooth cavity drilled and filled', 'component' => 'finding'],
+        'caries_profunda' => ['system' => self::SNOMED, 'code' => '80967001', 'display' => 'Dental caries', 'component' => 'finding'],
+        'temporary_filling' => ['system' => self::SNOMED, 'code' => '287451003', 'display' => 'Tooth cavity drilled and filled', 'component' => 'finding'],
+        'permanent_filling' => ['system' => self::SNOMED, 'code' => '287451003', 'display' => 'Tooth cavity drilled and filled', 'component' => 'finding'],
         'missing' => ['system' => self::SNOMED, 'code' => '234948008', 'display' => 'Tooth absent', 'component' => 'finding'],
         'extracted' => ['system' => self::SNOMED, 'code' => '234948008', 'display' => 'Tooth absent', 'component' => 'finding'],
         'fracture' => ['system' => self::SNOMED, 'code' => '278590005', 'display' => 'Fractured dental crown', 'component' => 'finding'],

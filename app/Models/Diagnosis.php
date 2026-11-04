@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\DiagnosisKind;
+use App\Enums\DiagnosisRank;
 use App\Models\Concerns\ScopedByVisitTenant;
 use Database\Factories\DiagnosisFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,9 +19,12 @@ class Diagnosis extends Model
      */
     protected $fillable = [
         'visit_id',
+        'kind',
+        'rank',
         'tooth_number',
         'code',
         'description',
+        'clinical_note',
     ];
 
     /**
@@ -29,6 +34,16 @@ class Diagnosis extends Model
     {
         return [
             'visit_id' => 'integer',
+            'kind' => DiagnosisKind::class,
+            'rank' => DiagnosisRank::class,
         ];
+    }
+
+    public function displayLine(): string
+    {
+        $name = trim((filled($this->code) ? $this->code.' — ' : '').$this->description);
+        $meta = collect([$this->kind?->label(), $this->rank?->label()])->filter()->implode(', ');
+
+        return $meta !== '' ? $name.' ('.$meta.')' : $name;
     }
 }

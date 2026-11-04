@@ -13,7 +13,10 @@
                         <tr><th width="180">Tindakan</th><td>{{ $tariff->procedure?->name ?: '-' }}</td></tr>
                         <tr><th>Cabang</th><td>{{ $tariff->branch?->name ?: 'Semua cabang' }}</td></tr>
                         <tr><th>Penjamin</th><td>{{ $tariff->payer?->name ?: 'Default' }}</td></tr>
-                        <tr><th>Harga</th><td>Rp {{ number_format((float) $tariff->price, 0, ',', '.') }}</td></tr>
+                        <tr><th>Jasa dokter</th><td>Rp {{ number_format((float) $tariff->doctor_fee, 0, ',', '.') }}</td></tr>
+                        <tr><th>BHP</th><td>Rp {{ number_format((float) $tariff->bhp_amount, 0, ',', '.') }}</td></tr>
+                        <tr><th>Jasa klinik</th><td>Rp {{ number_format((float) $tariff->clinic_fee, 0, ',', '.') }}</td></tr>
+                        <tr><th>Tarif normal</th><td>Rp {{ number_format((float) $tariff->price, 0, ',', '.') }}</td></tr>
                         <tr><th>Berlaku</th><td>{{ $tariff->effective_date?->format('d M Y') }}</td></tr>
                     </tbody>
                 </x-table>

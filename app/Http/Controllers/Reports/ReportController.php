@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Finance\Concerns\ScopesFinanceBranch;
 use App\Models\User;
 use App\Models\Visit;
+use App\Support\Clinical\PrintChrome;
 use App\Support\Finance\FinanceReportService;
 use App\Support\Reports\ClinicReportService;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -256,12 +257,22 @@ class ReportController extends Controller
         }
 
         if ($export === 'pdf') {
+            $rows = $exportRows->values()->all();
+
             return Pdf::loadView('reports.print.simple', [
+                ...PrintChrome::variables(current_tenant_id()),
                 'title' => $title,
                 'from' => $from,
                 'to' => $to,
                 'headers' => $headers,
-                'rows' => $exportRows->values()->all(),
+                'rows' => $rows,
+                'documentHash' => hash('sha256', implode('|', [
+                    'LAP',
+                    $title,
+                    $from,
+                    $to,
+                    (string) count($rows),
+                ])),
             ])->setPaper('a4')->download(\Illuminate\Support\Str::slug($title).'.pdf');
         }
 

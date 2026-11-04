@@ -48,6 +48,7 @@ class EnforceRoutePermission
         'care.' => 'examination.view',
         'examinations.' => 'examination.view',
         'medical-record.' => 'medical_record.view',
+        'medical-letters.' => 'medical_record.view',
         'odontogram.' => 'odontogram.view',
         'diagnosis.' => 'diagnosis.view',
         'procedures.' => 'procedure.view',

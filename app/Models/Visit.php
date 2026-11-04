@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\InvoiceStatus;
 use App\Enums\RoleName;
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
@@ -29,6 +30,7 @@ class Visit extends Model
         'tenant_id',
         'branch_id',
         'patient_id',
+        'episode_id',
         'doctor_id',
         'room_id',
         'payer_id',
@@ -50,6 +52,7 @@ class Visit extends Model
             'tenant_id' => 'integer',
             'branch_id' => 'integer',
             'patient_id' => 'integer',
+            'episode_id' => 'integer',
             'doctor_id' => 'integer',
             'room_id' => 'integer',
             'payer_id' => 'integer',
@@ -76,6 +79,14 @@ class Visit extends Model
     public function patient(): BelongsTo
     {
         return $this->belongsTo(Patient::class);
+    }
+
+    /**
+     * @return BelongsTo<CareEpisode, $this>
+     */
+    public function episode(): BelongsTo
+    {
+        return $this->belongsTo(CareEpisode::class, 'episode_id');
     }
 
     /**
@@ -164,6 +175,26 @@ class Visit extends Model
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function currentInvoice(): ?Invoice
+    {
+        $invoices = $this->relationLoaded('invoices')
+            ? $this->invoices
+            : $this->invoices()->where('status', '!=', InvoiceStatus::Void)->latest('id')->get();
+
+        return $invoices->first(fn (Invoice $invoice) => $invoice->status !== InvoiceStatus::Void && $invoice->isOpen())
+            ?? $invoices->first(fn (Invoice $invoice) => $invoice->status !== InvoiceStatus::Void);
+    }
+
+    public function currentPharmacyPrescription(): ?Prescription
+    {
+        $prescriptions = $this->relationLoaded('prescriptions')
+            ? $this->prescriptions
+            : $this->prescriptions()->latest('id')->get();
+
+        return $prescriptions->first(fn (Prescription $prescription) => $prescription->isSent())
+            ?? $prescriptions->first(fn (Prescription $prescription) => $prescription->isFulfilled());
     }
 
     /**

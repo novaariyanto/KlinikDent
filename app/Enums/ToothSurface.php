@@ -9,15 +9,19 @@ enum ToothSurface: string
     case Distal = 'distal';
     case Buccal = 'buccal';
     case Palatal = 'palatal';
+    case Lingual = 'lingual';
+    case Incisal = 'incisal';
 
     public function label(): string
     {
         return match ($this) {
-            self::Occlusal => 'Oklusal / Insisal',
+            self::Occlusal => 'Oklusal',
             self::Mesial => 'Mesial',
             self::Distal => 'Distal',
             self::Buccal => 'Bukal / Labial',
-            self::Palatal => 'Palatal / Lingual',
+            self::Palatal => 'Palatal',
+            self::Lingual => 'Lingual',
+            self::Incisal => 'Insisal',
         };
     }
 
@@ -29,6 +33,8 @@ enum ToothSurface: string
             self::Distal => 'D',
             self::Buccal => 'B',
             self::Palatal => 'P',
+            self::Lingual => 'L',
+            self::Incisal => 'I',
         };
     }
 

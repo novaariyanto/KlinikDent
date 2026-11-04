@@ -1,9 +1,12 @@
-<section class="care-section" id="resep">
-    <div class="care-section__head d-flex justify-content-between align-items-start gap-2">
+@php($embedded = $embedded ?? false)
+<section class="care-section{{ $embedded ? ' care-section--embedded' : '' }}" id="resep">
+    <div class="{{ $embedded ? 'd-flex justify-content-end gap-2 mb-2' : 'care-section__head d-flex justify-content-between align-items-start gap-2' }}">
+        @unless ($embedded)
         <div>
             <h5 class="care-section__title">Resep</h5>
             <p class="care-section__hint">Isi hanya jika ada obat. Draft dapat diubah atau dihapus; stok belum dipotong saat dikirim ke farmasi.</p>
         </div>
+        @endunless
         @can('prescription.create')
             @if ($writable)
                 <div class="d-flex gap-2">

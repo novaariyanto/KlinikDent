@@ -21,6 +21,7 @@ class OdontogramTooth extends Model
         'tooth_number',
         'status',
         'surfaces',
+        'conditions',
         'notes',
     ];
 
@@ -33,6 +34,7 @@ class OdontogramTooth extends Model
             'patient_id' => 'integer',
             'status' => ToothStatus::class,
             'surfaces' => 'array',
+            'conditions' => 'array',
         ];
     }
 }

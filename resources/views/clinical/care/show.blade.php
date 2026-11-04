@@ -4,27 +4,22 @@
 
 @php
     $carePartials = [
-        'keluhan' => 'clinical.care.partials.soap',
-        'screening' => 'clinical.care.partials.screening',
-        'pemeriksaan' => 'clinical.care.partials.dental-exam',
+        'soap' => 'clinical.care.partials.soap-sheet',
         'odontogram' => 'clinical.care.partials.odontogram',
-        'diagnosis' => 'clinical.care.partials.plan-diagnosis',
         'tindakan' => 'clinical.care.partials.plan-procedures',
         'resep' => 'clinical.care.partials.plan-prescriptions',
         'rujukan' => 'clinical.care.partials.plan-referrals',
-        'instruksi' => 'clinical.care.partials.plan-notes',
-        'lab' => 'clinical.care.partials.plan-lab',
-        'surat' => 'clinical.care.partials.plan-letters',
-        'adendum' => 'clinical.care.partials.plan-amendments',
+        'ringkasan' => 'clinical.care.partials.discharge',
     ];
 @endphp
 
 @section('content')
-    <x-page-header title="Pelayanan" :breadcrumb="['Pelayanan' => route('examinations.index'), $visit->patient?->name => null]" />
+    <x-page-header title="Pelayanan" :breadcrumb="['Pelayanan' => route('examinations.initial'), $visit->patient?->name => null]" />
     <x-alert />
 
     <div class="care-workspace" data-section="{{ $section }}" data-writable="{{ $writable ? '1' : '0' }}">
         @include('clinical.care.partials.header')
+        @include('clinical.care.partials.assessment-panel')
 
         <div class="care-panel">
             <div class="care-nav-bar">
@@ -33,7 +28,7 @@
                         <li class="nav-item">
                             <a
                                 class="nav-link {{ $section === $key ? 'active' : '' }} {{ ! empty($progress[$key]) ? 'is-done' : '' }}"
-                                href="{{ route('care.show', ['visit' => $visit, 'tab' => $key]) }}"
+                                href="{{ route('care.show', array_filter(['visit' => $visit, 'tab' => $key, 'from' => request('from') === 'pelayanan' ? 'pelayanan' : null])) }}"
                                 data-care-section="{{ $key }}"
                                 role="tab"
                                 aria-selected="{{ $section === $key ? 'true' : 'false' }}"
@@ -63,15 +58,11 @@
                 $finishPrescriptions = $visit->prescriptions;
                 $finishRxItems = $finishPrescriptions->flatMap(fn ($rx) => $rx->items);
                 $finishDraftRx = $finishPrescriptions->filter(fn ($rx) => $rx->isDraft());
+                $assessmentOpen = ($record?->assessment_status ?? null) !== \App\Enums\AssessmentStatus::Completed;
+                $finalizeWithVisit = auth()->user()?->can('medical_record.update') && (! $recordFinal || $assessmentOpen);
             @endphp
-            <div class="care-finish">
-                <x-button type="button" variant="success" icon="bx bx-check" data-bs-toggle="modal" data-bs-target="#care-complete-modal">
-                    Simpan &amp; Selesaikan Kunjungan
-                </x-button>
-            </div>
-
             <x-modal id="care-complete-modal" title="Verifikasi &amp; selesaikan kunjungan" size="modal-lg" class="care-modal">
-                <p class="text-muted mb-3">Periksa kembali tindakan dan obat yang diberikan sebelum menyelesaikan pelayanan.</p>
+                <p class="text-muted mb-3">Periksa kembali tindakan dan obat yang diberikan sebelum menyelesaikan pelayanan.@if ($finalizeWithVisit) Menyelesaikan kunjungan juga memfinalisasi asesmen dan rekam medis. Koreksi isi hanya 2×24 jam setelah ini.@endif</p>
 
                 <div class="care-finish-review mb-3">
                     <h6 class="mb-2">Tindakan ({{ $finishProcedures->count() }})</h6>
@@ -142,14 +133,18 @@
                     @csrf
                     <label class="care-complete-confirm" for="care-complete-confirm">
                         <input class="form-check-input" type="checkbox" value="1" id="care-complete-confirm" required>
-                        <span>Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan ini.</span>
+                        <span>Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan@if ($finalizeWithVisit) dan finalisasi asesmen serta rekam medis@endif ini.</span>
                     </label>
                 </form>
 
                 <x-slot:footer>
                     <x-button variant="secondary" data-bs-dismiss="modal">Batal</x-button>
                     <x-button type="submit" variant="success" icon="bx bx-check" form="care-complete-form" id="care-complete-submit" class="btn-lg" disabled>
-                        Ya, Selesaikan Kunjungan
+                        @if ($finalizeWithVisit)
+                            Ya, Selesaikan &amp; Finalisasi
+                        @else
+                            Ya, Selesaikan Kunjungan
+                        @endif
                     </x-button>
                 </x-slot:footer>
             </x-modal>
@@ -322,6 +317,10 @@
         }).then(function (data) {
             setStatus('✓ Tersimpan');
             if (data && data.section) markDone(data.section, data.done);
+            if (form.hasAttribute('data-exam-form')) syncExamSummary(form);
+            if (form.hasAttribute('data-plan-form')) syncPlanSummary(form);
+            if (form.hasAttribute('data-allergy-form')) syncAllergySummary(form);
+            if (form.id === 'assessment-evaluasi-form') syncPlanReview();
             return data;
         }).catch(function (error) {
             setStatus(error && error.careMessage ? error.careMessage : 'Gagal menyimpan', true);
@@ -333,6 +332,197 @@
             }
         });
     };
+
+    function fieldText(form, name) {
+        var input = form.querySelector('[name="' + name + '"]');
+        return input ? String(input.value || '').trim() : '';
+    }
+
+    var examNameLabels = {
+        extraoral: 'Ekstraoral',
+        intraoral: 'Intraoral',
+        occlusion: 'Occlusi',
+        gingiva: 'Gingiva',
+        mucosa: 'Mukosa',
+        palate: 'Palatum',
+        torus_palatinus: 'Torus palatinus',
+        torus_mandibularis: 'Torus mandibularis',
+        diastema: 'Diastema',
+        supernumerary: 'Supernumerary',
+        anomaly: 'Anomali'
+    };
+
+    function choiceText(input) {
+        var choice = input.closest('label');
+        var span = choice ? choice.querySelector('span') : null;
+        return span ? span.textContent.trim() : input.value;
+    }
+
+    function syncExamSummary(form) {
+        var target = document.querySelector('[data-exam-summary]');
+        if (!target || !form) return;
+        var bits = [];
+        form.querySelectorAll('.exam-field input:checked').forEach(function (checked) {
+            var label = examNameLabels[checked.name];
+            if (!label) return;
+            var text = choiceText(checked);
+            var extra = '';
+            if (checked.name === 'extraoral' || checked.name === 'intraoral') extra = fieldText(form, checked.name + '_note');
+            if (checked.name === 'diastema') extra = fieldText(form, 'diastema_elements');
+            if (checked.name === 'supernumerary') extra = fieldText(form, 'supernumerary_teeth');
+            if (checked.name === 'anomaly') extra = fieldText(form, 'anomaly_description');
+            if (extra) text += ' — ' + extra;
+            bits.push(label + ': ' + text);
+        });
+        var habits = fieldText(form, 'habits');
+        if (habits) bits.push('Kebiasaan: ' + habits);
+        if (target.getAttribute('data-exam-extra')) bits.push(target.getAttribute('data-exam-extra'));
+        var debris = fieldText(form, 'ohis[debris_index]');
+        var calculus = fieldText(form, 'ohis[calculus_index]');
+        if (debris && calculus) bits.push('OHIS: DI ' + debris + ' · CI ' + calculus);
+        target.textContent = bits.length ? bits.join('; ') : '—';
+    }
+
+    function syncAllergySummary(form) {
+        var target = document.querySelector('[data-allergy-summary]');
+        if (!target || !form) return;
+        var status = fieldText(form, 'allergy_status');
+        var category = fieldText(form, 'allergy_category');
+        var detail = fieldText(form, 'allergy_detail');
+        var buckets = [
+            ['food', 'Alergi Makanan'],
+            ['environment', 'Alergi Udara'],
+            ['medication', 'Alergi Obat'],
+            ['biologic', 'Alergi lainnya']
+        ];
+        if (status === 'unknown') {
+            target.textContent = 'Tidak diketahui';
+            return;
+        }
+        if (status !== 'none_confirmed' && status !== 'present') {
+            target.textContent = 'Belum ditanyakan';
+            return;
+        }
+        target.textContent = buckets.map(function (bucket) {
+            if (status === 'present' && category === bucket[0]) {
+                return bucket[1] + ' : Ada' + (detail ? ' — ' + detail : '');
+            }
+            return bucket[1] + ' : Tidak ada';
+        }).join(', ');
+    }
+
+    function selectedLabel(select) {
+        if (!select || !select.value) return '';
+        var option = select.options[select.selectedIndex];
+        return option ? option.text.trim() : '';
+    }
+
+    function syncPlanReview() {
+        var target = document.querySelector('[data-plan-review]');
+        if (!target) return;
+        var bits = [];
+        var decision = selectedLabel(document.getElementById('plan_decision'));
+        var change = selectedLabel(document.getElementById('indicator-plan'));
+        var decisionField = document.getElementById('plan_decision');
+        if (decision && decision !== '—') bits.push('Keputusan: ' + decision + '.');
+        if (decisionField && decisionField.value === 'control') {
+            var controlDate = document.getElementById('follow-up-control-date');
+            if (controlDate && controlDate.value) {
+                var parts = controlDate.value.split('-');
+                bits.push('Tanggal kontrol: ' + (parts.length === 3 ? parts[2] + '-' + parts[1] + '-' + parts[0] : controlDate.value) + '.');
+            }
+        }
+        if (change && change !== '—') bits.push('Dibanding kunjungan lalu: ' + change + '.');
+        target.hidden = bits.length === 0;
+        target.textContent = bits.join(' ');
+    }
+
+    function syncPlanSummary(form) {
+        var target = document.querySelector('[data-plan-summary]');
+        if (!target || !form) return;
+        var bits = [];
+        form.querySelectorAll('input[name="plan_instructions[items][]"]:checked').forEach(function (input) {
+            var label = input.closest('label');
+            var span = label ? label.querySelector('span') : null;
+            var text = span ? span.textContent.trim() : input.value;
+            if (text) bits.push(text);
+        });
+        var goal = fieldText(form, 'plan_instructions[goal]');
+        var extra = fieldText(form, 'plan_instructions[extra]');
+        if (goal) bits.push('Tujuan: ' + goal);
+        if (extra) bits.push(extra);
+        target.textContent = bits.length ? bits.join('; ') : '—';
+    }
+
+    function bindSheetSync(form, sync) {
+        if (!form) return;
+        form.addEventListener('change', function () { sync(form); });
+        form.addEventListener('input', function () { sync(form); });
+    }
+
+    var examModal = document.getElementById('pemeriksaan-modal');
+    if (examModal) {
+        var examForm = examModal.querySelector('[data-exam-form]');
+        bindSheetSync(examForm, syncExamSummary);
+        examModal.addEventListener('hidden.bs.modal', function () {
+            if (examForm) syncExamSummary(examForm);
+        });
+    }
+
+    document.querySelectorAll('[data-allergy-form]').forEach(function (form) {
+        bindSheetSync(form, syncAllergySummary);
+    });
+    var allergyModal = document.getElementById('soap-allergy-modal');
+    if (allergyModal) {
+        allergyModal.addEventListener('hidden.bs.modal', function () {
+            var form = allergyModal.querySelector('[data-allergy-form]');
+            if (form) syncAllergySummary(form);
+        });
+    }
+
+    document.querySelectorAll('[data-plan-form]').forEach(function (form) {
+        syncPlanSummary(form);
+        form.addEventListener('change', function () { syncPlanSummary(form); });
+        form.addEventListener('input', function () { syncPlanSummary(form); });
+    });
+    var planModal = document.getElementById('soap-plan-modal');
+    if (planModal) {
+        planModal.addEventListener('hidden.bs.modal', function () {
+            var form = planModal.querySelector('[data-plan-form]');
+            if (form) syncPlanSummary(form);
+            syncPlanReview();
+        });
+    }
+    function syncControlDate(clearWhenHidden) {
+        var decision = document.getElementById('plan_decision');
+        var wrap = document.querySelector('[data-control-date-wrap]');
+        var input = document.getElementById('follow-up-control-date');
+        if (!decision || !wrap) return;
+        var show = decision.value === 'control';
+        wrap.hidden = !show;
+        if (!show && clearWhenHidden && input) input.value = '';
+    }
+
+    syncControlDate(false);
+    var planDecision = document.getElementById('plan_decision');
+    if (planDecision) {
+        planDecision.addEventListener('change', function () {
+            syncControlDate(true);
+            syncPlanReview();
+        });
+    }
+    var controlDateInput = document.getElementById('follow-up-control-date');
+    if (controlDateInput) {
+        controlDateInput.addEventListener('change', syncPlanReview);
+        controlDateInput.addEventListener('input', syncPlanReview);
+    }
+    ['plan_decision', 'indicator-plan'].forEach(function (id) {
+        var field = document.getElementById(id);
+        if (!field || id === 'plan_decision') return;
+        field.addEventListener('change', syncPlanReview);
+    });
+    window.careSetStatus = setStatus;
+    window.careValidationMessage = validationMessage;
 
     function showTab(key) {
         document.querySelectorAll('[data-care-pane]').forEach(function (pane) {
@@ -369,6 +559,12 @@
         }
         form.addEventListener('change', queue);
         form.addEventListener('input', queue);
+        if (form.id) {
+            document.querySelectorAll('[form="' + form.id + '"]').forEach(function (field) {
+                field.addEventListener('change', queue);
+                field.addEventListener('input', queue);
+            });
+        }
     });
 
     document.querySelectorAll('[data-reveal-group]').forEach(function (group) {
@@ -413,7 +609,10 @@
                 var q = box.querySelector('[data-typeahead-q]');
                 var id = box.querySelector('[data-typeahead-id]');
                 if (q) q.value = button.textContent;
-                if (id) id.value = item.id || '';
+                if (id) {
+                    id.value = item.id || '';
+                    id.dispatchEvent(new Event('change', { bubbles: true }));
+                }
                 if (form) {
                     var code = form.querySelector('[name="code"]');
                     var desc = form.querySelector('[name="description"]');
@@ -479,6 +678,18 @@
         document.body.appendChild(modal);
     });
 
+    document.addEventListener('show.bs.modal', function (event) {
+        var modal = event.target;
+        if (!modal || !modal.classList || !modal.classList.contains('modal')) return;
+        var zIndex = 1055 + (document.querySelectorAll('.modal.show').length * 20);
+        modal.style.zIndex = String(zIndex);
+        setTimeout(function () {
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            if (!backdrops.length) return;
+            backdrops[backdrops.length - 1].style.zIndex = String(zIndex - 10);
+        }, 0);
+    });
+
     function selectDropdownParent($el) {
         var modal = $el.closest('.modal');
         return modal.length ? modal : $(document.body);
@@ -502,16 +713,35 @@
 
     function initIcd9Selects(container) {
         $(container).find('[data-icd9-select]').each(function () {
-            var $el = $(this);
+            var el = this;
+            var $el = $(el);
             if ($el.data('select2')) return;
             $el.select2({
                 width: '100%',
-                placeholder: 'Ketik kode atau nama, mis. tumpatan / 23.2',
+                placeholder: 'Ketik kode atau nama, mis. filling / 23.2',
                 allowClear: true,
+                minimumInputLength: 1,
                 dropdownParent: selectDropdownParent($el),
+                ajax: {
+                    url: el.getAttribute('data-icd9-url'),
+                    dataType: 'json',
+                    delay: 250,
+                    data: function (params) {
+                        return { q: params.term || '', page: params.page || 1 };
+                    },
+                    processResults: function (data, params) {
+                        params.page = params.page || 1;
+                        return {
+                            results: data.results || [],
+                            pagination: { more: !!(data.pagination && data.pagination.more) }
+                        };
+                    },
+                    cache: true
+                },
                 language: {
                     noResults: function () { return 'ICD-9-CM tidak ditemukan'; },
-                    searching: function () { return 'Mencari…'; }
+                    searching: function () { return 'Mencari…'; },
+                    loadingMore: function () { return 'Memuat lainnya…'; }
                 }
             });
         });
@@ -565,10 +795,24 @@
                 if (descInput) descInput.value = '';
             });
 
-            if (icdForm) {
+            if (icdForm && icdForm.dataset.dxBound !== '1') {
+                icdForm.dataset.dxBound = '1';
                 icdForm.addEventListener('submit', function (e) {
-                    if (codeInput && codeInput.value && descInput && descInput.value) return;
+                    if (icdForm.closest('#soap-icd')) e.preventDefault();
+                    var manual = icdForm.querySelector('[data-dx-manual]');
+                    if (manual && manual.checked) {
+                        var manualCode = icdForm.querySelector('[data-dx-manual-code]');
+                        var manualDesc = icdForm.querySelector('[data-dx-manual-desc]');
+                        if (codeInput) codeInput.value = manualCode ? manualCode.value.trim() : '';
+                        if (descInput) descInput.value = manualDesc ? manualDesc.value.trim() : '';
+                    }
+                    if (descInput && descInput.value) return;
                     e.preventDefault();
+                    if (manual && manual.checked) {
+                        var focusDesc = icdForm.querySelector('[data-dx-manual-desc]');
+                        if (focusDesc) focusDesc.focus();
+                        return;
+                    }
                     $icd.select2('open');
                 });
             }
@@ -599,12 +843,179 @@
         });
     };
 
+    document.addEventListener('change', function (event) {
+        var toggle = event.target;
+        if (!toggle || !toggle.matches || !toggle.matches('[data-dx-manual]')) return;
+        var scope = toggle.closest('form') || toggle.closest('[data-soap-icd-row]');
+        if (!scope) return;
+        scope.querySelectorAll('[data-dx-manual-box]').forEach(function (panel) {
+            panel.hidden = !toggle.checked;
+        });
+    });
+
+    function bindSoapIcd(row) {
+        if (!row || row.dataset.bound === '1') return;
+        row.dataset.bound = '1';
+        initIcdSelects(row);
+        var select = row.querySelector('[data-icd-select]');
+        var root = document.getElementById('soap-icd');
+        if (!select || !root || !$) return;
+
+        var saving = false;
+
+        function save(data) {
+            var description = (data && data.description) || '';
+            if (!description || saving) return;
+            saving = true;
+            setStatus('Menyimpan…');
+            var body = new FormData();
+            body.append('_token', token);
+            body.append('code', (data && (data.code || data.id)) || '');
+            body.append('description', description);
+            body.append('kind', 'clinical');
+            body.append('rank', 'secondary');
+            fetch(root.dataset.store, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-TOKEN': token,
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: body
+            }).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (payload) {
+                    if (!res.ok) throw new Error(validationMessage(payload));
+                    return payload;
+                });
+            }).then(function () {
+                saving = false;
+                setStatus('✓ Tersimpan');
+            }).catch(function (error) {
+                saving = false;
+                setStatus(error && error.message ? error.message : 'Gagal menyimpan', true);
+            });
+        }
+
+        $(select).on('select2:select', function (e) {
+            save((e.params && e.params.data) || {});
+        });
+    }
+
+    function bindOneIcd(select) {
+        if (!select || !$ || !$.fn || !$.fn.select2) return;
+        var $select = $(select);
+        if ($select.data('select2')) return;
+        $select.select2({
+            width: '100%',
+            placeholder: 'Ketik kode atau nama, mis. karies / K02.1',
+            allowClear: false,
+            minimumInputLength: 1,
+            dropdownParent: selectDropdownParent($select),
+            ajax: {
+                url: select.getAttribute('data-search'),
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return { q: params.term || '', page: params.page || 1 };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    return {
+                        results: data.results || [],
+                        pagination: { more: !!(data.pagination && data.pagination.more) }
+                    };
+                },
+                cache: true
+            },
+            language: {
+                noResults: function () { return 'ICD-10 tidak ditemukan'; },
+                searching: function () { return 'Mencari…'; }
+            }
+        });
+        $select.on('select2:select', function (e) {
+            var data = (e.params && e.params.data) || {};
+            var code = data.code || data.id || '';
+            var description = data.description || '';
+            if (!description || String(code).indexOf('id:') === 0) return;
+            if (select.dataset.saving === '1') return;
+            select.dataset.saving = '1';
+            setStatus('Menyimpan…');
+            var body = new FormData();
+            body.append('_token', token);
+            body.append('code', code);
+            body.append('description', description);
+            body.append('kind', 'clinical');
+            body.append('rank', 'secondary');
+            body.append('single', '1');
+            var updateUrl = select.getAttribute('data-update');
+            if (updateUrl) body.append('_method', 'PUT');
+            fetch(updateUrl || select.dataset.store, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: body
+            }).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (payload) {
+                    if (!res.ok) throw new Error(validationMessage(payload));
+                    return payload || {};
+                });
+            }).then(function (payload) {
+                if (payload && payload.update_url) select.setAttribute('data-update', payload.update_url);
+                if (payload && payload.destroy_url) select.setAttribute('data-destroy', payload.destroy_url);
+                var resetButton = select.parentElement ? select.parentElement.querySelector('[data-icd-reset]') : null;
+                if (resetButton) resetButton.hidden = false;
+                select.dataset.saving = '0';
+                setStatus('✓ Tersimpan');
+            }).catch(function (error) {
+                select.dataset.saving = '0';
+                setStatus(error && error.message ? error.message : 'Gagal menyimpan', true);
+            });
+        });
+        var resetButton = select.parentElement ? select.parentElement.querySelector('[data-icd-reset]') : null;
+        if (resetButton) {
+            resetButton.addEventListener('click', function () {
+                if (select.dataset.saving === '1') return;
+                var destroyUrl = select.getAttribute('data-destroy');
+                function clearDiagnosis() {
+                    $select.val(null).trigger('change');
+                    select.removeAttribute('data-update');
+                    select.removeAttribute('data-destroy');
+                    resetButton.hidden = true;
+                    select.dataset.saving = '0';
+                    setStatus('✓ Tersimpan');
+                }
+                if (!destroyUrl) {
+                    clearDiagnosis();
+                    return;
+                }
+                select.dataset.saving = '1';
+                setStatus('Menyimpan…');
+                var body = new FormData();
+                body.append('_token', token);
+                body.append('_method', 'DELETE');
+                fetch(destroyUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': token, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                    body: body
+                }).then(function (res) {
+                    return res.json().catch(function () { return {}; }).then(function (payload) {
+                        if (!res.ok) throw new Error(validationMessage(payload));
+                    });
+                }).then(clearDiagnosis).catch(function (error) {
+                    select.dataset.saving = '0';
+                    setStatus(error && error.message ? error.message : 'Gagal menyimpan', true);
+                });
+            });
+        }
+    }
+
     if ($ && $.fn && $.fn.select2) {
         var workspace = document.querySelector('.care-workspace');
         if (workspace) {
             initToothSelects(workspace);
             initIcdSelects(workspace);
             initIcd9Selects(workspace);
+            document.querySelectorAll('[data-soap-icd-row]').forEach(bindSoapIcd);
+            document.querySelectorAll('[data-icd-one]').forEach(bindOneIcd);
         }
 
         document.querySelectorAll('.care-modal').forEach(function (modal) {

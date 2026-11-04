@@ -8,9 +8,24 @@
 @section('title', $meta['title'])
 
 @section('content')
-    <x-page-header :title="$meta['title']" :breadcrumb="['Pelayanan' => route('examinations.index'), $meta['title'] => null]" />
+    <x-page-header :title="$meta['title']" :breadcrumb="['Pelayanan' => route('examinations.initial'), $meta['title'] => null]" />
     <x-alert />
     <x-card :title="$cardTitle">
+        <x-slot:header-actions>
+            @if (request()->routeIs('examinations.*'))
+                <div class="d-flex flex-wrap gap-2">
+                    @can('create', App\Models\Visit::class)
+                        <x-button href="{{ route('registration.new', ['from' => 'pelayanan']) }}" icon="bx bx-plus">Pendaftaran Baru</x-button>
+                    @endcan
+                    @can('viewAny', App\Models\Invoice::class)
+                        <x-button href="{{ route('billing.invoices.today', ['from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-receipt">Tagihan Hari Ini</x-button>
+                    @endcan
+                    @if (auth()->user()?->can('prescription.view') && auth()->user()?->can('pharmacy.view'))
+                        <x-button href="{{ route('pharmacy.prescriptions.incoming', ['from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-package">Resep Masuk</x-button>
+                    @endif
+                </div>
+            @endif
+        </x-slot:header-actions>
         <form method="GET" action="{{ url()->current() }}" class="row g-2 align-items-end mb-3">
             <div class="col-xl-3 col-md-6">
                 <label for="filter-q" class="form-label">Nama / No. RM</label>
@@ -45,6 +60,9 @@
                 <x-button href="{{ url()->current() }}" variant="light">Reset</x-button>
             </div>
         </form>
+        @if (request()->routeIs('examinations.*'))
+            @include('clinical.partials.examination-table')
+        @else
         <x-table>
             <thead>
                 <tr>
@@ -110,6 +128,7 @@
                 @endforelse
             </tbody>
         </x-table>
+        @endif
         @if ($visits->hasPages())
             <div class="mt-3">{{ $visits->links() }}</div>
         @endif

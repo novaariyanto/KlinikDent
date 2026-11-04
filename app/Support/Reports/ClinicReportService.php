@@ -84,7 +84,13 @@ class ClinicReportService
         }
 
         return ProcedureRecord::query()
-            ->selectRaw('procedures.name as name, SUM(procedure_records.quantity) as qty, SUM(procedure_records.quantity * procedure_records.price_at_time) as amount')
+            ->selectRaw("
+                procedures.name as name,
+                SUM(procedure_records.quantity) as qty,
+                SUM(procedure_records.quantity * procedure_records.price_at_time) as amount,
+                SUM(CASE WHEN procedure_records.adjustment_type = 'doctor_fee_waiver' AND procedure_records.waiver_status = 'applied' THEN procedure_records.quantity * procedure_records.doctor_fee_at_time ELSE 0 END) as waived_amount,
+                SUM(CASE WHEN procedure_records.adjustment_type = 'procedure_discount' THEN procedure_records.quantity * procedure_records.discount_amount ELSE 0 END) as discount_amount
+            ")
             ->join('procedures', 'procedures.id', '=', 'procedure_records.procedure_id')
             ->whereIn('procedure_records.visit_id', $visitIds)
             ->groupBy('procedures.id', 'procedures.name')

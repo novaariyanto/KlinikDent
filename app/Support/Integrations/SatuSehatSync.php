@@ -921,8 +921,8 @@ class SatuSehatSync
 
             $current = $teeth->get($log->tooth_number);
 
-            if ($current && $current->status?->value === $status) {
-                foreach (array_keys($current->surfaces ?? []) as $surface) {
+            if ($current) {
+                foreach (array_keys($current->surfaces ?? [], $status, true) as $surface) {
                     $surfaceCode = SatuSehatCodes::SURFACES[(string) $surface] ?? null;
 
                     if ($surfaceCode === null) {

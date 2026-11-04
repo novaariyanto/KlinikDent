@@ -11,6 +11,7 @@ use App\Enums\RoleName;
 use App\Enums\WhatsAppEvent;
 use App\Models\CashierShift;
 use App\Models\ActivityLog;
+use App\Models\DoctorFeeWaiverLog;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Payment;
@@ -19,6 +20,7 @@ use App\Models\ProcedureRecord;
 use App\Models\User;
 use App\Models\Visit;
 use App\Support\Pharmacy\PharmacyStockService;
+use App\Support\Billing\DoctorFeeWaiverService;
 use Illuminate\Support\Str;
 use App\Support\Registration\DocumentSequenceGenerator;
 use App\Support\WhatsApp\WhatsAppAutomationService;
@@ -70,8 +72,13 @@ class BillingService
                     $this->procedureDescription($record),
                     (int) $record->quantity,
                     (string) $record->price_at_time,
+                    app(DoctorFeeWaiverService::class)->invoiceSnapshot($record),
                 );
                 $record->update(['billing_status' => BillingStatus::Billed]);
+                DoctorFeeWaiverLog::query()
+                    ->where('procedure_record_id', $record->id)
+                    ->whereNull('invoice_id')
+                    ->update(['invoice_id' => $invoice->id]);
             }
 
             foreach ($medicines as $item) {
@@ -756,6 +763,9 @@ class BillingService
         ]);
     }
 
+    /**
+     * @param  array<string, mixed>  $extra
+     */
     protected function addItem(
         Invoice $invoice,
         InvoiceItemSource $source,
@@ -763,18 +773,20 @@ class BillingService
         string $description,
         int $quantity,
         string $unitPrice,
+        array $extra = [],
     ): InvoiceItem {
         $quantity = max(1, $quantity);
         $subtotal = bcmul($unitPrice, (string) $quantity, 2);
 
-        return $invoice->items()->create([
+        return $invoice->items()->create(array_merge([
             'source_type' => $source,
             'source_id' => $sourceId,
             'description' => $description,
             'quantity' => $quantity,
             'unit_price' => $unitPrice,
             'subtotal' => $subtotal,
-        ]);
+            'original_unit_price' => $extra['original_unit_price'] ?? $unitPrice,
+        ], $extra));
     }
 
     protected function procedureDescription(ProcedureRecord $record): string

@@ -39,6 +39,7 @@
 
                     <div class="col-12">
                         <div class="alert alert-info mb-0 py-2">
+                            Sharing fee memakai jasa dokter pada tarif. BHP dan jasa klinik tidak dibagi.<br>
                             Ringkasan cakupan: <strong id="coverage-summary">—</strong>
                         </div>
                     </div>
@@ -74,18 +75,12 @@
                     <div class="col-md-4">
                         <x-select name="calc_type" id="calc_type" label="Jenis perhitungan" :options="$calcTypes" :selected="old('calc_type', $rule->calc_type?->value ?? $rule->calc_type)" :placeholder="false" required />
                     </div>
-                    <div class="col-md-4">
-                        <x-input name="rate" id="rate" label="Tarif (% atau nominal)" type="number" step="0.0001" :value="old('rate', $rule->rate)" required />
+                    <div class="col-md-4" id="rate-field">
+                        <x-input name="rate" id="rate" label="Persentase / nominal" type="number" step="0.0001" :value="old('rate', $rule->rate)" />
+                        <div class="form-text" id="rate-help">Untuk persentase, isi bagian jasa dokter (mis. 80). Untuk nominal, isi rupiah per tindakan.</div>
                     </div>
                     <div class="col-md-4">
                         <x-input name="priority" label="Prioritas (lebih tinggi menang pada tingkat sama)" type="number" :value="old('priority', $rule->priority)" required />
-                    </div>
-
-                    <div class="col-md-4">
-                        <x-select name="material_deduction_type" id="material_deduction_type" label="Potongan bahan" :options="$deductionTypes" :selected="old('material_deduction_type', $rule->material_deduction_type?->value ?? $rule->material_deduction_type)" :placeholder="false" required />
-                    </div>
-                    <div class="col-md-4">
-                        <x-input name="material_deduction_value" id="material_deduction_value" label="Nilai potongan" type="number" step="0.0001" :value="old('material_deduction_value', $rule->material_deduction_value)" />
                     </div>
                     <div class="col-md-4">
                         <div class="form-check mt-4">
@@ -113,11 +108,11 @@
 
         <div class="col-lg-5">
             <x-card title="Preview perhitungan">
-                <p class="text-muted small">Menggunakan algoritma yang sama dengan generate settlement.</p>
+                <p class="text-muted small">Basis fee adalah jasa dokter pada tarif, bukan total tagihan.</p>
                 <div class="row g-2">
                     <div class="col-6">
-                        <label class="form-label" for="preview_gross">Subtotal item</label>
-                        <input type="number" step="0.01" id="preview_gross" class="form-control" value="250000">
+                        <label class="form-label" for="preview_gross">Jasa dokter</label>
+                        <input type="number" step="0.01" id="preview_gross" class="form-control" value="95000">
                     </div>
                     <div class="col-6">
                         <label class="form-label" for="preview_qty">Kuantitas</label>
@@ -132,8 +127,9 @@
                 </div>
                 <hr>
                 <p class="small text-muted mb-0">
-                    Fee persentase = (subtotal − potongan) × tarif / 100.<br>
-                    Fee nominal tetap = tarif × kuantitas (potongan bahan tidak mengurangi nominal fee).
+                    Mengikuti jasa dokter = jasa dokter × kuantitas.<br>
+                    Persentase = jasa dokter × % / 100.<br>
+                    Nominal tetap = tarif × kuantitas.
                 </p>
             </x-card>
         </div>
@@ -166,6 +162,13 @@
                 return n.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             }
 
+            function toggleRateField() {
+                var type = document.getElementById('calc_type');
+                var field = document.getElementById('rate-field');
+                if (!type || !field) return;
+                field.style.display = type.value === 'doctor_fee' ? 'none' : '';
+            }
+
             function runPreview() {
                 var box = document.getElementById('preview-result');
                 box.innerHTML = '<p class="text-muted mb-0">Menghitung…</p>';
@@ -184,19 +187,16 @@
                     headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
                     body: body
                 }).then(function (r) { return r.json(); }).then(function (data) {
-                    if (!data.matched) {
-                        box.innerHTML = '<div class="alert alert-warning mb-0 py-2"><strong>' + (data.message || 'Belum memiliki aturan Sharing Fee') + '</strong></div>';
-                        return;
-                    }
                     var rule = data.rule || {};
                     var calc = data.calculation || {};
                     var html = '';
-                    html += '<p class="mb-1"><strong>Aturan #' + rule.id + '</strong> — ' + (rule.coverage || '') + '</p>';
-                    html += '<p class="mb-1">Jenis: ' + (rule.calc_type_label || '') + ' · Tarif: ' + rule.rate + ' · Prioritas: ' + rule.priority + '</p>';
+                    if (data.implicit) {
+                        html += '<div class="alert alert-info mb-2 py-2">' + (data.message || 'Mengikuti jasa dokter tarif') + '</div>';
+                    }
+                    html += '<p class="mb-1"><strong>' + (rule.id ? ('Aturan #' + rule.id) : 'Tanpa aturan khusus') + '</strong> — ' + (rule.coverage || '') + '</p>';
+                    html += '<p class="mb-1">Jenis: ' + (rule.calc_type_label || '') + ' · ' + (rule.calc_type === 'percentage' ? (rule.rate + '%') : (rule.calc_type === 'fixed' ? rule.rate : 'Jasa dokter')) + '</p>';
                     html += '<ul class="mb-1 ps-3">';
-                    html += '<li>Basis kotor: Rp ' + formatMoney(calc.gross_base) + '</li>';
-                    html += '<li>Potongan: Rp ' + formatMoney(calc.material_deduction) + '</li>';
-                    html += '<li>Basis fee: Rp ' + formatMoney(calc.fee_base) + '</li>';
+                    html += '<li>Jasa dokter: Rp ' + formatMoney(calc.fee_base) + '</li>';
                     html += '<li>Qty: ' + (calc.quantity || 1) + '</li>';
                     html += '<li><strong>Fee: Rp ' + formatMoney(calc.fee_amount) + '</strong></li>';
                     html += '</ul>';
@@ -220,6 +220,9 @@
             }
 
             updateCoverage();
+            toggleRateField();
+            var calcType = document.getElementById('calc_type');
+            if (calcType) calcType.addEventListener('change', toggleRateField);
             var btn = document.getElementById('btn-preview');
             if (btn) btn.addEventListener('click', runPreview);
         })();

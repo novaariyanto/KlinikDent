@@ -4,10 +4,14 @@ namespace App\Support\Clinical;
 
 use Illuminate\Support\Facades\Cache;
 
+/**
+ * Sumber master: https://github.com/LuChang-CS/icd_hierarchical_structure (ICD-10-CM diagnosis).
+ * File: database/master_icd_x.json (leaf codes, Bahasa Inggris).
+ */
 final class IcdCatalog
 {
     /**
-     * @return list<array{code: string, description: string, description_en: string}>
+     * @return list<array{code: string, description: string}>
      */
     public static function all(): array
     {
@@ -20,8 +24,8 @@ final class IcdCatalog
         $path = database_path('master_icd_x.json');
         $mtime = is_file($path) ? (string) filemtime($path) : '0';
 
-        /** @var list<array{code: string, description: string, description_en: string}> $items */
-        $items = Cache::remember('icd_catalog:'.$mtime, now()->addDays(7), function () use ($path) {
+        /** @var list<array{code: string, description: string}> $items */
+        $items = Cache::remember('icd_catalog:luchang:'.$mtime, now()->addDays(7), function () use ($path) {
             if (! is_file($path)) {
                 return [];
             }
@@ -39,19 +43,22 @@ final class IcdCatalog
                     continue;
                 }
 
-                $code = trim((string) ($row['kode_icd'] ?? ''));
+                $code = trim((string) ($row['code'] ?? $row['kode_icd'] ?? ''));
 
                 if ($code === '') {
                     continue;
                 }
 
-                $indo = trim((string) ($row['nama_icd_indo'] ?? ''));
-                $en = trim((string) ($row['nama_icd'] ?? ''));
+                $description = trim((string) (
+                    $row['description']
+                    ?? $row['nama_icd']
+                    ?? $row['nama_icd_indo']
+                    ?? ''
+                ));
 
                 $mapped[] = [
                     'code' => $code,
-                    'description' => $indo !== '' ? $indo : $en,
-                    'description_en' => $en,
+                    'description' => $description,
                 ];
             }
 
@@ -66,60 +73,6 @@ final class IcdCatalog
      */
     public static function search(string $query, int $limit = 30, int $page = 1): array
     {
-        $query = trim($query);
-        $limit = max(1, min(50, $limit));
-        $page = max(1, $page);
-        $items = collect(self::all());
-
-        if ($query !== '') {
-            $needle = mb_strtolower($query);
-            $codeNeedle = str_replace('.', '', $needle);
-
-            $items = $items
-                ->filter(function (array $item) use ($needle, $codeNeedle) {
-                    $code = mb_strtolower($item['code']);
-                    $codePlain = str_replace('.', '', $code);
-
-                    return str_contains($code, $needle)
-                        || str_contains($codePlain, $codeNeedle)
-                        || str_contains(mb_strtolower($item['description']), $needle)
-                        || str_contains(mb_strtolower($item['description_en']), $needle);
-                })
-                ->sortBy(function (array $item) use ($needle, $codeNeedle) {
-                    $code = mb_strtolower($item['code']);
-                    $codePlain = str_replace('.', '', $code);
-
-                    if ($code === $needle || $codePlain === $codeNeedle) {
-                        return '0'.$code;
-                    }
-
-                    if (str_starts_with($code, $needle) || str_starts_with($codePlain, $codeNeedle)) {
-                        return '1'.$code;
-                    }
-
-                    return '2'.$code;
-                });
-        }
-
-        $total = $items->count();
-        $offset = ($page - 1) * $limit;
-
-        $results = $items
-            ->slice($offset, $limit)
-            ->values()
-            ->map(fn (array $item) => [
-                'id' => $item['code'],
-                'text' => $item['code'].' — '.$item['description'],
-                'code' => $item['code'],
-                'description' => $item['description'],
-            ])
-            ->all();
-
-        return [
-            'results' => $results,
-            'pagination' => [
-                'more' => ($offset + $limit) < $total,
-            ],
-        ];
+        return IcdSearch::paginate(self::all(), $query, $limit, $page);
     }
 }

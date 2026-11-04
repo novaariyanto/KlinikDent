@@ -22,11 +22,19 @@ class SharingFeeCalculatorTest extends TestCase
             'material_deduction_value' => '0',
         ]);
 
-        $percent = $calc->calculate($percentRule, '250000.00', 1);
-        $this->assertSame('250000.00', $percent['gross_base']);
+        $percent = $calc->calculate($percentRule, '95000.00', 1);
+        $this->assertSame('95000.00', $percent['gross_base']);
         $this->assertSame('0.00', $percent['material_deduction']);
-        $this->assertSame('250000.00', $percent['fee_base']);
-        $this->assertSame('100000.00', $percent['fee_amount']);
+        $this->assertSame('95000.00', $percent['fee_base']);
+        $this->assertSame('38000.00', $percent['fee_amount']);
+
+        $doctorFeeRule = new SharingFeeRule([
+            'calc_type' => SharingFeeCalcType::DoctorFee,
+            'rate' => '100',
+        ]);
+        $fromTariff = $calc->calculate($doctorFeeRule, '95000.00', 1);
+        $this->assertSame('95000.00', $fromTariff['fee_amount']);
+        $this->assertSame('100.0000', $fromTariff['rate']);
 
         $fixedRule = new SharingFeeRule([
             'calc_type' => SharingFeeCalcType::Fixed,
@@ -36,13 +44,12 @@ class SharingFeeCalculatorTest extends TestCase
         ]);
 
         $fixed = $calc->calculate($fixedRule, '250000.00', 2);
-        // Potongan dihitung, tapi fee nominal tetap = tarif × qty (tidak dikurangi potongan).
-        $this->assertSame('25000.00', $fixed['material_deduction']);
-        $this->assertSame('225000.00', $fixed['fee_base']);
+        $this->assertSame('0.00', $fixed['material_deduction']);
+        $this->assertSame('250000.00', $fixed['fee_base']);
         $this->assertSame('150000.00', $fixed['fee_amount']);
     }
 
-    public function test_material_deduction_percent_and_fixed(): void
+    public function test_material_deduction_is_ignored_because_bhp_is_separate(): void
     {
         $calc = new SharingFeeCalculator;
 
@@ -54,21 +61,9 @@ class SharingFeeCalculatorTest extends TestCase
         ]);
 
         $result = $calc->calculate($percentDeduction, '100000.00', 1);
-        $this->assertSame('10000.00', $result['material_deduction']);
-        $this->assertSame('90000.00', $result['fee_base']);
-        $this->assertSame('45000.00', $result['fee_amount']);
-
-        $fixedDeduction = new SharingFeeRule([
-            'calc_type' => SharingFeeCalcType::Percentage,
-            'rate' => '100',
-            'material_deduction_type' => SharingFeeMaterialDeductionType::Fixed,
-            'material_deduction_value' => '15000',
-        ]);
-
-        $result2 = $calc->calculate($fixedDeduction, '100000.00', 2);
-        $this->assertSame('30000.00', $result2['material_deduction']);
-        $this->assertSame('70000.00', $result2['fee_base']);
-        $this->assertSame('70000.00', $result2['fee_amount']);
+        $this->assertSame('0.00', $result['material_deduction']);
+        $this->assertSame('100000.00', $result['fee_base']);
+        $this->assertSame('50000.00', $result['fee_amount']);
     }
 
     public function test_decimal_rounding_uses_scale_two(): void

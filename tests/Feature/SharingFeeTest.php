@@ -284,10 +284,10 @@ class SharingFeeTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('matched', true)
-            ->assertJsonPath('calculation.fee_amount', '90000.00');
+            ->assertJsonPath('calculation.fee_amount', '100000.00');
     }
 
-    public function test_material_deduction_reduces_fee_base(): void
+    public function test_material_deduction_is_ignored_on_legacy_subtotal(): void
     {
         $this->createRule([
             'calc_type' => SharingFeeCalcType::Percentage,
@@ -300,9 +300,9 @@ class SharingFeeTest extends TestCase
         $this->paidInvoice($this->procedureA, 1, '100000.00');
         $item = $this->generateForCurrentMonth()->first()->items->first();
 
-        $this->assertSame('20000.00', (string) $item->material_deduction);
-        $this->assertSame('80000.00', (string) $item->fee_base);
-        $this->assertSame('40000.00', (string) $item->fee_amount);
+        $this->assertSame('0.00', (string) $item->material_deduction);
+        $this->assertSame('100000.00', (string) $item->fee_base);
+        $this->assertSame('50000.00', (string) $item->fee_amount);
     }
 
     public function test_partial_invoice_is_excluded_until_paid(): void

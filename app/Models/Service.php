@@ -18,10 +18,16 @@ class Service extends Model
      * @var array<string, string>
      */
     public const CATEGORIES = [
+        'pemeriksaan' => 'Pemeriksaan',
         'konsultasi' => 'Konsultasi',
         'preventif' => 'Preventif',
+        'konservasi' => 'Konservasi',
         'restorasi' => 'Restorasi',
+        'endodonti' => 'Endodonti',
+        'ekstraksi' => 'Ekstraksi',
         'bedah' => 'Bedah',
+        'periodonti' => 'Periodonti',
+        'prostodonti' => 'Prostodontik',
         'ortodonti' => 'Ortodonti',
         'lainnya' => 'Lainnya',
     ];

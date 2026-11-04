@@ -7,7 +7,7 @@
     <x-alert />
 
     @if (session('sharing_fee_exclusions'))
-        <x-card title="Item dikecualikan (Belum memiliki aturan Sharing Fee)">
+        <x-card title="Item dikecualikan">
             <x-table>
                 <thead>
                     <tr>
@@ -31,6 +31,7 @@
 
     @can('create', App\Models\SharingFeeSettlement::class)
         <x-card title="Generate settlement">
+            <p class="text-muted small">Fee diambil dari komponen jasa dokter pada invoice lunas. BHP dan jasa klinik tidak masuk bagi hasil.</p>
             <form method="POST" action="{{ route('finance.sharing-fees.settlements.store') }}" class="row g-2 align-items-end">
                 @csrf
                 <div class="col-md-2">

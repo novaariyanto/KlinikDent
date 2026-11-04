@@ -7,7 +7,6 @@ use App\Models\ProcedureRecord;
 use App\Models\Visit;
 use App\Support\Clinical\Icd9Catalog;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
 class UpdateProcedureRecordRequest extends FormRequest
 {
@@ -31,7 +30,20 @@ class UpdateProcedureRecordRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'icd9_code' => ['nullable', 'string', Rule::in(array_keys(Icd9Catalog::options()))],
+            'icd9_code' => [
+                'nullable',
+                'string',
+                'max:16',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (filled($value) && ! Icd9Catalog::has((string) $value)) {
+                        $fail('Kode ICD-9-CM tidak valid.');
+                    }
+                },
+            ],
+            'waive_doctor_fee' => ['nullable', 'boolean'],
+            'discount_type' => ['nullable', 'in:nominal,percent'],
+            'discount_value' => ['nullable', 'numeric', 'min:0'],
+            'waiver_reason' => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -40,5 +52,12 @@ class UpdateProcedureRecordRequest extends FormRequest
         if (! filled($this->input('icd9_code'))) {
             $this->merge(['icd9_code' => null]);
         }
+
+        $this->merge([
+            'waive_doctor_fee' => $this->boolean('waive_doctor_fee'),
+            'discount_type' => filled($this->input('discount_type')) ? $this->input('discount_type') : null,
+            'discount_value' => filled($this->input('discount_value')) ? $this->input('discount_value') : null,
+            'waiver_reason' => filled($this->input('waiver_reason')) ? $this->input('waiver_reason') : null,
+        ]);
     }
 }

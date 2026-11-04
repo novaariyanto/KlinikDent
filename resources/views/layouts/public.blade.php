@@ -6,19 +6,24 @@
     <title>@yield('title', 'Klinik')</title>
     <link href="{{ theme('css/bootstrap.min.css') }}" rel="stylesheet">
     <style>
+        @font-face { font-family: Inter; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/inter-latin-400.woff2') format('woff2'); }
+        @font-face { font-family: Inter; font-style: normal; font-weight: 600; font-display: swap; src: url('/fonts/inter-latin-600.woff2') format('woff2'); }
+        @font-face { font-family: Inter; font-style: normal; font-weight: 700; font-display: swap; src: url('/fonts/inter-latin-700.woff2') format('woff2'); }
+        @font-face { font-family: Inter; font-style: normal; font-weight: 800; font-display: swap; src: url('/fonts/inter-latin-800.woff2') format('woff2'); }
         :root {
-            --booking-ink: #0f172a;
-            --booking-muted: #64748b;
-            --booking-line: #e2e8f0;
-            --booking-accent: #0d9488;
-            --booking-accent-soft: #ccfbf1;
+            --booking-ink: #455a64;
+            --booking-muted: #757575;
+            --booking-line: #bdbdbd;
+            --booking-accent: #00796b;
+            --booking-accent-hover: #00695c;
+            --booking-accent-soft: #e0f2f1;
             --booking-surface: #ffffff;
-            --booking-page: #f1f5f9;
+            --booking-page: #f5f5f5;
         }
         body {
             background: var(--booking-page);
             color: var(--booking-ink);
-            font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+            font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
         }
         .public-wrap {
             max-width: 880px;
@@ -81,7 +86,7 @@
         }
         .form-control:focus, .form-select:focus {
             border-color: var(--booking-accent);
-            box-shadow: 0 0 0 .2rem rgba(13, 148, 136, .15);
+            box-shadow: 0 0 0 .2rem rgba(12, 111, 104, .18);
         }
         .btn-booking {
             background: var(--booking-accent);
@@ -93,8 +98,8 @@
             min-width: 160px;
         }
         .btn-booking:hover, .btn-booking:focus {
-            background: #0f766e;
-            border-color: #0f766e;
+            background: var(--booking-accent-hover);
+            border-color: var(--booking-accent-hover);
             color: #fff;
         }
         .booking-result-number {
@@ -107,7 +112,7 @@
         .booking-result-badge {
             display: inline-block;
             background: var(--booking-accent-soft);
-            color: #0f766e;
+            color: var(--booking-accent);
             border-radius: 999px;
             padding: .35rem .85rem;
             font-size: .8rem;
@@ -143,6 +148,7 @@
             border: 0;
         }
     </style>
+    <style id="clinic-theme">{!! \App\Support\ClinicTheme::style() !!}</style>
     @stack('styles')
 </head>
 <body>

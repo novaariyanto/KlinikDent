@@ -1,9 +1,16 @@
 @extends('layouts.app')
 
+@php
+    $fromPelayanan = request('from') === 'pelayanan';
+    $listBreadcrumb = $fromPelayanan
+        ? ['Pelayanan' => route('examinations.initial'), $title => null]
+        : ['Farmasi' => route('pharmacy.prescriptions.incoming'), $title => null];
+@endphp
+
 @section('title', $title)
 
 @section('content')
-    <x-page-header :title="$title" :breadcrumb="['Farmasi' => route('pharmacy.prescriptions.incoming'), $title => null]" />
+    <x-page-header :title="$title" :breadcrumb="$listBreadcrumb" />
     <x-alert />
     @include('clinical.pharmacy.partials.nav')
     <x-card :title="$title">
@@ -30,7 +37,7 @@
                         <td>{{ $prescription->items->count() }}</td>
                         <td><span class="{{ $prescription->status->badgeClass() }}">{{ $prescription->status->label() }}</span></td>
                         <td class="text-end">
-                            <x-button href="{{ route('pharmacy.prescriptions.show', $prescription) }}" variant="light">
+                            <x-button href="{{ route('pharmacy.prescriptions.show', array_filter(['prescription' => $prescription, 'from' => $fromPelayanan ? 'pelayanan' : null])) }}" variant="light">
                                 {{ $prescription->isSent() ? 'Proses' : 'Lihat' }}
                             </x-button>
                         </td>

@@ -14,8 +14,9 @@
         </x-slot:header-actions>
 
         <p class="text-muted small mb-3">
-            Aturan umum (Semua Dokter · Semua Cabang · Semua Tindakan) berlaku sebagai default.
-            Aturan khusus dengan cakupan lebih sempit otomatis mengalahkan aturan umum pada transaksi yang cocok.
+            Sharing fee memakai <strong>jasa dokter</strong> pada tarif, bukan total tagihan.
+            BHP dan jasa klinik tidak dibagi. Tanpa aturan khusus, fee = jasa dokter 100%.
+            Aturan persentase atau nominal tetap hanya untuk pengecualian (mis. dokter tamu).
         </p>
 
         <form method="GET" class="row g-2 align-items-end mb-3">
@@ -67,13 +68,7 @@
                             @endif
                         </td>
                         <td>{{ $rule->calc_type?->label() }}</td>
-                        <td class="text-end">
-                            @if ($rule->calc_type === App\Enums\SharingFeeCalcType::Percentage)
-                                {{ number_format((float) $rule->rate, 2, ',', '.') }}%
-                            @else
-                                {{ number_format((float) $rule->rate, 0, ',', '.') }}
-                            @endif
-                        </td>
+                        <td class="text-end">{{ $rule->calc_type?->formatRate($rule->rate) }}</td>
                         <td class="text-end">{{ $rule->priority }}</td>
                         <td>
                             {{ $rule->effective_from?->format('d M Y') }}
@@ -100,7 +95,7 @@
                         </td>
                     </tr>
                 @empty
-                    <tr><td colspan="7" class="text-muted">Belum ada aturan sharing fee. Buat aturan umum 40% sebagai default klinik.</td></tr>
+                    <tr><td colspan="7" class="text-muted">Belum ada aturan khusus. Settlement memakai jasa dokter pada tarif.</td></tr>
                 @endforelse
             </tbody>
         </x-table>

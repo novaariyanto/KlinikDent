@@ -1,9 +1,18 @@
 @extends('layouts.app')
 
+@php
+    $fromPelayanan = request('from') === 'pelayanan';
+    $breadcrumb = $fromPelayanan
+        ? ['Pelayanan' => route('examinations.initial'), $visit->patient?->name => null]
+        : ['Kunjungan' => route('registration.history'), 'Detail' => null];
+    $invoice = $visit->currentInvoice();
+    $prescription = $visit->currentPharmacyPrescription();
+@endphp
+
 @section('title', 'Kunjungan')
 
 @section('content')
-    <x-page-header title="Kunjungan {{ $visit->patient?->name }}" :breadcrumb="['Kunjungan' => route('registration.history'), 'Detail' => null]" />
+    <x-page-header title="Kunjungan {{ $visit->patient?->name }}" :breadcrumb="$breadcrumb" />
     <x-alert />
     <div class="row">
         <div class="col-lg-8">
@@ -36,7 +45,22 @@
                 </x-table>
                 <div class="mt-3 d-flex flex-wrap gap-2">
                     @if (App\Support\Clinical\CareTabs::canAccessCare(auth()->user()))
-                        <x-button href="{{ route('care.show', $visit) }}" icon="bx bx-plus-medical">Buka Pelayanan</x-button>
+                        <x-button href="{{ route('care.show', ['visit' => $visit, 'tab' => 'soap', 'from' => 'pelayanan']) }}" icon="bx bx-plus-medical">Buka Pelayanan</x-button>
+                    @endif
+                    @can('viewAny', App\Models\Invoice::class)
+                        @if ($invoice)
+                            <x-button href="{{ route('billing.invoices.show', ['invoice' => $invoice, 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-receipt">Kasir</x-button>
+                        @elseif (auth()->user()?->can('create', App\Models\Invoice::class))
+                            <form action="{{ route('billing.invoices.generate') }}" method="POST" class="d-inline">
+                                @csrf
+                                <input type="hidden" name="visit_id" value="{{ $visit->id }}">
+                                <input type="hidden" name="from" value="pelayanan">
+                                <x-button type="submit" variant="secondary" icon="bx bx-receipt">Buat Tagihan</x-button>
+                            </form>
+                        @endif
+                    @endcan
+                    @if ($prescription && auth()->user()?->can('prescription.view') && auth()->user()?->can('pharmacy.view'))
+                        <x-button href="{{ route('pharmacy.prescriptions.show', ['prescription' => $prescription, 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-package">Resep</x-button>
                     @endif
                     @can('cancel', $visit)
                         <form action="{{ route('registration.visits.cancel', $visit) }}" method="POST" onsubmit="return confirm('Batalkan kunjungan ini?')">
@@ -44,7 +68,9 @@
                             <x-button type="submit" variant="danger" icon="bx bx-x">Batalkan</x-button>
                         </form>
                     @endcan
-                    <x-button href="{{ route('registration.history') }}" variant="secondary">Back</x-button>
+                    <x-button href="{{ $fromPelayanan ? route('examinations.initial') : route('registration.history') }}" variant="secondary">
+                        {{ $fromPelayanan ? 'Pemeriksaan' : 'Back' }}
+                    </x-button>
                 </div>
             </x-card>
         </div>

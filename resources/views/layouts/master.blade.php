@@ -10,6 +10,7 @@
     <link href="{{ theme('css/icons.min.css') }}" rel="stylesheet" type="text/css">
     <link href="{{ theme('css/app.min.css') }}" rel="stylesheet" type="text/css">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <style id="clinic-theme">{!! \App\Support\ClinicTheme::style() !!}</style>
     @stack('styles')
 </head>
 <body @yield('body_attributes')>

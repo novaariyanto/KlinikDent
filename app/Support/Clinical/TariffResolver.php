@@ -9,6 +9,30 @@ class TariffResolver
 {
     public function priceFor(Visit $visit, int $procedureId): string
     {
+        return $this->componentsFor($visit, $procedureId)['price'];
+    }
+
+    /**
+     * @return array{price: string, doctor_fee: string, bhp_amount: string, clinic_fee: string}
+     */
+    public function componentsFor(Visit $visit, int $procedureId): array
+    {
+        $tariff = $this->resolve($visit, $procedureId);
+
+        if (! $tariff) {
+            return [
+                'price' => '0.00',
+                'doctor_fee' => '0.00',
+                'bhp_amount' => '0.00',
+                'clinic_fee' => '0.00',
+            ];
+        }
+
+        return $tariff->componentBreakdown();
+    }
+
+    public function resolve(Visit $visit, int $procedureId): ?Tariff
+    {
         $tariffs = Tariff::query()
             ->where('tenant_id', $visit->tenant_id)
             ->where('procedure_id', $procedureId)
@@ -38,6 +62,6 @@ class TariffResolver
             }
         }
 
-        return $best?->price ?? '0.00';
+        return $best;
     }
 }

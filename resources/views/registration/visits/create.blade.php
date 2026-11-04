@@ -1,19 +1,30 @@
 @extends('layouts.app')
 
+@php
+    $fromPelayanan = request('from') === 'pelayanan';
+    $backUrl = $fromPelayanan ? route('examinations.initial') : route('registration.index');
+    $breadcrumb = $fromPelayanan
+        ? ['Pelayanan' => route('examinations.initial'), 'Pendaftaran Baru' => null]
+        : ['Pendaftaran' => route('registration.index'), 'Baru' => null];
+@endphp
+
 @section('title', 'Pendaftaran Baru')
 
 @section('content')
-    <x-page-header title="Pendaftaran Baru" :breadcrumb="['Pendaftaran' => route('registration.index'), 'Baru' => null]" />
+    <x-page-header title="Pendaftaran Baru" :breadcrumb="$breadcrumb" />
     <x-alert />
     <div class="row">
         <div class="col-lg-8">
             <x-card title="Form Pendaftaran">
                 <form method="POST" action="{{ route('registration.visits.store') }}" novalidate>
                     @csrf
+                    @if ($fromPelayanan)
+                        <input type="hidden" name="from" value="pelayanan">
+                    @endif
                     @include('registration.visits.partials.form')
                     <div class="d-flex gap-2">
                         <x-button type="submit" icon="bx bx-save">Daftarkan</x-button>
-                        <x-button href="{{ route('registration.index') }}" variant="secondary">Cancel</x-button>
+                        <x-button href="{{ $backUrl }}" variant="secondary">Cancel</x-button>
                     </div>
                 </form>
             </x-card>

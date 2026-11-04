@@ -22,6 +22,9 @@ class Tariff extends Model
         'procedure_id',
         'payer_id',
         'price',
+        'doctor_fee',
+        'bhp_amount',
+        'clinic_fee',
         'effective_date',
     ];
 
@@ -36,7 +39,31 @@ class Tariff extends Model
             'procedure_id' => 'integer',
             'payer_id' => 'integer',
             'price' => 'decimal:2',
+            'doctor_fee' => 'decimal:2',
+            'bhp_amount' => 'decimal:2',
+            'clinic_fee' => 'decimal:2',
             'effective_date' => 'date',
+        ];
+    }
+
+    /**
+     * @return array{price: string, doctor_fee: string, bhp_amount: string, clinic_fee: string}
+     */
+    public function componentBreakdown(): array
+    {
+        $components = app(\App\Support\Billing\ProcedureTariffCalculator::class)
+            ->normalizeComponents([
+                'doctor_fee' => $this->doctor_fee,
+                'bhp_amount' => $this->bhp_amount,
+                'clinic_fee' => $this->clinic_fee,
+                'price' => $this->price,
+            ]);
+
+        return [
+            'price' => $components['tariff_price'],
+            'doctor_fee' => $components['doctor_fee'],
+            'bhp_amount' => $components['bhp_amount'],
+            'clinic_fee' => $components['clinic_fee'],
         ];
     }
 

@@ -19,12 +19,16 @@ class Procedure extends Model
      * @var array<string, string>
      */
     public const CATEGORIES = [
+        'pemeriksaan' => 'Pemeriksaan',
         'konsultasi' => 'Konsultasi',
         'preventif' => 'Preventif',
+        'konservasi' => 'Konservasi',
         'restorasi' => 'Restorasi',
-        'bedah' => 'Bedah',
         'endodonti' => 'Endodonti',
+        'ekstraksi' => 'Ekstraksi',
+        'bedah' => 'Bedah',
         'periodonti' => 'Periodonti',
+        'prostodonti' => 'Prostodontik',
         'lainnya' => 'Lainnya',
     ];
 

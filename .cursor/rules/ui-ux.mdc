@@ -1,0 +1,38 @@
+---
+description: UI klinik bold, kontras tinggi, identitas medis enterprise
+globs: resources/views/**/*.blade.php,resources/css/**/*.css
+alwaysApply: false
+---
+
+# UI Klinik — Bold & Professional
+
+Token ada di `resources/css/app.css` (`--kd-*`). Jangan menambah warna baru di inline style. Jangan kembalikan ungu Skote `#556ee6` atau pastel sebagai warna utama.
+
+## Token
+
+- Warna mengikuti [Material Palette](https://www.materialpalette.com/): primary = shade 700/800 (teks putih tetap terbaca), sidebar = shade lebih gelap di keluarga yang sama, aksen = shade terang warna kedua. Jangan pakai hitam `#212121` atau shade 900 yang tampak hitam.
+- Bawaan Teal / Cyan: primary `#00796B`, sidebar `#00695C`, aksen `#80DEEA`. Teks `#455A64`, sekunder `#757575`, garis `#BDBDBD`, latar `#F5F5F5`.
+- Jangan pakai hitam atau hampir hitam untuk sidebar, header tabel, tombol, atau teks.
+- Tiap pengguna memilih primary, navy, dan aksen dari top bar. Pilihan disimpan di session akun itu, bukan untuk seluruh klinik. Status sukses, tunggu, gagal, dan proses tetap token di bawah.
+- Success `#2E7D32`, warning `#BF360C`, danger `#C62828`, info/proses `#1565C0`, nonaktif `#757575`.
+- Background `#F5F5F5`, surface putih, border `#BDBDBD` (input `#9E9E9E`).
+- Font Inter. Body 400, label 600, judul / nama / nomor RM / nominal / status 700–800.
+
+## Komponen
+
+- Aksi utama: `btn-primary` solid. Sekunder: `btn-secondary` (outline navy) atau `btn-light` berborder. Bahaya: `btn-danger`.
+- Status wajib teks + badge: `bg-success`, `bg-warning`, `bg-danger`, `bg-info`, `bg-secondary`. Bukan warna saja.
+- Judul halaman lewat `<x-page-header>`. Kartu lewat `<x-card>`. Tabel lewat `<x-table>` / DataTables yang ada.
+- Header tabel, sidebar, dan menu aktif mengikuti token. Menu aktif = teal solid, teks putih.
+- Angka dashboard tetap di `h3`/`h4` dalam kartu. Jangan membold seluruh paragraf.
+- Focus input memakai primary. Field wajib tetap tanda `*`. Error tetap `.invalid-feedback`.
+- Tablet prioritas: tombol sentuh cukup, status terlihat tanpa klik tambahan, jangan pecah grid yang sudah ada.
+
+## Contoh
+
+```blade
+<span class="badge bg-danger">Belum dibayar</span>
+<h3 class="mb-2">{{ number_format($total, 0, ',', '.') }}</h3>
+```
+
+Jangan ubah business logic, endpoint, atau skema saat merapikan tampilan.

@@ -32,6 +32,8 @@ class UpdateVitalsRequest extends FormRequest
             'respiration' => ['nullable', 'string', 'max:10'],
             'weight' => ['nullable', 'string', 'max:10'],
             'height' => ['nullable', 'string', 'max:10'],
+            'general_condition' => ['nullable', 'string', 'max:255'],
+            'consciousness' => ['nullable', 'string', 'max:255'],
         ];
     }
 

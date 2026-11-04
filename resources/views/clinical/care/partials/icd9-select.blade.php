@@ -4,6 +4,11 @@
     'showError' => false,
 ])
 
+@php
+    $selectedCode = filled($selected) ? (string) $selected : null;
+    $selectedLabel = $selectedCode ? \App\Support\Clinical\Icd9Catalog::label($selectedCode) : null;
+@endphp
+
 <div class="mb-3">
     <label for="{{ $id }}" class="form-label">ICD-9-CM</label>
     <select
@@ -11,11 +16,12 @@
         id="{{ $id }}"
         class="form-select @if ($showError && $errors->has('icd9_code')) is-invalid @endif"
         data-icd9-select
+        data-icd9-url="{{ route('care.procedure.icd9.search', $visit) }}"
     >
         <option value=""></option>
-        @foreach (\App\Support\Clinical\Icd9Catalog::options() as $code => $label)
-            <option value="{{ $code }}" @selected((string) $selected === (string) $code)>{{ $label }}</option>
-        @endforeach
+        @if ($selectedCode)
+            <option value="{{ $selectedCode }}" selected>{{ $selectedLabel }}</option>
+        @endif
     </select>
     @if ($showError)
         @error('icd9_code')

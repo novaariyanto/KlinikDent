@@ -1,4 +1,5 @@
-<section class="care-section" id="rujukan">
+@php($embedded = $embedded ?? false)
+<section class="care-section{{ $embedded ? ' care-section--embedded' : '' }}" id="rujukan">
     <div class="care-section__head d-flex justify-content-between align-items-start gap-2">
         <div>
             <h5 class="care-section__title">Rujukan</h5>

@@ -7,6 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Patient;
 use App\Models\Tenant;
 use App\Models\Visit;
+use App\Support\Clinical\PrintChrome;
+use App\Support\Clinical\PrintSheet;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -78,14 +80,37 @@ class PatientPortalController extends Controller
         $visits = Visit::withoutGlobalScopes()
             ->where('tenant_id', $tenant->id)
             ->where('patient_id', $patient->id)
-            ->with(['doctor', 'medicalRecord.amendments', 'diagnoses', 'procedureRecords.procedure'])
+            ->with([
+                'doctor.doctorProfile',
+                'branch',
+                'room',
+                'payer',
+                'queue',
+                'medicalRecord.amendments',
+                'diagnoses',
+                'procedureRecords.procedure',
+                'prescriptions.items.medicine',
+                'prescriptions.items.ingredients',
+            ])
             ->orderBy('visit_date')
             ->get();
 
+        $sheets = $visits->map(fn (Visit $visit) => PrintSheet::for($visit));
+
         return Pdf::loadView('portal.resume-pdf', [
+            ...PrintChrome::variables((int) $tenant->id, $visits->last()?->branch),
+            'title' => 'Rekam Medis Rawat Jalan',
             'tenant' => $tenant,
             'patient' => $patient,
             'visits' => $visits,
+            'sheets' => $sheets,
+            'branch' => $visits->last()?->branch,
+            'visit' => $visits->last(),
+            'documentHash' => hash('sha256', implode('|', [
+                'RM',
+                (string) $patient->medical_record_number,
+                $visits->pluck('id')->implode(','),
+            ])),
         ])->setPaper('a4')->download('rekam-medis-'.$patient->medical_record_number.'.pdf');
     }
 

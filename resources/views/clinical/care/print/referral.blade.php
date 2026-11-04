@@ -25,10 +25,7 @@
     <p class="opening">Dengan hormat,</p>
     <p class="opening">Bersama ini kami merujuk pasien tersebut di bawah ini untuk mendapatkan pemeriksaan dan/atau penanganan lebih lanjut sesuai kompetensi Bapak/Ibu.</p>
 
-    <div class="section">
-        <table class="section-head"><tr><td>Identitas Pasien</td></tr></table>
-        @include('clinical.care.print.partials.identity')
-    </div>
+    @include('clinical.care.print.partials.identity')
 
     <div class="section">
         <table class="section-head"><tr><td>Diagnosis</td></tr></table>

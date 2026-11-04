@@ -76,12 +76,12 @@ class SharingFeeRuleController extends Controller
             'doctor_user_id' => null,
             'branch_id' => null,
             'procedure_id' => null,
-            'calc_type' => SharingFeeCalcType::Percentage,
+            'calc_type' => SharingFeeCalcType::DoctorFee,
             'material_deduction_type' => SharingFeeMaterialDeductionType::None,
             'priority' => 100,
             'effective_from' => now()->toDateString(),
             'is_active' => true,
-            'rate' => '40',
+            'rate' => '100',
             'material_deduction_value' => '0',
         ])));
     }

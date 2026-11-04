@@ -41,7 +41,7 @@
             }
             .select2-dropdown.wilayah-select2-dropdown .select2-results__option--highlighted.select2-results__option--selectable,
             .select2-dropdown.wilayah-select2-dropdown .select2-results__option--highlighted[aria-selected] {
-                background-color: #556ee6;
+                background-color: #00796b;
                 color: #fff;
             }
         </style>

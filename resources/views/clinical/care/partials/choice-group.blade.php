@@ -6,9 +6,10 @@
     'reveal' => null,
     'revealWhen' => 'present',
     'hint' => null,
+    'wide' => false,
 ])
 
-<div class="exam-field" @if ($reveal) data-reveal-group="{{ $reveal }}" data-reveal-when="{{ $revealWhen }}" @endif>
+<div class="exam-field{{ $wide ? ' exam-field--full' : '' }}" @if ($reveal) data-reveal-group="{{ $reveal }}" data-reveal-when="{{ $revealWhen }}" @endif>
     <div class="exam-field__label">{{ $label }}</div>
     <div class="exam-choices">
         @foreach ($options as $value => $optionLabel)

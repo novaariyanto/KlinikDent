@@ -192,33 +192,36 @@ class SharingFeeRuleResolver
     ): array {
         $rule = $this->resolve($tenantId, $doctorUserId, $branchId, $procedureId, $onDate);
 
+        $implicit = false;
+
         if (! $rule) {
-            return [
-                'matched' => false,
-                'message' => 'Belum memiliki aturan Sharing Fee',
-                'rule' => null,
-                'calculation' => null,
-            ];
+            $rule = SharingFeeRule::implicitDoctorFee();
+            $implicit = true;
         }
 
         $calc = $calculator->calculate($rule, $grossBase, $quantity);
 
+        $note = match ($rule->calc_type?->value) {
+            'fixed' => 'Fee nominal tetap = tarif × kuantitas.',
+            'percentage' => 'Fee = jasa dokter × persentase / 100. BHP dan jasa klinik tidak dibagi.',
+            default => 'Fee mengikuti komponen jasa dokter pada tarif. BHP dan jasa klinik tidak dibagi.',
+        };
+
         return [
             'matched' => true,
-            'message' => null,
+            'implicit' => $implicit,
+            'message' => $implicit ? 'Tidak ada aturan khusus. Settlement memakai jasa dokter 100%.' : null,
             'rule' => [
                 'id' => $rule->id,
-                'coverage' => $rule->coverageSummary(),
+                'coverage' => $implicit ? 'Mengikuti jasa dokter tarif' : $rule->coverageSummary(),
                 'calc_type' => $rule->calc_type?->value,
                 'calc_type_label' => $rule->calc_type?->label(),
-                'rate' => (string) $rule->rate,
+                'rate' => $implicit ? '100' : (string) $rule->rate,
                 'priority' => (int) $rule->priority,
-                'specificity_rank' => $this->specificityRank($rule),
-                'material_deduction_type' => $rule->material_deduction_type?->value,
-                'material_deduction_value' => (string) $rule->material_deduction_value,
-                'note_fixed' => $rule->calc_type?->value === 'fixed'
-                    ? 'Fee nominal tetap = tarif × kuantitas (potongan bahan tidak mengurangi fee nominal).'
-                    : null,
+                'specificity_rank' => $implicit ? 0 : $this->specificityRank($rule),
+                'material_deduction_type' => 'none',
+                'material_deduction_value' => '0',
+                'note_fixed' => $note,
             ],
             'calculation' => $calc + [
                 'quantity' => max(1, $quantity),

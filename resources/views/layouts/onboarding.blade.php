@@ -23,14 +23,14 @@
         height: 100%;
     }
     .onboarding-card-choice:hover {
-        border-color: #556ee6;
-        box-shadow: 0 0.5rem 1.25rem rgba(85,110,230,.08);
+        border-color: #00796b;
+        box-shadow: 0 0.5rem 1.25rem rgba(0,121,107,.12);
     }
     .onboarding-icon {
         width: 56px; height: 56px;
         border-radius: 16px;
         display: inline-flex; align-items: center; justify-content: center;
-        background: #eef2ff; color: #556ee6; font-size: 1.6rem;
+        background: #e0f2f1; color: #00796b; font-size: 1.6rem;
     }
     .onboarding-step { max-width: 920px; margin: 0 auto; }
 </style>

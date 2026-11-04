@@ -41,6 +41,9 @@ class StoreTariffRequest extends FormRequest
                 Rule::exists('payers', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
             ],
             'price' => ['required', 'numeric', 'min:0'],
+            'doctor_fee' => ['nullable', 'numeric', 'min:0'],
+            'bhp_amount' => ['nullable', 'numeric', 'min:0'],
+            'clinic_fee' => ['nullable', 'numeric', 'min:0'],
             'effective_date' => ['required', 'date'],
         ];
     }
@@ -76,9 +79,18 @@ class StoreTariffRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $doctor = $this->input('doctor_fee', 0) ?: 0;
+        $bhp = $this->input('bhp_amount', 0) ?: 0;
+        $clinic = $this->input('clinic_fee', 0) ?: 0;
+        $sum = (float) $doctor + (float) $bhp + (float) $clinic;
+
         $this->merge([
             'branch_id' => $this->filled('branch_id') ? $this->input('branch_id') : null,
             'payer_id' => $this->filled('payer_id') ? $this->input('payer_id') : null,
+            'doctor_fee' => $doctor,
+            'bhp_amount' => $bhp,
+            'clinic_fee' => $sum > 0 ? $clinic : ($this->input('price') ?? 0),
+            'price' => $sum > 0 ? $sum : $this->input('price'),
         ]);
     }
 }

@@ -80,8 +80,8 @@
                     <th>Dokter</th>
                     <th>Invoice</th>
                     <th>Tindakan</th>
-                    <th class="text-end">Basis</th>
-                    <th class="text-end">Potongan</th>
+                    <th class="text-end">Jasa dokter</th>
+                    <th class="text-end">BHP</th>
                     <th class="text-end">Tarif</th>
                     <th class="text-end">Fee</th>
                     <th>Status</th>
@@ -95,13 +95,7 @@
                         <td>{{ $item->item_description }}</td>
                         <td class="text-end">{{ number_format((float) $item->fee_base, 0, ',', '.') }}</td>
                         <td class="text-end">{{ number_format((float) $item->material_deduction, 0, ',', '.') }}</td>
-                        <td class="text-end">
-                            @if ($item->calc_type === App\Enums\SharingFeeCalcType::Percentage)
-                                {{ number_format((float) $item->rate, 2, ',', '.') }}%
-                            @else
-                                {{ number_format((float) $item->rate, 0, ',', '.') }}
-                            @endif
-                        </td>
+                        <td class="text-end">{{ $item->calc_type?->formatRate($item->rate) }}</td>
                         <td class="text-end">{{ number_format((float) $item->fee_amount, 0, ',', '.') }}</td>
                         <td><span class="{{ $item->settlement?->status?->badgeClass() }}">{{ $item->settlement?->status?->label() }}</span></td>
                     </tr>

@@ -10,6 +10,7 @@ use App\Models\Queue;
 use App\Models\Room;
 use App\Models\User;
 use App\Models\Visit;
+use App\Support\Clinical\CareEpisodeService;
 use App\Support\Doctors\ScheduleAvailability;
 use App\Support\Integrations\IntegrationService;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +24,7 @@ class VisitRegistrar
         protected DocumentSequenceGenerator $sequences,
         protected ScheduleAvailability $schedules,
         protected IntegrationService $integrations,
+        protected CareEpisodeService $episodes,
     ) {}
 
     /**
@@ -61,6 +63,7 @@ class VisitRegistrar
             ]);
 
             $this->attachQueue($visit, $branch, isset($data['doctor_schedule_id']) ? (int) $data['doctor_schedule_id'] : null);
+            $this->episodes->attach($visit);
 
             return $visit->load(['patient', 'queue', 'doctor', 'room', 'payer', 'branch']);
         });
@@ -129,6 +132,7 @@ class VisitRegistrar
             ]);
 
             $this->attachQueue($visit, $branch, (int) $schedule->id);
+            $this->episodes->attach($visit);
 
             return $visit->load([
                 'patient' => fn ($query) => $query->withoutGlobalScopes(),

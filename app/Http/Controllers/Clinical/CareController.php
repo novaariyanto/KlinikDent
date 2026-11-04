@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Clinical;
 
+use App\Enums\AssessmentKind;
+use App\Enums\AssessmentStatus;
+use App\Enums\DiagnosisKind;
+use App\Enums\DiagnosisRank;
 use App\Enums\PrescriptionStatus;
 use App\Enums\QueueStatus;
 use App\Enums\ToothStatus;
-use App\Enums\ToothSurface;
 use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Clinical\StoreDiagnosisRequest;
@@ -16,6 +19,7 @@ use App\Http\Requests\Clinical\UpdateAnamnesisRequest;
 use App\Http\Requests\Clinical\UpdateCareNotesRequest;
 use App\Http\Requests\Clinical\UpdateDentalExamRequest;
 use App\Http\Requests\Clinical\UpdateExaminationRequest;
+use App\Http\Requests\Clinical\UpdateFollowUpReviewRequest;
 use App\Http\Requests\Clinical\UpdateMedicalRecordRequest;
 use App\Http\Requests\Clinical\UpdatePrescriptionItemRequest;
 use App\Http\Requests\Clinical\UpdateProcedureRecordRequest;
@@ -34,20 +38,27 @@ use App\Models\Referral;
 use App\Models\User;
 use App\Models\Visit;
 use App\Support\Billing\BillingService;
+use App\Support\Billing\DoctorFeeWaiverService;
+use Illuminate\Support\Facades\DB;
+use App\Support\Clinical\CareEpisodeService;
 use App\Support\Clinical\CareExamOptions;
 use App\Support\Clinical\CareProgress;
 use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
+use App\Support\Clinical\PrintChrome;
+use App\Support\Clinical\PrintSheet;
 use App\Support\Clinical\FdiTeeth;
 use App\Support\Clinical\IcdCatalog;
+use App\Support\Clinical\Icd9Catalog;
 use App\Support\Clinical\MedicalRecordLock;
-use App\Support\ClinicSettings;
+use App\Support\Clinical\ToothConditions;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\View\View;
 
 class CareController extends Controller
@@ -86,6 +97,10 @@ class CareController extends Controller
             );
         }
 
+        if ($writable && $user?->can('diagnosis.manage')) {
+            $this->seedFollowUpDiagnoses($visit);
+        }
+
         $visit->load([
             'patient',
             'queue',
@@ -99,6 +114,7 @@ class CareController extends Controller
             'prescriptions.items.ingredients.medicine',
             'prescriptions.doctor',
             'referrals',
+            'invoices',
         ]);
 
         $teeth = $visit->patient
@@ -147,17 +163,10 @@ class CareController extends Controller
             'amendments' => $record?->amendments()->with('author')->latest('id')->get() ?? collect(),
             'labOrders' => \App\Models\DentalLabOrder::query()->where('visit_id', $visit->id)->latest('id')->get(),
             'clinicalDocuments' => \App\Models\ClinicalDocument::query()->where('visit_id', $visit->id)->latest('id')->get(),
+            'medicalLetters' => \App\Models\MedicalLetter::query()->where('visit_id', $visit->id)->latest('issued_at')->latest('id')->get(),
             'teeth' => $teeth,
             'toothStatuses' => ToothStatus::options(),
-            'toothStatusMeta' => collect(ToothStatus::cases())->mapWithKeys(fn (ToothStatus $status) => [
-                $status->value => [
-                    'label' => $status->label(),
-                    'color' => $status->color(),
-                    'symbol' => $status->symbol(),
-                    'whole' => $status->isWholeTooth(),
-                    'needsSurface' => $status->needsSurface(),
-                ],
-            ])->all(),
+            'toothStatusMeta' => ToothConditions::meta(),
             'chart' => FdiTeeth::chart(),
             'examOptions' => [
                 'occlusion' => CareExamOptions::occlusion(),
@@ -180,9 +189,14 @@ class CareController extends Controller
             'dentalExam' => $record?->dental_exam ?? [],
             'systemicHistory' => $record?->systemic_history ?? [],
             'procedures' => Procedure::query()->active()->orderBy('name')->get(),
+            'procedureTariffQuoteUrl' => route('care.procedure.tariff', $visit),
+            'canWaiveDoctorFee' => $user ? app(DoctorFeeWaiverService::class)->canWaive($user, $visit) : false,
+            'canDiscountProcedure' => $user ? app(DoctorFeeWaiverService::class)->canDiscount($user) : false,
+            'canApproveDoctorFeeWaiver' => $user ? app(DoctorFeeWaiverService::class)->canApprove($user) : false,
             'medicines' => Medicine::query()->active()->orderBy('name')->get(),
             'history' => $history,
             'careQueues' => $careQueues,
+            'assessmentContext' => app(CareEpisodeService::class)->context($visit),
         ]);
     }
 
@@ -227,16 +241,7 @@ class CareController extends Controller
 
         activity_audit('updated', $record, $before, 'Updated medical record', 'medical_records');
 
-        $tab = array_key_exists('plan_instructions', $request->validated()) || array_key_exists('clinical_notes', $request->validated())
-            ? 'instruksi'
-            : 'keluhan';
-
-        return $this->respondCare(
-            $visit,
-            $tab,
-            'Rekam medis disimpan.',
-            $tab === 'instruksi' ? $this->instructionDone($record) : null,
-        );
+        return $this->respondCare($visit, 'soap', 'Rekam medis disimpan.');
     }
 
     public function updateExamination(UpdateExaminationRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -270,6 +275,8 @@ class CareController extends Controller
             'respiration' => $validated['respiration'] ?? null,
             'weight' => $validated['weight'] ?? null,
             'height' => $validated['height'] ?? null,
+            'general_condition' => filled($validated['general_condition'] ?? null) ? trim((string) $validated['general_condition']) : data_get($record->vital_signs, 'general_condition'),
+            'consciousness' => filled($validated['consciousness'] ?? null) ? trim((string) $validated['consciousness']) : data_get($record->vital_signs, 'consciousness'),
         ];
         $history = $record->systemic_history ?? [];
         $history['blood_pressure_sys'] = $vitals['blood_pressure_sys'];
@@ -283,7 +290,7 @@ class CareController extends Controller
 
         activity_audit('updated', $record, $before, 'Updated vital signs', 'medical_records');
 
-        return $this->respondCare($visit, 'screening', 'Tanda vital disimpan.', $this->screeningDone($record));
+        return $this->respondCare($visit, 'soap', 'Tanda vital disimpan.');
     }
 
     public function updateAnamnesis(UpdateAnamnesisRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -294,7 +301,101 @@ class CareController extends Controller
 
         activity_audit('updated', $record, $before, 'Updated anamnesis', 'medical_records');
 
-        return $this->respondCare($visit, 'keluhan', 'Anamnesis disimpan.');
+        return $this->respondCare($visit, 'soap', 'Anamnesis disimpan.');
+    }
+
+    public function updateFollowUp(UpdateFollowUpReviewRequest $request, Visit $visit): RedirectResponse|JsonResponse
+    {
+        $record = $this->care->ensureRecord($visit);
+        app(MedicalRecordLock::class)->assertMutable($record);
+        abort_unless($record->assessment_kind === AssessmentKind::FollowUp, 422);
+        app(CareEpisodeService::class)->assertFollowUpAllowed($visit);
+
+        $data = $request->validated();
+        $review = is_array($record->follow_up_review) ? $record->follow_up_review : [];
+        foreach (['adverse_effect', 'plan_decision'] as $key) {
+            if (! array_key_exists($key, $data)) {
+                continue;
+            }
+            $value = trim((string) ($data[$key] ?? ''));
+            $review[$key] = $value !== '' ? $value : null;
+        }
+        if (array_key_exists('indicators', $data)) {
+            $review['indicators'] = array_filter((array) $data['indicators'], fn ($value) => filled($value));
+        }
+        if (array_key_exists('diagnosis_outcomes', $data)) {
+            $review['diagnosis_outcomes'] = array_filter((array) $data['diagnosis_outcomes'], fn ($value) => filled($value));
+        }
+        if (array_key_exists('procedure_evals', $data)) {
+            $existingEvals = is_array($review['procedure_evals'] ?? null) ? $review['procedure_evals'] : [];
+            foreach ((array) $data['procedure_evals'] as $id => $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+                $prior = is_array($existingEvals[$id] ?? null) ? $existingEvals[$id] : [];
+                foreach (['result', 'response', 'success', 'complication', 'next'] as $key) {
+                    if (! array_key_exists($key, $row)) {
+                        continue;
+                    }
+                    $value = trim((string) $row[$key]);
+                    if ($value === '') {
+                        unset($prior[$key]);
+                    } else {
+                        $prior[$key] = $value;
+                    }
+                }
+                if ($prior === []) {
+                    unset($existingEvals[$id]);
+                } else {
+                    $existingEvals[$id] = $prior;
+                }
+            }
+            $review['procedure_evals'] = $existingEvals;
+        }
+
+        $before = activity_snapshot($record);
+        $record->follow_up_review = $review;
+        if (array_key_exists('control_date', $data)) {
+            $record->control_date = $data['control_date'] ?: null;
+        }
+        $record->save();
+        activity_audit('updated', $record, $before, 'Updated follow-up assessment', 'medical_records', [], $request->user());
+
+        if (($review['plan_decision'] ?? null) === 'end' && $request->user()) {
+            $episode = $visit->episode()->first();
+            if ($episode) {
+                app(CareEpisodeService::class)->close($episode, $request->user());
+            }
+        }
+
+        return $this->respondCare($visit, 'soap', 'Asesmen ulang disimpan.');
+    }
+
+    public function completeAssessment(Request $request, Visit $visit): RedirectResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('medical_record.update'), 403);
+
+        $record = $this->care->ensureRecord($visit);
+        app(MedicalRecordLock::class)->assertMutable($record);
+
+        if ($record->assessment_kind === AssessmentKind::FollowUp) {
+            app(CareEpisodeService::class)->assertFollowUpAllowed($visit);
+        }
+
+        if ($record->assessment_status === AssessmentStatus::Completed) {
+            return back()->with('success', 'Asesmen sudah selesai.');
+        }
+
+        $before = activity_snapshot($record);
+        $record->update([
+            'assessment_status' => AssessmentStatus::Completed,
+            'assessment_completed_at' => now(),
+            'assessment_completed_by' => $request->user()->id,
+        ]);
+        activity_audit('updated', $record, $before, 'Completed clinical assessment', 'medical_records', [], $request->user());
+
+        return back()->with('success', 'Asesmen difinalisasi. Koreksi setelah rekam medis terkunci hanya lewat adendum.');
     }
 
     public function updateNotes(UpdateCareNotesRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -306,7 +407,7 @@ class CareController extends Controller
 
         activity_audit('updated', $record, $before, 'Updated care notes', 'medical_records');
 
-        return $this->respondCare($visit, 'instruksi', 'Catatan pelayanan disimpan.', $this->instructionDone($record));
+        return $this->respondCare($visit, 'soap', 'Catatan pelayanan disimpan.');
     }
 
     public function updateTooth(UpdateToothRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -316,14 +417,22 @@ class CareController extends Controller
             ? $data['status']
             : ToothStatus::from($data['status']);
 
-        $tooth = $this->care->updateTooth(
-            $visit,
-            $request->user(),
-            $data['tooth_number'],
-            $status,
-            $data['notes'] ?? null,
-            $data['surfaces'] ?? [],
-        );
+        $tooth = array_key_exists('conditions', $data)
+            ? $this->care->syncToothConditions(
+                $visit,
+                $request->user(),
+                $data['tooth_number'],
+                $data['conditions'],
+                $data['notes'] ?? null,
+            )
+            : $this->care->updateTooth(
+                $visit,
+                $request->user(),
+                $data['tooth_number'],
+                $status,
+                $data['notes'] ?? null,
+                $data['surfaces'] ?? [],
+            );
 
         activity_log('updated', $visit, $data, 'Updated odontogram tooth '.$data['tooth_number'], 'odontogram');
 
@@ -388,7 +497,7 @@ class CareController extends Controller
 
         activity_log('updated', $record, $data, 'Updated systemic history', 'medical_records');
 
-        return $this->respondCare($visit, 'screening', 'Riwayat penyakit sistemik disimpan.', $this->screeningDone($record));
+        return $this->respondCare($visit, 'soap', 'Riwayat penyakit sistemik disimpan.');
     }
 
     public function searchDiagnoses(Request $request, Visit $visit): JsonResponse
@@ -403,13 +512,32 @@ class CareController extends Controller
         ));
     }
 
+    public function searchIcd9(Request $request, Visit $visit): JsonResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless($request->user()?->can('procedure.view') || $request->user()?->can('procedure.manage'), 403);
+
+        return response()->json(Icd9Catalog::search(
+            (string) $request->query('q', ''),
+            30,
+            max(1, (int) $request->query('page', 1)),
+        ));
+    }
+
     public function storeDiagnosis(StoreDiagnosisRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $diagnosis = $visit->diagnoses()->create($request->validated());
+        if ($request->boolean('single')) {
+            $visit->diagnoses()->where('id', '!=', $diagnosis->id)->delete();
+        }
 
         activity_log('created', $diagnosis, $request->validated(), 'Added diagnosis', 'diagnoses');
 
-        return $this->respondCare($visit, 'diagnosis', 'Diagnosis ditambahkan.');
+        return $this->respondCare($visit, 'soap', 'Diagnosis ditambahkan.', null, [
+            'diagnosis_id' => $diagnosis->id,
+            'update_url' => route('care.diagnosis.update', [$visit, $diagnosis]),
+            'destroy_url' => route('care.diagnosis.destroy', [$visit, $diagnosis]),
+        ]);
     }
 
     public function updateDiagnosis(StoreDiagnosisRequest $request, Visit $visit, Diagnosis $diagnosis): RedirectResponse|JsonResponse
@@ -418,10 +546,17 @@ class CareController extends Controller
 
         $before = activity_snapshot($diagnosis);
         $diagnosis->update($request->validated());
+        if ($request->boolean('single')) {
+            $visit->diagnoses()->where('id', '!=', $diagnosis->id)->delete();
+        }
 
         activity_audit('updated', $diagnosis, $before, 'Updated diagnosis', 'diagnoses');
 
-        return $this->respondCare($visit, 'diagnosis', 'Diagnosis diperbarui.');
+        return $this->respondCare($visit, 'soap', 'Diagnosis diperbarui.', null, [
+            'diagnosis_id' => $diagnosis->id,
+            'update_url' => route('care.diagnosis.update', [$visit, $diagnosis]),
+            'destroy_url' => route('care.diagnosis.destroy', [$visit, $diagnosis]),
+        ]);
     }
 
     public function destroyDiagnosis(Visit $visit, Diagnosis $diagnosis): RedirectResponse|JsonResponse
@@ -434,42 +569,70 @@ class CareController extends Controller
         activity_log('deleted', $diagnosis, ['code' => $diagnosis->code], 'Deleted diagnosis', 'diagnoses');
         $diagnosis->delete();
 
-        return $this->respondCare($visit, 'diagnosis', 'Diagnosis dihapus.');
+        $record = $visit->medicalRecord()->first();
+        if ($record && $record->assessment_kind === AssessmentKind::FollowUp && ! $visit->diagnoses()->exists()) {
+            $review = is_array($record->follow_up_review) ? $record->follow_up_review : [];
+            $review['diagnoses_seeded'] = true;
+            $record->follow_up_review = $review;
+            $record->save();
+        }
+
+        return $this->respondCare($visit, 'soap', 'Diagnosis dihapus.');
     }
 
     public function storeProcedure(StoreProcedureRecordRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $data = $request->validated();
-            $record = $this->care->addProcedure(
+        $record = $this->care->addProcedure(
             $visit,
             (int) $data['procedure_id'],
             $data['tooth_number'] ?? null,
             (int) $data['quantity'],
             $data['icd9_code'] ?? null,
+            $request->user(),
+            [
+                'waive_doctor_fee' => $data['waive_doctor_fee'] ?? false,
+                'discount_type' => $data['discount_type'] ?? null,
+                'discount_value' => $data['discount_value'] ?? null,
+                'waiver_reason' => $data['waiver_reason'] ?? null,
+            ],
         );
 
         activity_log('created', $record, [
             'procedure_id' => $record->procedure_id,
             'price_at_time' => $record->price_at_time,
+            'adjustment_type' => $record->adjustment_type?->value,
         ], 'Added procedure record', 'procedure_records');
 
-        return $this->respondCare(
-            $visit,
-            'tindakan',
-            'Tindakan ditambahkan. Tarif tersimpan Rp '.number_format((float) $record->price_at_time, 0, ',', '.').'.',
-        );
+        $note = 'Tindakan ditambahkan. Tarif pasien Rp '.number_format((float) $record->price_at_time, 0, ',', '.').'.';
+
+        if ($record->waiver_status?->value === 'pending') {
+            $note = 'Tindakan ditambahkan. Pembebasan jasa dokter menunggu persetujuan. Tarif pasien masih normal.';
+        }
+
+        return $this->respondCare($visit, 'tindakan', $note);
     }
 
     public function updateProcedure(UpdateProcedureRecordRequest $request, Visit $visit, ProcedureRecord $procedureRecord): RedirectResponse|JsonResponse
     {
         $before = activity_snapshot($procedureRecord);
+        $data = $request->validated();
         $procedureRecord->update([
-            'icd9_code' => $request->validated('icd9_code'),
+            'icd9_code' => $data['icd9_code'] ?? $procedureRecord->icd9_code,
         ]);
 
-        activity_audit('updated', $procedureRecord, $before, 'Updated procedure ICD-9-CM', 'procedure_records');
+        if ($procedureRecord->isUnbilled() && $request->boolean('has_adjustment_form')) {
+            app(DoctorFeeWaiverService::class)->updateUnbilled($visit, $procedureRecord, [
+                'waive_doctor_fee' => $data['waive_doctor_fee'] ?? false,
+                'discount_type' => $data['discount_type'] ?? null,
+                'discount_value' => $data['discount_value'] ?? null,
+                'waiver_reason' => $data['waiver_reason'] ?? null,
+            ], $request->user());
+        }
 
-        return $this->respondCare($visit, 'tindakan', 'Kode ICD-9-CM tindakan disimpan.');
+        activity_audit('updated', $procedureRecord->fresh() ?? $procedureRecord, $before, 'Updated procedure record', 'procedure_records');
+
+        return $this->respondCare($visit, 'tindakan', 'Tindakan diperbarui.');
     }
 
     public function destroyProcedure(Visit $visit, ProcedureRecord $procedureRecord): RedirectResponse|JsonResponse
@@ -483,6 +646,45 @@ class CareController extends Controller
         $procedureRecord->delete();
 
         return $this->respondCare($visit, 'tindakan', 'Tindakan dihapus.');
+    }
+
+    public function quoteProcedureTariff(Request $request, Visit $visit): JsonResponse
+    {
+        $this->authorize('view', $visit);
+
+        $procedureId = $request->integer('procedure_id');
+        abort_if($procedureId < 1, 422, 'Tindakan belum dipilih.');
+
+        $user = $request->user();
+        abort_unless($user, 403);
+
+        $quote = app(DoctorFeeWaiverService::class)->quote($visit, $procedureId, [
+            'waive_doctor_fee' => $request->boolean('waive_doctor_fee'),
+            'discount_type' => $request->input('discount_type'),
+            'discount_value' => $request->input('discount_value'),
+            'waiver_reason' => $request->input('waiver_reason'),
+        ], $user);
+
+        $quantity = max(1, $request->integer('quantity') ?: 1);
+        $quote['quantity'] = $quantity;
+        $quote['charged_line_total'] = bcmul($quote['charged_unit_price'], (string) $quantity, 2);
+        $quote['tariff_line_total'] = bcmul($quote['tariff_price'], (string) $quantity, 2);
+
+        return response()->json($quote);
+    }
+
+    public function approveProcedureWaiver(Request $request, Visit $visit, ProcedureRecord $procedureRecord): RedirectResponse|JsonResponse
+    {
+        $this->authorize('view', $visit);
+        abort_unless((int) $procedureRecord->visit_id === (int) $visit->id, 404);
+
+        $log = $procedureRecord->waiverLogs()->where('status', 'pending')->latest('id')->first();
+        abort_unless($log, 404);
+
+        $this->authorize('approve', $log);
+        app(DoctorFeeWaiverService::class)->approve($log, $request->user());
+
+        return $this->respondCare($visit, 'tindakan', 'Pembebasan jasa dokter disetujui. Tagihan pasien diperbarui.');
     }
 
     public function storePrescriptionItem(StorePrescriptionItemRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -627,6 +829,20 @@ class CareController extends Controller
         ])->setPaper('a4')->stream('surat-rujukan-'.$visit->id.'.pdf');
     }
 
+    public function printDischarge(Visit $visit): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('medical_record.view'), 403);
+
+        $summary = \App\Support\Clinical\DischargeSummary::for($visit);
+
+        return Pdf::loadView('clinical.care.print.discharge', [
+            ...$this->printMeta($visit),
+            'title' => 'Resume Pulang',
+            ...$summary,
+        ])->setPaper('a4')->stream('resume-pulang-'.$visit->id.'.pdf');
+    }
+
     public function printInstructions(Visit $visit): Response
     {
         $this->authorize('view', $visit);
@@ -660,34 +876,28 @@ class CareController extends Controller
      */
     protected function printMeta(Visit $visit): array
     {
-        $tenantId = (int) $visit->tenant_id;
-        $settings = ClinicSettings::current($tenantId);
-        $printedAt = now();
+        $visit->loadMissing([
+            'patient',
+            'doctor.doctorProfile',
+            'branch',
+            'room',
+            'payer',
+            'queue',
+            'diagnoses',
+            'procedureRecords.procedure',
+            'prescriptions.items.medicine',
+            'prescriptions.items.ingredients',
+            'medicalRecord.amendments',
+        ]);
 
         return [
-            'clinicName' => ClinicSettings::name($tenantId),
-            'clinicTagline' => $settings['tagline'] ?: null,
-            'clinicLegalName' => $settings['legal_name'] ?: null,
-            'clinicAddressLines' => ClinicSettings::addressLines($tenantId) ?: array_values(array_filter([
-                $visit->branch?->address,
-            ])),
-            'clinicPhone' => $settings['phone'] ?: $visit->branch?->phone,
-            'clinicEmail' => $settings['email'] ?: null,
-            'clinicWebsite' => $settings['website'] ?: null,
-            'clinicLicense' => $settings['license_number'] ?: null,
-            'clinicNpwp' => $settings['npwp'] ?: null,
-            'picName' => $settings['pic_name'] ?: null,
-            'picSip' => $settings['pic_sip'] ?: null,
-            'printCity' => $settings['print_city'] ?: ($settings['city'] ?: $visit->branch?->name),
-            'printFooter' => $settings['print_footer'] ?: null,
+            ...PrintChrome::variables((int) $visit->tenant_id, $visit->branch),
             'branch' => $visit->branch,
             'visit' => $visit,
             'patient' => $visit->patient,
-            'logoSrc' => ClinicSettings::printLogoSrc($tenantId),
-            'printedAt' => $printedAt,
-            'printedDateLabel' => $this->indonesianDate($printedAt),
-            'visitDateLabel' => $this->indonesianDate($visit->visit_date ?? $printedAt),
+            'visitDateLabel' => $this->indonesianDate($visit->visit_date ?? now()),
             'signatureSrc' => app(\App\Support\Clinical\ClinicalDocumentService::class)->signatureSrc($visit->doctor?->doctorProfile?->signature_path),
+            'sheet' => PrintSheet::for($visit),
         ];
     }
 
@@ -796,6 +1006,10 @@ class CareController extends Controller
 
     protected function streamDocument(Visit $visit, \App\Models\ClinicalDocument $document): Response
     {
+        if (data_get($document->payload, 'scope') === 'patient') {
+            return app(\App\Support\Clinical\PatientResumeService::class)->pdf($document);
+        }
+
         $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch', 'room', 'diagnoses', 'procedureRecords.procedure', 'medicalRecord.amendments']);
         $meta = $this->printMeta($visit);
         $service = app(\App\Support\Clinical\ClinicalDocumentService::class);
@@ -815,7 +1029,9 @@ class CareController extends Controller
 
         return Pdf::loadView($view, [
             ...$shared,
-            'title' => $document->type->label(),
+            'title' => $document->type === \App\Enums\ClinicalDocumentType::Resume
+                ? 'Resume Medis Rawat Jalan'
+                : $document->type->label(),
             'referral' => $document->reference_type === \App\Models\Referral::class ? $document->reference : $visit->referrals()->first(),
             'diagnoses' => $visit->diagnoses,
         ])->setPaper('a4')->stream($document->verification_code.'.pdf');
@@ -825,6 +1041,14 @@ class CareController extends Controller
     {
         $this->authorize('view', $visit);
         abort_unless($visit->status->isOpen(), 403);
+
+        $actor = request()->user();
+        if ($actor?->can('medical_record.update')) {
+            $pending = $this->care->ensureRecord($visit);
+            if ($pending->assessment_status !== AssessmentStatus::Completed) {
+                app(CareEpisodeService::class)->assertFollowUpAllowed($visit);
+            }
+        }
 
         $queue = $visit->queue;
 
@@ -844,19 +1068,107 @@ class CareController extends Controller
             'status' => VisitStatus::Done->value,
         ]);
 
+        $finalizedNow = false;
+        $assessmentNow = false;
+        if ($actor?->can('medical_record.update')) {
+            $record = $this->care->ensureRecord($visit);
+            $lock = app(\App\Support\Clinical\MedicalRecordLock::class);
+            if ($record->assessment_status !== AssessmentStatus::Completed) {
+                $beforeAssessment = activity_snapshot($record);
+                $record->update([
+                    'assessment_status' => AssessmentStatus::Completed,
+                    'assessment_completed_at' => now(),
+                    'assessment_completed_by' => $actor->id,
+                ]);
+                activity_audit('updated', $record, $beforeAssessment, 'Completed clinical assessment', 'medical_records', [], $actor);
+                $assessmentNow = true;
+            }
+            if (! $lock->isFinal($record)) {
+                $lock->finalize($record, $actor);
+                $finalizedNow = true;
+            }
+        }
+
         $message = 'Pelayanan kunjungan diselesaikan.';
+        if ($assessmentNow && $finalizedNow) {
+            $message .= ' Asesmen dan rekam medis difinalisasi. Koreksi isi dibuka 2×24 jam.';
+        } elseif ($finalizedNow) {
+            $message .= ' Rekam medis difinalisasi. Koreksi isi dibuka 2×24 jam.';
+        } elseif ($assessmentNow) {
+            $message .= ' Asesmen difinalisasi.';
+        }
         if ($invoice) {
             $message .= ' Tagihan '.$invoice->number.' dibuat.';
         }
 
+        if ($invoice && $actor?->can('view', $invoice)) {
+            return redirect()
+                ->route('billing.invoices.show', ['invoice' => $invoice, 'from' => 'pelayanan'])
+                ->with('success', $message);
+        }
+
         return redirect()
-            ->route('care.show', $visit)
+            ->route('care.show', ['visit' => $visit, 'from' => 'pelayanan'])
             ->with('success', $message);
+    }
+
+    protected function seedFollowUpDiagnoses(Visit $visit): void
+    {
+        $record = $visit->medicalRecord()->first();
+        if (! $record || $record->assessment_kind !== AssessmentKind::FollowUp) {
+            return;
+        }
+        if (app(MedicalRecordLock::class)->isLocked($record)) {
+            return;
+        }
+
+        $review = is_array($record->follow_up_review) ? $record->follow_up_review : [];
+        $keepId = $visit->diagnoses()->orderByDesc('id')->value('id');
+        if ($keepId) {
+            $visit->diagnoses()->where('id', '!=', $keepId)->delete();
+            if (empty($review['diagnoses_seeded'])) {
+                $review['diagnoses_seeded'] = true;
+                $record->follow_up_review = $review;
+                $record->save();
+            }
+
+            return;
+        }
+        if (! empty($review['diagnoses_seeded'])) {
+            return;
+        }
+
+        $context = app(CareEpisodeService::class)->context($visit);
+        $previous = collect($context['history'] ?? [])
+            ->filter(fn (Visit $item) => (int) $item->id !== (int) $visit->id)
+            ->sortByDesc(fn (Visit $item) => ($item->visit_date?->format('Y-m-d') ?? '').sprintf('%010d', $item->id))
+            ->flatMap(fn (Visit $item) => $item->diagnoses)
+            ->first();
+        if (! $previous) {
+            return;
+        }
+
+        DB::transaction(function () use ($visit, $record, $review, $previous) {
+            $created = $visit->diagnoses()->create([
+                'kind' => DiagnosisKind::Clinical,
+                'rank' => $previous->rank ?? DiagnosisRank::Secondary,
+                'tooth_number' => $previous->tooth_number,
+                'code' => $previous->code,
+                'description' => $previous->description,
+            ]);
+            activity_log('created', $created, ['code' => $created->code], 'Added diagnosis', 'diagnoses');
+            $visit->diagnoses()->where('id', '!=', $created->id)->delete();
+            $review['diagnoses_seeded'] = true;
+            $record->follow_up_review = $review;
+            $record->save();
+        });
     }
 
     protected function respondTooth(Visit $visit, OdontogramTooth $tooth, string $message): RedirectResponse|JsonResponse
     {
         if (request()->wantsJson() || request()->ajax()) {
+            $conditions = ToothConditions::fromRecord($tooth);
+
             return response()->json([
                 'ok' => true,
                 'message' => $message,
@@ -864,11 +1176,20 @@ class CareController extends Controller
                 'tooth' => [
                     'number' => $tooth->tooth_number,
                     'status' => $tooth->status->value,
-                    'status_label' => $tooth->status->label(),
+                    'status_label' => ToothConditions::summary($conditions),
                     'color' => $tooth->status->color(),
                     'surfaces' => $tooth->surfaces ?? [],
-                    'surface_labels' => ToothSurface::shortList($tooth->surfaces ?? []),
+                    'surface_labels' => '',
+                    'conditions' => $conditions,
                     'notes' => $tooth->notes,
+                    'html' => Blade::render('<x-odontogram.tooth :number="$number" :record="$record" />', [
+                        'number' => $tooth->tooth_number,
+                        'record' => $tooth,
+                    ]),
+                    'row_html' => $conditions === [] ? null : view('clinical.care.partials.odontogram-finding', [
+                        'tooth' => $tooth,
+                        'canManageOdo' => true,
+                    ])->render(),
                 ],
             ]);
         }
@@ -876,8 +1197,22 @@ class CareController extends Controller
         return $this->respondCare($visit, 'odontogram', $message);
     }
 
-    protected function respondCare(Visit $visit, string $section, string $message, ?bool $done = null): RedirectResponse|JsonResponse
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    protected function respondCare(Visit $visit, string $section, string $message, ?bool $done = null, array $extra = []): RedirectResponse|JsonResponse
     {
+        $section = match ($section) {
+            'keluhan', 'screening', 'diagnosis', 'instruksi', 'lab', 'pemeriksaan', 'exam' => 'soap',
+            'surat', 'adendum' => 'ringkasan',
+            default => $section,
+        };
+
+        if (in_array($section, ['soap', 'rujukan', 'ringkasan'], true)) {
+            $progress = CareProgress::for($visit, $visit->medicalRecord()->first(), collect());
+            $done = (bool) ($progress[$section] ?? false);
+        }
+
         if (request()->wantsJson() || request()->ajax()) {
             $payload = [
                 'ok' => true,
@@ -889,7 +1224,7 @@ class CareController extends Controller
                 $payload['done'] = $done;
             }
 
-            return response()->json($payload);
+            return response()->json(array_merge($payload, $extra));
         }
 
         return redirect()
@@ -937,6 +1272,11 @@ class CareController extends Controller
 
         $data['allergy_status'] = $allergyStatus !== '' ? $allergyStatus : 'not_asked';
         $data['medication_status'] = $medicationStatus !== '' ? $medicationStatus : 'not_asked';
+
+        foreach (['family_history', 'dental_history', 'drug_allergy', 'material_allergy'] as $key) {
+            $value = trim((string) ($data[$key] ?? ''));
+            $data[$key] = $value !== '' ? $value : null;
+        }
 
         return $data;
     }
@@ -994,6 +1334,11 @@ class CareController extends Controller
 
         if (($data['anomaly'] ?? null) !== 'present') {
             $data['anomaly_description'] = null;
+        }
+
+        foreach (['face', 'swelling', 'lymph', 'tmj', 'tongue', 'mouth_floor', 'saliva', 'periodontal'] as $key) {
+            $value = trim((string) ($data[$key] ?? ''));
+            $data[$key] = $value !== '' ? $value : null;
         }
 
         $ohis = $data['ohis'] ?? null;

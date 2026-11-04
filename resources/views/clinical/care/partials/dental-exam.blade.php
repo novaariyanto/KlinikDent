@@ -42,7 +42,9 @@
 
         return $options[$value] ?? $value;
     };
+    $modalOnly = $modalOnly ?? false;
 @endphp
+@unless ($modalOnly)
 <section class="care-section" id="pemeriksaan">
     <div class="care-section__head">
         <h5 class="care-section__title">Pemeriksaan</h5>
@@ -50,80 +52,8 @@
     </div>
     <div class="care-section__body">
         @if ($canEditExam)
-            <form action="{{ route('care.dental-exam.update', $visit) }}" method="POST" data-autosave>
-                @csrf
-                @method('PUT')
-                <div class="exam-grid">
-                    @include('clinical.care.partials.choice-group', ['name' => 'extraoral', 'label' => 'Pemeriksaan ekstraoral', 'options' => $examOptions['finding'], 'selected' => $extraoral, 'reveal' => 'extraoral', 'revealWhen' => 'abnormal'])
-                    <div class="exam-reveal exam-field--full" data-reveal="extraoral" @unless ($extraoral === 'abnormal') hidden @endunless>
-                        <label class="form-label" for="extraoral_note">Temuan ekstraoral</label>
-                        <textarea name="extraoral_note" id="extraoral_note" rows="2" class="form-control">{{ old('extraoral_note', $stored['extraoral_note'] ?? '') }}</textarea>
-                    </div>
-
-                    @include('clinical.care.partials.choice-group', ['name' => 'intraoral', 'label' => 'Pemeriksaan intraoral', 'options' => $examOptions['finding'], 'selected' => $intraoral, 'reveal' => 'intraoral', 'revealWhen' => 'abnormal'])
-                    <div class="exam-reveal exam-field--full" data-reveal="intraoral" @unless ($intraoral === 'abnormal') hidden @endunless>
-                        <label class="form-label" for="intraoral_note">Temuan intraoral</label>
-                        <textarea name="intraoral_note" id="intraoral_note" rows="2" class="form-control">{{ old('intraoral_note', $stored['intraoral_note'] ?? '') }}</textarea>
-                    </div>
-
-                    @include('clinical.care.partials.choice-group', ['name' => 'occlusion', 'label' => 'Occlusi', 'options' => $examOptions['occlusion'], 'selected' => $occlusion])
-                    @include('clinical.care.partials.choice-group', ['name' => 'gingiva', 'label' => 'Gingiva', 'options' => $examOptions['gingiva'], 'selected' => $gingiva])
-                    @include('clinical.care.partials.choice-group', ['name' => 'mucosa', 'label' => 'Mukosa', 'options' => $examOptions['mucosa'], 'selected' => $mucosa])
-                    @include('clinical.care.partials.choice-group', ['name' => 'palate', 'label' => 'Palatum', 'options' => $examOptions['palate'], 'selected' => $palate])
-                    @include('clinical.care.partials.choice-group', ['name' => 'torus_palatinus', 'label' => 'Torus Palatinus', 'options' => $examOptions['torus'], 'selected' => $torusPalatinus])
-                    @include('clinical.care.partials.choice-group', [
-                        'name' => 'torus_mandibularis',
-                        'label' => 'Torus Mandibularis',
-                        'options' => $examOptions['torus_mandibularis'],
-                        'selected' => $mandibularisKnown ? $torusMandibularis : null,
-                        'hint' => $mandibularisKnown ? null : 'Nilai lama berupa ukuran. Pilih Tidak ada, Sisi Kiri, Sisi Kanan, atau Kedua Sisi.',
-                    ])
-
-                    @include('clinical.care.partials.choice-group', ['name' => 'diastema', 'label' => 'Diastema', 'options' => $examOptions['presence'], 'selected' => $diastema, 'reveal' => 'diastema'])
-                    <div class="exam-reveal" data-reveal="diastema" @unless ($diastema === 'present') hidden @endunless>
-                        <x-input name="diastema_elements" label="Elemen" :value="$stored['diastema_elements'] ?? null" />
-                    </div>
-
-                    @include('clinical.care.partials.choice-group', ['name' => 'supernumerary', 'label' => 'Supernumerary teeth', 'options' => $examOptions['presence'], 'selected' => $supernumerary, 'reveal' => 'supernumerary'])
-                    <div class="exam-reveal" data-reveal="supernumerary" @unless ($supernumerary === 'present') hidden @endunless>
-                        <x-input name="supernumerary_teeth" label="Gigi" :value="$stored['supernumerary_teeth'] ?? null" />
-                    </div>
-
-                    @include('clinical.care.partials.choice-group', ['name' => 'anomaly', 'label' => 'Anomali gigi', 'options' => $examOptions['presence'], 'selected' => $anomaly, 'reveal' => 'anomaly'])
-                    <div class="exam-reveal" data-reveal="anomaly" @unless ($anomaly === 'present') hidden @endunless>
-                        <x-input name="anomaly_description" label="Deskripsi" :value="$stored['anomaly_description'] ?? null" />
-                    </div>
-
-                    <div class="exam-field exam-field--full">
-                        <label class="form-label" for="habits">Kebiasaan buruk / temuan lainnya</label>
-                        <textarea name="habits" id="habits" rows="2" class="form-control">{{ old('habits', $stored['habits'] ?? '') }}</textarea>
-                    </div>
-
-                    <div class="exam-field exam-field--full border rounded p-3 mt-2">
-                        <div class="fw-semibold mb-1">OHIS (Oral Hygiene Index Simplified)</div>
-                        <p class="text-muted small mb-2">Isi Debris Index dan Calculus Index (0–3). Total dan interpretasi di kolom sebelah kanan terisi otomatis: Baik 0–1,2 · Sedang 1,3–3,0 · Buruk 3,1–6,0.</p>
-                        <div class="ohis-grid">
-                            <div>
-                                <label class="form-label" for="ohis_di">Debris Index</label>
-                                <input type="number" step="0.01" min="0" max="3" class="form-control" name="ohis[debris_index]" id="ohis_di" value="{{ $ohisDi }}" inputmode="decimal">
-                            </div>
-                            <div>
-                                <label class="form-label" for="ohis_ci">Calculus Index</label>
-                                <input type="number" step="0.01" min="0" max="3" class="form-control" name="ohis[calculus_index]" id="ohis_ci" value="{{ $ohisCi }}" inputmode="decimal">
-                            </div>
-                            <div class="ohis-result">
-                                <div class="form-label mb-1">Total OHIS</div>
-                                <div class="ohis-result__value" id="ohis_total">{{ $ohisTotal === '' ? '—' : $ohisTotal }}</div>
-                            </div>
-                            <div class="ohis-result">
-                                <div class="form-label mb-1">Interpretasi</div>
-                                <div class="ohis-result__value {{ $ohisInterpret !== '' ? 'is-'.strtolower($ohisInterpret) : '' }}" id="ohis_interpret">{{ $ohisInterpret !== '' ? $ohisInterpret : '—' }}</div>
-                            </div>
-                        </div>
-                        <p class="text-danger small mb-0 mt-2" data-ohis-warning hidden></p>
-                    </div>
-                </div>
-            </form>
+            <p class="text-muted mb-2">Temuan diisi lewat popup. Ringkasannya tampil di tab SOAP.</p>
+            <x-button type="button" data-bs-toggle="modal" data-bs-target="#pemeriksaan-modal" icon="bx bx-edit">Ubah pemeriksaan</x-button>
         @else
             @php
                 $occlusionStored = ($stored['occlusion'] ?? null) === 'deep' ? 'steep' : ($stored['occlusion'] ?? null);
@@ -170,6 +100,113 @@
         @endif
     </div>
 </section>
+@endunless
+
+@if ($canEditExam)
+    <x-modal id="pemeriksaan-modal" title="Pemeriksaan fisik" size="modal-xl modal-dialog-scrollable" class="care-modal">
+            <form action="{{ route('care.dental-exam.update', $visit) }}" method="POST" data-autosave data-exam-form class="care-form">
+                @csrf
+                @method('PUT')
+                <div class="care-form__block">
+                    <div class="care-form__title">Ekstraoral</div>
+                    <div class="exam-grid">
+                        @include('clinical.care.partials.choice-group', ['name' => 'extraoral', 'label' => 'Pemeriksaan ekstraoral', 'options' => $examOptions['finding'], 'selected' => $extraoral, 'reveal' => 'extraoral', 'revealWhen' => 'abnormal', 'wide' => true])
+                        <div class="exam-reveal exam-field--full" data-reveal="extraoral" @unless ($extraoral === 'abnormal') hidden @endunless>
+                            <label class="form-label" for="extraoral_note">Temuan ekstraoral</label>
+                            <textarea name="extraoral_note" id="extraoral_note" rows="2" class="form-control">{{ old('extraoral_note', $stored['extraoral_note'] ?? '') }}</textarea>
+                        </div>
+                        <div class="exam-field exam-field--full">
+                            <div class="row g-2">
+                                <div class="col-md-6"><label class="form-label" for="exam_face">Wajah dan simetri</label><input class="form-control" name="face" id="exam_face" value="{{ old('face', $stored['face'] ?? '') }}" maxlength="1000"></div>
+                                <div class="col-md-6"><label class="form-label" for="exam_swelling">Pembengkakan</label><input class="form-control" name="swelling" id="exam_swelling" value="{{ old('swelling', $stored['swelling'] ?? '') }}" maxlength="1000"></div>
+                                <div class="col-md-6"><label class="form-label" for="exam_lymph">Kelenjar limfe</label><input class="form-control" name="lymph" id="exam_lymph" value="{{ old('lymph', $stored['lymph'] ?? '') }}" maxlength="1000"></div>
+                                <div class="col-md-6"><label class="form-label" for="exam_tmj">Sendi temporomandibular</label><input class="form-control" name="tmj" id="exam_tmj" value="{{ old('tmj', $stored['tmj'] ?? '') }}" maxlength="1000"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="care-form__block">
+                    <div class="care-form__title">Intraoral</div>
+                    <div class="exam-grid">
+                        @include('clinical.care.partials.choice-group', ['name' => 'intraoral', 'label' => 'Pemeriksaan intraoral', 'options' => $examOptions['finding'], 'selected' => $intraoral, 'reveal' => 'intraoral', 'revealWhen' => 'abnormal', 'wide' => true])
+                        <div class="exam-reveal exam-field--full" data-reveal="intraoral" @unless ($intraoral === 'abnormal') hidden @endunless>
+                            <label class="form-label" for="intraoral_note">Temuan intraoral</label>
+                            <textarea name="intraoral_note" id="intraoral_note" rows="2" class="form-control">{{ old('intraoral_note', $stored['intraoral_note'] ?? '') }}</textarea>
+                        </div>
+                        <div class="exam-field exam-field--full">
+                            <div class="row g-2">
+                                <div class="col-md-6"><label class="form-label" for="exam_tongue">Lidah</label><input class="form-control" name="tongue" id="exam_tongue" value="{{ old('tongue', $stored['tongue'] ?? '') }}" maxlength="1000"></div>
+                                <div class="col-md-6"><label class="form-label" for="exam_floor">Dasar mulut</label><input class="form-control" name="mouth_floor" id="exam_floor" value="{{ old('mouth_floor', $stored['mouth_floor'] ?? '') }}" maxlength="1000"></div>
+                                <div class="col-md-6"><label class="form-label" for="exam_saliva">Saliva</label><input class="form-control" name="saliva" id="exam_saliva" value="{{ old('saliva', $stored['saliva'] ?? '') }}" maxlength="1000"></div>
+                                <div class="col-md-6"><label class="form-label" for="exam_perio">Kondisi periodontal</label><input class="form-control" name="periodontal" id="exam_perio" value="{{ old('periodontal', $stored['periodontal'] ?? '') }}" maxlength="1000"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="care-form__block">
+                    <div class="care-form__title">Oklusi dan jaringan</div>
+                    <div class="exam-grid">
+                        @include('clinical.care.partials.choice-group', ['name' => 'occlusion', 'label' => 'Occlusi', 'options' => $examOptions['occlusion'], 'selected' => $occlusion])
+                        @include('clinical.care.partials.choice-group', ['name' => 'gingiva', 'label' => 'Gingiva', 'options' => $examOptions['gingiva'], 'selected' => $gingiva])
+                        @include('clinical.care.partials.choice-group', ['name' => 'mucosa', 'label' => 'Mukosa', 'options' => $examOptions['mucosa'], 'selected' => $mucosa])
+                        @include('clinical.care.partials.choice-group', ['name' => 'palate', 'label' => 'Palatum', 'options' => $examOptions['palate'], 'selected' => $palate])
+                        @include('clinical.care.partials.choice-group', ['name' => 'torus_palatinus', 'label' => 'Torus Palatinus', 'options' => $examOptions['torus'], 'selected' => $torusPalatinus])
+                        @include('clinical.care.partials.choice-group', [
+                            'name' => 'torus_mandibularis',
+                            'label' => 'Torus Mandibularis',
+                            'options' => $examOptions['torus_mandibularis'],
+                            'selected' => $mandibularisKnown ? $torusMandibularis : null,
+                            'hint' => $mandibularisKnown ? null : 'Nilai lama berupa ukuran. Pilih Tidak ada, Sisi Kiri, Sisi Kanan, atau Kedua Sisi.',
+                        ])
+                    </div>
+                </div>
+                <div class="care-form__block">
+                    <div class="care-form__title">Kelainan</div>
+                    <div class="exam-grid">
+                        @include('clinical.care.partials.choice-group', ['name' => 'diastema', 'label' => 'Diastema', 'options' => $examOptions['presence'], 'selected' => $diastema, 'reveal' => 'diastema'])
+                        <div class="exam-reveal" data-reveal="diastema" @unless ($diastema === 'present') hidden @endunless>
+                            <x-input name="diastema_elements" label="Elemen" :value="$stored['diastema_elements'] ?? null" />
+                        </div>
+                        @include('clinical.care.partials.choice-group', ['name' => 'supernumerary', 'label' => 'Supernumerary teeth', 'options' => $examOptions['presence'], 'selected' => $supernumerary, 'reveal' => 'supernumerary'])
+                        <div class="exam-reveal" data-reveal="supernumerary" @unless ($supernumerary === 'present') hidden @endunless>
+                            <x-input name="supernumerary_teeth" label="Gigi" :value="$stored['supernumerary_teeth'] ?? null" />
+                        </div>
+                        @include('clinical.care.partials.choice-group', ['name' => 'anomaly', 'label' => 'Anomali gigi', 'options' => $examOptions['presence'], 'selected' => $anomaly, 'reveal' => 'anomaly'])
+                        <div class="exam-reveal" data-reveal="anomaly" @unless ($anomaly === 'present') hidden @endunless>
+                            <x-input name="anomaly_description" label="Deskripsi" :value="$stored['anomaly_description'] ?? null" />
+                        </div>
+                        <div class="exam-field exam-field--full">
+                            <label class="form-label" for="habits">Kebiasaan buruk / temuan lainnya</label>
+                            <textarea name="habits" id="habits" rows="2" class="form-control">{{ old('habits', $stored['habits'] ?? '') }}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="care-form__block">
+                    <div class="care-form__title">OHIS</div>
+                    <p class="care-form__hint">Debris Index dan Calculus Index 0–3. Total terisi otomatis: Baik 0–1,2 · Sedang 1,3–3,0 · Buruk 3,1–6,0.</p>
+                    <div class="ohis-grid">
+                        <div>
+                            <label class="form-label" for="ohis_di">Debris Index</label>
+                            <input type="number" step="0.01" min="0" max="3" class="form-control" name="ohis[debris_index]" id="ohis_di" value="{{ $ohisDi }}" inputmode="decimal">
+                        </div>
+                        <div>
+                            <label class="form-label" for="ohis_ci">Calculus Index</label>
+                            <input type="number" step="0.01" min="0" max="3" class="form-control" name="ohis[calculus_index]" id="ohis_ci" value="{{ $ohisCi }}" inputmode="decimal">
+                        </div>
+                        <div class="ohis-result">
+                            <div class="form-label mb-1">Total OHIS</div>
+                            <div class="ohis-result__value" id="ohis_total">{{ $ohisTotal === '' ? '—' : $ohisTotal }}</div>
+                        </div>
+                        <div class="ohis-result">
+                            <div class="form-label mb-1">Interpretasi</div>
+                            <div class="ohis-result__value {{ $ohisInterpret !== '' ? 'is-'.strtolower($ohisInterpret) : '' }}" id="ohis_interpret">{{ $ohisInterpret !== '' ? $ohisInterpret : '—' }}</div>
+                        </div>
+                    </div>
+                    <p class="text-danger small mb-0 mt-2" data-ohis-warning hidden></p>
+                </div>
+            </form>
+    </x-modal>
+@endif
 
 @push('scripts')
 <script>

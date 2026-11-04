@@ -5,7 +5,6 @@
                 @csrf
                 @method('PUT')
                 <div class="mb-3">
-                    <label class="form-label" for="chief_complaint">Keluhan Utama</label>
                     <textarea name="chief_complaint" id="chief_complaint" rows="3" class="form-control @error('chief_complaint') is-invalid @enderror">{{ old('chief_complaint', $record?->chief_complaint) }}</textarea>
                     @error('chief_complaint')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                 </div>
