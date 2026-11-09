@@ -165,6 +165,7 @@ class PurchaseOrderController extends Controller
      */
     protected function formData(Request $request): array
     {
+        $user = $request->user();
         $branches = $this->assignedBranches($user)
             ->pluck('name', 'id')
             ->all();
