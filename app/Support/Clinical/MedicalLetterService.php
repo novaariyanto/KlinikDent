@@ -61,7 +61,10 @@ class MedicalLetterService
             'radiograph_date' => $visitDate,
             'radiograph_type' => 'panoramik',
             'radiograph_region' => '',
-            'radiograph_finding' => (string) ($record?->initial_examination ?? ''),
+            'radiograph_facility' => '',
+            'radiograph_indication' => (string) ($record?->chief_complaint ?? ''),
+            'radiograph_note' => '',
+            'radiograph_finding' => '',
             'radiograph_conclusion' => '',
             'procedures_note' => $procedures,
             'treatment_date' => $visitDate,
@@ -107,11 +110,19 @@ class MedicalLetterService
                 'Diagnosis klinis: '.$diagnosisText,
             ]))),
             MedicalLetterType::Radiograph => trim(implode("\n\n", array_filter([
-                'Yang bertanda tangan di bawah ini menerangkan bahwa pasien tersebut di atas telah menjalani pemeriksaan rontgen di klinik ini pada '.$this->dateLabel($data['radiograph_date'] ?? null).'.',
-                'Jenis pemeriksaan: '.$this->radiographLabel($data['radiograph_type'] ?? null).(filled($data['radiograph_region'] ?? null) ? ', regio '.$data['radiograph_region'] : '').'.',
-                filled($data['radiograph_finding'] ?? null) ? 'Hasil pembacaan: '.$data['radiograph_finding'] : null,
-                filled($data['radiograph_conclusion'] ?? null) ? 'Kesimpulan: '.$data['radiograph_conclusion'] : null,
-                'Diagnosis: '.$diagnosisText,
+                'Dengan hormat, bersama ini kami mengantar pasien tersebut di atas untuk dilakukan pemeriksaan rontgen di '
+                    .(filled($data['radiograph_facility'] ?? null) ? $data['radiograph_facility'] : 'rumah sakit / fasilitas radiologi').'.',
+                'Pemeriksaan yang diminta: '.$this->radiographLabel($data['radiograph_type'] ?? null)
+                    .(filled($data['radiograph_region'] ?? null) ? ', regio '.$data['radiograph_region'] : '').'.',
+                'Tanggal pengantar: '.$this->dateLabel($data['radiograph_date'] ?? null).'.',
+                filled($data['radiograph_indication'] ?? $data['radiograph_finding'] ?? null)
+                    ? 'Indikasi klinis: '.($data['radiograph_indication'] ?? $data['radiograph_finding'])
+                    : null,
+                'Diagnosis klinis: '.$diagnosisText,
+                filled($data['radiograph_note'] ?? $data['radiograph_conclusion'] ?? null)
+                    ? 'Catatan untuk fasilitas radiologi: '.($data['radiograph_note'] ?? $data['radiograph_conclusion'])
+                    : null,
+                'Demikian surat pengantar ini dibuat untuk dipergunakan sebagaimana mestinya. Atas bantuan dan kerja samanya, kami ucapkan terima kasih.',
             ]))),
             MedicalLetterType::Treatment => trim(implode("\n\n", array_filter([
                 'Yang bertanda tangan di bawah ini menerangkan bahwa pasien tersebut di atas sedang menjalani perawatan medis di klinik ini.',
@@ -268,8 +279,9 @@ class MedicalLetterService
                 'radiograph_date' => $data['radiograph_date'] ?? null,
                 'radiograph_type' => $data['radiograph_type'] ?? null,
                 'radiograph_region' => $data['radiograph_region'] ?? null,
-                'radiograph_finding' => $data['radiograph_finding'] ?? null,
-                'radiograph_conclusion' => $data['radiograph_conclusion'] ?? null,
+                'radiograph_facility' => $data['radiograph_facility'] ?? null,
+                'radiograph_indication' => $data['radiograph_indication'] ?? $data['radiograph_finding'] ?? null,
+                'radiograph_note' => $data['radiograph_note'] ?? $data['radiograph_conclusion'] ?? null,
             ],
             MedicalLetterType::Treatment => [
                 'procedures_note' => $data['procedures_note'] ?? null,

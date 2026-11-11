@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Clinical;
 use App\Enums\InvoiceStatus;
 use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
+use App\Models\Invoice;
 use App\Models\Visit;
 use App\Support\Clinical\CareTabs;
 use Illuminate\Http\Request;
@@ -70,7 +71,19 @@ class ClinicalIndexController extends Controller
             ->mapWithKeys(fn (VisitStatus $status) => [$status->value => $status->label()])
             ->all();
 
-        return view('clinical.index', compact('visits', 'meta', 'filters', 'statuses'));
+        $todayOpenInvoiceCount = null;
+        if ($request->routeIs('examinations.*') && $request->user()?->can('billing.view')) {
+            $today = now()->toDateString();
+            $todayOpenInvoiceCount = Invoice::query()
+                ->whereIn('status', [InvoiceStatus::Unpaid, InvoiceStatus::Partial])
+                ->whereHas('visit', function ($visit) use ($request, $today) {
+                    $visit->visibleTo($request->user())
+                        ->whereDate('visit_date', $today);
+                })
+                ->count();
+        }
+
+        return view('clinical.index', compact('visits', 'meta', 'filters', 'statuses', 'todayOpenInvoiceCount'));
     }
 
     /**

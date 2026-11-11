@@ -100,24 +100,28 @@
                     </div>
 
                     <div class="mt-3" data-letter-panel="radiograph">
+                        <p class="form-text mb-2">Surat pengantar agar pasien diperiksa rontgen di rumah sakit / fasilitas radiologi (bukan di klinik ini).</p>
                         <div class="row g-3">
-                            <div class="col-md-4"><x-input name="radiograph_date" type="date" label="Tanggal rontgen" :value="old('radiograph_date', $defaults['radiograph_date'] ?? '')" /></div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="radiograph_type">Jenis pemeriksaan</label>
+                            <div class="col-md-6">
+                                <x-input name="radiograph_facility" label="Rumah sakit / fasilitas tujuan" :value="old('radiograph_facility', $defaults['radiograph_facility'] ?? '')" placeholder="Contoh: RSUD / Lab Radiologi ..." required />
+                            </div>
+                            <div class="col-md-3"><x-input name="radiograph_date" type="date" label="Tanggal pengantar" :value="old('radiograph_date', $defaults['radiograph_date'] ?? '')" /></div>
+                            <div class="col-md-3">
+                                <label class="form-label" for="radiograph_type">Jenis foto yang diminta</label>
                                 <select name="radiograph_type" id="radiograph_type" class="form-select">
                                     @foreach (['periapikal' => 'Periapikal', 'panoramik' => 'Panoramik', 'sefalometri' => 'Sefalometri', 'oklusal' => 'Oklusal', 'bitewing' => 'Bitewing', 'lainnya' => 'Lainnya'] as $value => $label)
                                         <option value="{{ $value }}" @selected(old('radiograph_type', $defaults['radiograph_type'] ?? '') === $value)>{{ $label }}</option>
                                     @endforeach
                                 </select>
                             </div>
-                            <div class="col-md-4"><x-input name="radiograph_region" label="Regio / gigi" :value="old('radiograph_region', $defaults['radiograph_region'] ?? '')" /></div>
+                            <div class="col-md-6"><x-input name="radiograph_region" label="Regio / gigi" :value="old('radiograph_region', $defaults['radiograph_region'] ?? '')" placeholder="Contoh: regio 36–37" /></div>
                             <div class="col-12">
-                                <label class="form-label" for="radiograph_finding">Hasil pembacaan</label>
-                                <textarea name="radiograph_finding" id="radiograph_finding" rows="3" class="form-control">{{ old('radiograph_finding', $defaults['radiograph_finding'] ?? '') }}</textarea>
+                                <label class="form-label" for="radiograph_indication">Indikasi klinis</label>
+                                <textarea name="radiograph_indication" id="radiograph_indication" rows="3" class="form-control" placeholder="Alasan klinis pasien perlu rontgen">{{ old('radiograph_indication', $defaults['radiograph_indication'] ?? ($defaults['radiograph_finding'] ?? '')) }}</textarea>
                             </div>
                             <div class="col-12">
-                                <label class="form-label" for="radiograph_conclusion">Kesimpulan</label>
-                                <textarea name="radiograph_conclusion" id="radiograph_conclusion" rows="2" class="form-control">{{ old('radiograph_conclusion', $defaults['radiograph_conclusion'] ?? '') }}</textarea>
+                                <label class="form-label" for="radiograph_note">Catatan untuk fasilitas radiologi</label>
+                                <textarea name="radiograph_note" id="radiograph_note" rows="2" class="form-control" placeholder="Opsional, mis. mohon hasil dikirim ke klinik">{{ old('radiograph_note', $defaults['radiograph_note'] ?? ($defaults['radiograph_conclusion'] ?? '')) }}</textarea>
                             </div>
                         </div>
                     </div>

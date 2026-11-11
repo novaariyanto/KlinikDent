@@ -1,21 +1,21 @@
-<div class="dropdown">
-    <button class="btn btn-soft-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
-    <ul class="dropdown-menu dropdown-menu-end">
-        @can('view', $procedure)
-            <li><a class="dropdown-item" href="{{ route('management.procedures.show', $procedure) }}"><i class="bx bx-show-alt me-1"></i> View</a></li>
-        @endcan
-        @can('update', $procedure)
-            <li><a class="dropdown-item" href="{{ route('management.procedures.edit', $procedure) }}"><i class="bx bx-edit me-1"></i> Edit</a></li>
-        @endcan
-        @can('delete', $procedure)
-            <li><hr class="dropdown-divider"></li>
-            <li>
-                <form action="{{ route('management.procedures.destroy', $procedure) }}" method="POST" onsubmit="return confirm('Delete this procedure?')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="dropdown-item text-danger"><i class="bx bx-trash me-1"></i> Delete</button>
-                </form>
-            </li>
-        @endcan
-    </ul>
+<div class="d-inline-flex align-items-center gap-1">
+    @can('view', $procedure)
+        <a href="{{ route('management.procedures.show', $procedure) }}" class="btn btn-soft-info btn-sm" title="Lihat" aria-label="Lihat">
+            <i class="bx bx-show-alt"></i>
+        </a>
+    @endcan
+    @can('update', $procedure)
+        <a href="{{ route('management.procedures.edit', $procedure) }}" class="btn btn-soft-primary btn-sm" title="Ubah" aria-label="Ubah">
+            <i class="bx bx-edit"></i>
+        </a>
+    @endcan
+    @can('delete', $procedure)
+        <form action="{{ route('management.procedures.destroy', $procedure) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus tindakan ini?')">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn btn-soft-danger btn-sm" title="Hapus" aria-label="Hapus">
+                <i class="bx bx-trash"></i>
+            </button>
+        </form>
+    @endcan
 </div>

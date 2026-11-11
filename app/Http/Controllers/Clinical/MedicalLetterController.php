@@ -249,6 +249,10 @@ class MedicalLetterController extends Controller
     protected function formData(Visit $visit, ?MedicalLetter $letter = null): array
     {
         $defaults = $this->letters->defaults($visit);
+        $requestedType = MedicalLetterType::tryFrom((string) request()->query('type', ''));
+        if ($requestedType) {
+            $defaults['type'] = $requestedType->value;
+        }
         $suggestions = [];
 
         foreach (MedicalLetterType::cases() as $type) {

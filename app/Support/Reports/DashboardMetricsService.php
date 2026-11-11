@@ -45,7 +45,8 @@ class DashboardMetricsService
             ->unique()
             ->values();
 
-        if ($roles->isEmpty() && $role) {
+        // Role eksplisit (mis. workspace operasional) memaksa satu profil dashboard.
+        if ($role instanceof RoleName) {
             $roles = collect([$role]);
         }
 
@@ -120,6 +121,7 @@ class DashboardMetricsService
         return match ($role) {
             RoleName::SuperAdminSaas => $this->saas(),
             RoleName::Registration => $this->registration($user, $today, $branchId),
+            RoleName::ClinicOps => $this->clinicOps($user, $branchId, $today),
             RoleName::Finance => $this->finance($user, $branchId, $from, $to, $today),
             RoleName::Owner, RoleName::Manager, RoleName::Auditor => $this->clinic($user, $branchId, $from, $to, $today),
             RoleName::Dentist => $this->dentist($user, $branchId, $from, $to, $today),
@@ -128,6 +130,49 @@ class DashboardMetricsService
             RoleName::DentalAssistant, RoleName::Nurse => $this->careSupport($user, $branchId, $today),
             default => ['cards' => [], 'links' => [], 'note' => null],
         };
+    }
+
+    /**
+     * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, href: string}>, note: string|null}
+     */
+    protected function clinicOps(User $user, ?int $branchId, string $today): array
+    {
+        $counts = $this->clinic->visitCounts($user, $today, $today, $branchId);
+        $waiting = Queue::query()
+            ->where('status', QueueStatus::Waiting)
+            ->whereHas('visit', fn ($visit) => $user->applyBranchLimit($visit, 'branch_id', $branchId))
+            ->count();
+        $incomingRx = Prescription::query()
+            ->where('status', PrescriptionStatus::Sent)
+            ->whereHas('visit', fn ($visit) => $user->applyBranchLimit($visit, 'branch_id', $branchId))
+            ->count();
+        $openInvoices = $user->applyBranchLimit(
+            Invoice::query()->whereIn('status', [InvoiceStatus::Unpaid, InvoiceStatus::Partial]),
+            'branch_id',
+            $branchId
+        )->count();
+        $shift = $this->billing->currentShift($user);
+
+        return [
+            'cards' => [
+                $this->card('Kunjungan hari ini', (string) $counts['total'], $this->routeIf('registration.visits.today')),
+                $this->card('Antrean menunggu', (string) $waiting, $this->routeIf('queue.waiting')),
+                $this->card('Sedang dilayani', (string) $counts['in_service'], $this->routeIf('examinations.initial')),
+                $this->card('Resep menunggu', (string) $incomingRx, $this->routeIf('pharmacy.prescriptions.incoming')),
+                $this->card('Tagihan terbuka', (string) $openInvoices, $this->routeIf('billing.invoices')),
+                $this->card('Shift kasir', $shift ? 'Terbuka' : 'Belum dibuka', $this->routeIf($shift ? 'cashier.shifts.transactions' : 'cashier.shifts.open')),
+            ],
+            'links' => $this->links([
+                'Pendaftaran baru' => 'registration.new',
+                'Antrean' => 'queue.today',
+                'Resep masuk' => 'pharmacy.prescriptions.incoming',
+                'Tagihan' => 'billing.invoices.today',
+                'Pemeriksaan' => 'examinations.initial',
+            ]),
+            'note' => $shift
+                ? 'Shift kasir sejak '.$shift->opened_at?->format('d M Y H:i').'.'
+                : 'Buka shift kasir sebelum menerima pembayaran tunai.',
+        ];
     }
 
     /**

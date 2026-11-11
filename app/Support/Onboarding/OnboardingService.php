@@ -280,13 +280,24 @@ class OnboardingService
         DB::transaction(function () use ($tenant, $mode, $data) {
             if ($mode === 'template') {
                 foreach (OnboardingCatalog::medicineTemplate() as $item) {
+                    if (! filled($item['name'] ?? null)) {
+                        continue;
+                    }
+
                     Medicine::query()->updateOrCreate(
                         ['tenant_id' => $tenant->id, 'name' => $item['name']],
                         [
-                            'unit' => $item['unit'],
-                            'category' => $item['category'],
-                            'base_price' => $item['base_price'],
-                            'is_active' => true,
+                            'kfa_code' => filled($item['kfa_code'] ?? null) ? $item['kfa_code'] : null,
+                            'strength_value' => ($item['strength_value'] ?? '') === '' || ($item['strength_value'] ?? null) === null
+                                ? null
+                                : $item['strength_value'],
+                            'strength_unit' => filled($item['strength_unit'] ?? null) ? $item['strength_unit'] : null,
+                            'unit' => filled($item['unit'] ?? null) ? $item['unit'] : null,
+                            'category' => filled($item['category'] ?? null) ? $item['category'] : null,
+                            'base_price' => $item['base_price'] ?? 0,
+                            'margin_type' => filled($item['margin_type'] ?? null) ? $item['margin_type'] : 'fixed',
+                            'margin_value' => $item['margin_value'] ?? 0,
+                            'is_active' => array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true,
                         ]
                     );
                 }
@@ -305,7 +316,7 @@ class OnboardingService
                             'strength_value' => filled($item['strength_value'] ?? null) ? $item['strength_value'] : null,
                             'strength_unit' => filled($item['strength_unit'] ?? null) ? $item['strength_unit'] : null,
                             'unit' => $item['unit'] ?? 'tablet',
-                            'category' => $item['category'] ?? 'lainnya',
+                            'category' => filled($item['category'] ?? null) ? $item['category'] : null,
                             'base_price' => $item['base_price'] ?? 0,
                             'is_active' => true,
                         ]

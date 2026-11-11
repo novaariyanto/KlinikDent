@@ -1,21 +1,21 @@
-<div class="dropdown">
-    <button class="btn btn-soft-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Action</button>
-    <ul class="dropdown-menu dropdown-menu-end">
-        @can('view', $tariff)
-            <li><a class="dropdown-item" href="{{ route('management.tariffs.show', $tariff) }}"><i class="bx bx-show-alt me-1"></i> View</a></li>
-        @endcan
-        @can('update', $tariff)
-            <li><a class="dropdown-item" href="{{ route('management.tariffs.edit', $tariff) }}"><i class="bx bx-edit me-1"></i> Edit</a></li>
-        @endcan
-        @can('delete', $tariff)
-            <li><hr class="dropdown-divider"></li>
-            <li>
-                <form action="{{ route('management.tariffs.destroy', $tariff) }}" method="POST" onsubmit="return confirm('Delete this tariff?')">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="dropdown-item text-danger"><i class="bx bx-trash me-1"></i> Delete</button>
-                </form>
-            </li>
-        @endcan
-    </ul>
+<div class="d-inline-flex align-items-center gap-1">
+    @can('view', $tariff)
+        <a href="{{ route('management.tariffs.show', $tariff) }}" class="btn btn-soft-info btn-sm" title="Lihat" aria-label="Lihat">
+            <i class="bx bx-show-alt"></i>
+        </a>
+    @endcan
+    @can('update', $tariff)
+        <a href="{{ route('management.tariffs.edit', $tariff) }}" class="btn btn-soft-primary btn-sm" title="Ubah" aria-label="Ubah">
+            <i class="bx bx-edit"></i>
+        </a>
+    @endcan
+    @can('delete', $tariff)
+        <form action="{{ route('management.tariffs.destroy', $tariff) }}" method="POST" class="d-inline" onsubmit="return confirm('Hapus tarif ini?')">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn btn-soft-danger btn-sm" title="Hapus" aria-label="Hapus">
+                <i class="bx bx-trash"></i>
+            </button>
+        </form>
+    @endcan
 </div>

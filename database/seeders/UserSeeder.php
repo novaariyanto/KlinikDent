@@ -45,6 +45,11 @@ class UserSeeder extends Seeder
                 'role' => RoleName::Registration,
             ],
             [
+                'email' => 'ops@klinikdent.test',
+                'name' => 'Admin Operasional',
+                'role' => RoleName::ClinicOps,
+            ],
+            [
                 'email' => 'dentist@klinikdent.test',
                 'name' => 'Dokter Gigi',
                 'role' => RoleName::Dentist,

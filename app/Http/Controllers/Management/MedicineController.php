@@ -3,12 +3,16 @@
 namespace App\Http\Controllers\Management;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Medicine\ImportMedicineRequest;
+use App\Http\Requests\Medicine\ImportMedicineRowRequest;
 use App\Http\Requests\Medicine\StoreMedicineRequest;
 use App\Http\Requests\Medicine\UpdateMedicineRequest;
 use App\Models\Medicine;
+use App\Support\Medicine\MedicineXlsxImporter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Yajra\DataTables\Facades\DataTables;
 
 class MedicineController extends Controller
@@ -18,6 +22,7 @@ class MedicineController extends Controller
         $this->authorize('viewAny', Medicine::class);
 
         $columns = [
+            ['data' => 'action', 'name' => 'action', 'title' => 'Aksi', 'orderable' => false, 'searchable' => false, 'className' => 'text-center text-nowrap', 'width' => '120px'],
             ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Obat'],
             ['data' => 'kfa_code', 'name' => 'kfa_code', 'title' => 'KFA'],
@@ -28,7 +33,6 @@ class MedicineController extends Controller
             ['data' => 'sell_price', 'name' => 'sell_price', 'title' => 'Harga Jual', 'className' => 'text-end'],
             ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
-            ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
         ];
 
         return view('management.medicines.index', compact('columns'));
@@ -78,6 +82,42 @@ class MedicineController extends Controller
         activity_log('created', $medicine, $data, 'Created medicine '.$medicine->name, 'medicines');
 
         return redirect()->route('management.medicines.index')->with('success', 'Obat created successfully.');
+    }
+
+    public function importTemplate(MedicineXlsxImporter $importer): StreamedResponse
+    {
+        $this->authorize('create', Medicine::class);
+
+        return $importer->templateResponse();
+    }
+
+    public function importParse(ImportMedicineRequest $request, MedicineXlsxImporter $importer): JsonResponse
+    {
+        $rows = $importer->parse($request->file('file'));
+
+        return response()->json([
+            'ok' => true,
+            'count' => count($rows),
+            'rows' => $rows,
+        ]);
+    }
+
+    public function importRow(ImportMedicineRowRequest $request, MedicineXlsxImporter $importer): JsonResponse
+    {
+        $tenantId = (int) $request->user()?->tenant_id;
+        abort_if($tenantId < 1, 403);
+
+        $result = $importer->importOne($request->validated(), $tenantId);
+        $row = $request->integer('row');
+
+        return response()->json([
+            'ok' => $result['status'] !== 'failed',
+            'row' => $row > 0 ? $row : null,
+            'status' => $result['status'],
+            'message' => $result['message'],
+            'medicine_id' => $result['medicine_id'] ?? null,
+            'name' => $request->input('name'),
+        ], $result['status'] === 'failed' ? 422 : 200);
     }
 
     public function show(Medicine $medicine): View

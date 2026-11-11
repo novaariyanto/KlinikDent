@@ -18,12 +18,12 @@ class ServiceController extends Controller
         $this->authorize('viewAny', Service::class);
 
         $columns = [
+            ['data' => 'action', 'name' => 'action', 'title' => 'Aksi', 'orderable' => false, 'searchable' => false, 'className' => 'text-center text-nowrap', 'width' => '120px'],
             ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Layanan'],
             ['data' => 'category', 'name' => 'category', 'title' => 'Kategori'],
             ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
-            ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
         ];
 
         return view('management.services.index', compact('columns'));

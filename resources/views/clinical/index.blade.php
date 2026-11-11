@@ -18,7 +18,12 @@
                         <x-button href="{{ route('registration.new', ['from' => 'pelayanan']) }}" icon="bx bx-plus">Pendaftaran Baru</x-button>
                     @endcan
                     @can('viewAny', App\Models\Invoice::class)
-                        <x-button href="{{ route('billing.invoices.today', ['from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-receipt">Tagihan Hari Ini</x-button>
+                        <x-button href="{{ route('billing.invoices.today', ['from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-receipt">
+                            Tagihan Hari Ini
+                            @if (($todayOpenInvoiceCount ?? null) !== null)
+                                <span class="badge {{ $todayOpenInvoiceCount > 0 ? 'bg-danger' : 'bg-secondary' }} ms-1">{{ $todayOpenInvoiceCount }}</span>
+                            @endif
+                        </x-button>
                     @endcan
                     @if (auth()->user()?->can('prescription.view') && auth()->user()?->can('pharmacy.view'))
                         <x-button href="{{ route('pharmacy.prescriptions.incoming', ['from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-package">Resep Masuk</x-button>

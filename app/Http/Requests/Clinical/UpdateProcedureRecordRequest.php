@@ -40,6 +40,7 @@ class UpdateProcedureRecordRequest extends FormRequest
                     }
                 },
             ],
+            'doctor_fee' => ['nullable', 'numeric', 'min:0'],
             'waive_doctor_fee' => ['nullable', 'boolean'],
             'discount_type' => ['nullable', 'in:nominal,percent'],
             'discount_value' => ['nullable', 'numeric', 'min:0'],
@@ -54,6 +55,7 @@ class UpdateProcedureRecordRequest extends FormRequest
         }
 
         $this->merge([
+            'doctor_fee' => filled($this->input('doctor_fee')) ? $this->input('doctor_fee') : null,
             'waive_doctor_fee' => $this->boolean('waive_doctor_fee'),
             'discount_type' => filled($this->input('discount_type')) ? $this->input('discount_type') : null,
             'discount_value' => filled($this->input('discount_value')) ? $this->input('discount_value') : null,

@@ -32,11 +32,8 @@
                     @endforeach
                 </tbody>
             </x-table>
-            @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
-                <form action="{{ route('care.prescription.send', [$visit, $prescription]) }}" method="POST" class="mt-2" onsubmit="return confirm('Kirim resep ke farmasi? Stok belum dipotong.')">
-                    @csrf
-                    <x-button type="submit" variant="info" icon="bx bx-send">Kirim ke Farmasi</x-button>
-                </form>
+            @if ($writable && $prescription->isDraft())
+                <p class="text-muted small mt-2 mb-0">Resep draft dikirim ke farmasi saat kunjungan diselesaikan.</p>
             @endif
         </div>
     @endforeach

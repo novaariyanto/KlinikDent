@@ -13,7 +13,10 @@
         </div>
         <div class="form-check mb-2">
             <input class="form-check-input" type="radio" name="mode" id="med-template" value="template" @checked($mode === 'template')>
-            <label class="form-check-label" for="med-template">Gunakan template obat</label>
+            <label class="form-check-label" for="med-template">
+                Gunakan data dummy master obat
+                <span class="text-muted">({{ number_format(\App\Support\Onboarding\OnboardingCatalog::medicineTemplateCount(), 0, ',', '.') }} item dari master_obat.xlsx)</span>
+            </label>
         </div>
         <div class="form-check mb-3">
             <input class="form-check-input" type="radio" name="mode" id="med-manual" value="manual" @checked($mode === 'manual')>

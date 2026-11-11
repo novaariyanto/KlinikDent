@@ -22,12 +22,12 @@ class PayerController extends Controller
         $payerType = PayerType::fromRouteKey((string) $request->route('payerType', ''));
 
         $columns = [
+            ['data' => 'action', 'name' => 'action', 'title' => 'Aksi', 'orderable' => false, 'searchable' => false, 'className' => 'text-center text-nowrap', 'width' => '120px'],
             ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Penjamin'],
             ['data' => 'type', 'name' => 'type', 'title' => 'Tipe'],
             ['data' => 'contract_number', 'name' => 'contract_number', 'title' => 'No. Kontrak'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
-            ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
         ];
 
         return view('management.payers.index', compact('columns', 'payerType'));

@@ -21,6 +21,7 @@ class RoomController extends Controller
         $this->authorize('viewAny', Room::class);
 
         $columns = [
+            ['data' => 'action', 'name' => 'action', 'title' => 'Aksi', 'orderable' => false, 'searchable' => false, 'className' => 'text-center text-nowrap', 'width' => '120px'],
             ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '60px'],
             ['data' => 'name', 'name' => 'name', 'title' => 'Ruangan'],
             ['data' => 'branch', 'name' => 'branch.name', 'title' => 'Cabang'],
@@ -28,7 +29,6 @@ class RoomController extends Controller
             ['data' => 'ihs', 'name' => 'ihs', 'title' => 'IHS', 'orderable' => false, 'searchable' => false],
             ['data' => 'is_active', 'name' => 'is_active', 'title' => 'Status', 'className' => 'text-center'],
             ['data' => 'created_at', 'name' => 'created_at', 'title' => 'Created At'],
-            ['data' => 'action', 'name' => 'action', 'title' => 'Action', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '120px'],
         ];
 
         return view('management.rooms.index', compact('columns'));

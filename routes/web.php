@@ -15,6 +15,7 @@ use App\Http\Controllers\Clinical\ClinicalIndexController;
 use App\Http\Controllers\Clinical\DentalLabController;
 use App\Http\Controllers\Clinical\PatientHistoryController;
 use App\Http\Controllers\Clinical\PharmacyPrescriptionController;
+use App\Http\Controllers\Clinical\PrescriptionTemplateController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DoctorController;
 use App\Http\Controllers\DoctorScheduleController;
@@ -201,6 +202,15 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::get('medicines/data', [MedicineController::class, 'data'])
                     ->middleware('permission:medicine.view')
                     ->name('medicines.data');
+                Route::get('medicines/import/template', [MedicineController::class, 'importTemplate'])
+                    ->middleware('permission:medicine.manage')
+                    ->name('medicines.import.template');
+                Route::post('medicines/import/parse', [MedicineController::class, 'importParse'])
+                    ->middleware('permission:medicine.manage')
+                    ->name('medicines.import.parse');
+                Route::post('medicines/import/row', [MedicineController::class, 'importRow'])
+                    ->middleware('permission:medicine.manage')
+                    ->name('medicines.import.row');
                 Route::resource('medicines', MedicineController::class);
 
                 Route::get('payers/data', [PayerController::class, 'data'])
@@ -345,6 +355,11 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::put('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'updatePrescriptionItem'])->name('care.prescription-item.update');
                 Route::delete('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'destroyPrescriptionItem'])->name('care.prescription-item.destroy');
                 Route::post('/visits/{visit}/care/prescriptions/{prescription}/send', [CareController::class, 'sendPrescription'])->name('care.prescription.send');
+                Route::post('/visits/{visit}/care/prescription-templates', [PrescriptionTemplateController::class, 'store'])->name('care.prescription-templates.store');
+                Route::put('/visits/{visit}/care/prescription-templates/{prescriptionTemplate}', [PrescriptionTemplateController::class, 'update'])->name('care.prescription-templates.update');
+                Route::delete('/visits/{visit}/care/prescription-templates/{prescriptionTemplate}', [PrescriptionTemplateController::class, 'destroy'])->name('care.prescription-templates.destroy');
+                Route::post('/visits/{visit}/care/prescription-templates/{prescriptionTemplate}/apply', [PrescriptionTemplateController::class, 'apply'])->name('care.prescription-templates.apply');
+                Route::post('/visits/{visit}/care/prescriptions/{prescription}/template', [PrescriptionTemplateController::class, 'storeFromPrescription'])->name('care.prescription-templates.from-prescription');
                 Route::post('/visits/{visit}/care/referrals', [CareController::class, 'storeReferral'])->name('care.referral.store');
                 Route::put('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'updateReferral'])->name('care.referral.update');
                 Route::delete('/visits/{visit}/care/referrals/{referral}', [CareController::class, 'destroyReferral'])->name('care.referral.destroy');
@@ -371,6 +386,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/visits/{visit}/care/documents/{document}/pdf', [CareController::class, 'printDocument'])->name('care.documents.pdf');
             Route::post('/visits/{visit}/care/documents/{document}/cancel', [CareController::class, 'cancelDocument'])->name('care.documents.cancel');
             Route::get('/visits/{visit}/care/referrals/{referral}/pdf', [CareController::class, 'printReferral'])->name('care.referral.pdf');
+            Route::get('/visits/{visit}/care/prescriptions/pdf', [CareController::class, 'printPrescriptions'])->name('care.prescriptions.pdf');
+            Route::get('/visits/{visit}/care/prescriptions/{prescription}/pdf', [CareController::class, 'printPrescription'])->name('care.prescription.pdf');
             Route::get('/visits/{visit}/care/instructions/pdf', [CareController::class, 'printInstructions'])->name('care.instructions.pdf');
             Route::get('/visits/{visit}/care/discharge/pdf', [CareController::class, 'printDischarge'])->name('care.discharge.pdf');
             Route::post('/visits/{visit}/care/complete', [CareController::class, 'complete'])->name('care.complete');
@@ -380,6 +397,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/pharmacy/prescriptions/processing', [PharmacyPrescriptionController::class, 'processing'])->name('pharmacy.prescriptions.processing');
             Route::get('/pharmacy/prescriptions/completed', [PharmacyPrescriptionController::class, 'completed'])->name('pharmacy.prescriptions.completed');
             Route::get('/pharmacy/prescriptions/history', [PharmacyPrescriptionController::class, 'history'])->name('pharmacy.prescriptions.history');
+            Route::get('/pharmacy/prescriptions/{prescription}/labels', [PharmacyPrescriptionController::class, 'printLabels'])->name('pharmacy.prescriptions.labels');
+            Route::get('/pharmacy/prescriptions/{prescription}/items/{item}/label', [PharmacyPrescriptionController::class, 'printItemLabel'])->name('pharmacy.prescriptions.item-label');
             Route::get('/pharmacy/prescriptions/{prescription}', [PharmacyPrescriptionController::class, 'show'])->name('pharmacy.prescriptions.show');
             Route::post('/pharmacy/prescriptions/{prescription}/fulfill', [PharmacyPrescriptionController::class, 'fulfill'])->name('pharmacy.prescriptions.fulfill');
 

@@ -49,6 +49,16 @@
         </div>
     @endif
 
+    @if (! empty($description) && ! empty($cards))
+        <p class="text-muted mb-3">{{ $description }}</p>
+    @endif
+
+    @if (($workspace ?? null) instanceof \App\Enums\Workspace && $workspace === \App\Enums\Workspace::Operational)
+        <div class="alert alert-info py-2 mb-3" role="status">
+            Workspace <strong>Operasional Klinik</strong> — pendaftaran, antrean, farmasi, dan kasir dalam satu pusat kerja.
+        </div>
+    @endif
+
     @if (! empty($note))
         <div class="alert alert-info">{{ $note }}</div>
     @endif

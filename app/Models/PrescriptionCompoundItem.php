@@ -12,7 +12,10 @@ class PrescriptionCompoundItem extends Model
         'medicine_id',
         'name',
         'unit',
+        'role',
+        'additive_kind',
         'quantity',
+        'per_dose_quantity',
         'strength_value',
         'strength_unit',
     ];
@@ -23,8 +26,40 @@ class PrescriptionCompoundItem extends Model
             'prescription_item_id' => 'integer',
             'medicine_id' => 'integer',
             'quantity' => 'integer',
+            'per_dose_quantity' => 'integer',
             'strength_value' => 'float',
         ];
+    }
+
+    public function isAdditive(): bool
+    {
+        return $this->role === 'additive';
+    }
+
+    public function compositionLabel(): string
+    {
+        $parts = [$this->name];
+
+        if ($this->isAdditive()) {
+            $parts[] = match ($this->additive_kind) {
+                'sakarin' => '(pemanis)',
+                'flavor' => '(perasa)',
+                'filler' => '(pengisi)',
+                default => '(tambahan)',
+            };
+        }
+
+        if ($this->strength_value) {
+            $parts[] = trim($this->strength_value.' '.$this->strength_unit);
+        }
+
+        if ($this->per_dose_quantity) {
+            $parts[] = $this->per_dose_quantity.' '.($this->unit ?: 'satuan').'/bungkus';
+        }
+
+        $parts[] = 'total '.$this->quantity.($this->unit ? ' '.$this->unit : '');
+
+        return trim(implode(' ', array_filter($parts)));
     }
 
     public function item(): BelongsTo

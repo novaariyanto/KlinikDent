@@ -18,9 +18,9 @@ use Spatie\Permission\Models\Role;
 
 class Menu extends Model
 {
-    private const CATALOG_CACHE_KEY = 'sidebar.menus.v5';
+    private const CATALOG_CACHE_KEY = 'sidebar.menus.v7';
 
-    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys.v5';
+    private const FILTERED_KEYS_CACHE_KEY = 'sidebar.filtered.keys.v7';
 
     protected $fillable = [
         'parent_id',
@@ -230,8 +230,10 @@ class Menu extends Model
         }
 
         $filtered = static::rememberFiltered($key, function () use ($user) {
-            return static::organizeSidebar(
-                static::collapseDuplicateRoutes(static::filterVisible(static::catalog(), $user))
+            return static::dedupeLeavesByRoute(
+                static::organizeSidebar(
+                    static::collapseDuplicateRoutes(static::filterVisible(static::catalog(), $user))
+                )
             );
         });
 
@@ -281,7 +283,7 @@ class Menu extends Model
             $user->getAllPermissions()->pluck('name')->sort()->implode('|')
         );
 
-        return 'sidebar.for.v5.'.$fingerprint;
+        return 'sidebar.for.v7.'.$fingerprint;
     }
 
     /**
@@ -425,6 +427,50 @@ class Menu extends Model
         }
 
         return static::groupIntoHeadings($menus);
+    }
+
+    /**
+     * Hapus leaf ganda dengan route_name sama di seluruh pohon (multi-role / heading bercampur).
+     *
+     * @param  Collection<int, Menu>  $menus
+     * @param  array<string, true>  $seenRoutes
+     * @return Collection<int, Menu>
+     */
+    protected static function dedupeLeavesByRoute(Collection $menus, array &$seenRoutes = []): Collection
+    {
+        $kept = new Collection;
+
+        foreach ($menus as $menu) {
+            $copy = clone $menu;
+
+            if ($copy->relationLoaded('children') && $copy->children->isNotEmpty()) {
+                $copy->setRelation('children', static::dedupeLeavesByRoute($copy->children, $seenRoutes));
+
+                if (
+                    $copy->children->isEmpty()
+                    && ! filled($copy->route_name)
+                    && $copy->type !== MenuType::Heading
+                ) {
+                    continue;
+                }
+
+                $kept->push($copy);
+
+                continue;
+            }
+
+            $route = (string) ($copy->route_name ?: '');
+            if ($route !== '') {
+                if (isset($seenRoutes[$route])) {
+                    continue;
+                }
+                $seenRoutes[$route] = true;
+            }
+
+            $kept->push($copy);
+        }
+
+        return $kept->values();
     }
 
     /**

@@ -7,6 +7,12 @@
     <x-alert />
     <div class="row">
         <div class="col-lg-8">
+            @can('create', App\Models\Medicine::class)
+                <div class="mb-3">
+                    @include('management.medicines.partials.import')
+                </div>
+            @endcan
+
             <x-card title="Data Obat">
                 <form method="POST" action="{{ route('management.medicines.store') }}" novalidate>
                     @csrf

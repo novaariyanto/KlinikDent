@@ -1,0 +1,16 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_11_11_090000_add_prescription_templates_and_compound_details.php
+--
+-- Durasi resep, detail bahan racikan, dan template resep dokter.
+-- Singkatan AC/PC/PRN/HS/SOS tetap teks instruksi, bukan kode SATUSEHAT.
+--
+-- Alternatif manual (review DBA):
+--
+-- ALTER TABLE prescription_items
+--   ADD COLUMN course VARCHAR(100) NULL AFTER duration;
+--
+-- ALTER TABLE prescription_compound_items
+--   ADD COLUMN per_dose_quantity INT UNSIGNED NULL AFTER quantity,
+--   ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'active' AFTER unit,
+--   ADD COLUMN additive_kind VARCHAR(30) NULL AFTER role;

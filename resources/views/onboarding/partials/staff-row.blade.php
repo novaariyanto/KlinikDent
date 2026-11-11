@@ -1,5 +1,6 @@
 @php
     $roles = collect($selectedRoles ?: $recommendedRoles)
+        ->push(\App\Enums\RoleName::ClinicOps->value)
         ->push(\App\Enums\RoleName::Nurse->value)
         ->unique()
         ->values();

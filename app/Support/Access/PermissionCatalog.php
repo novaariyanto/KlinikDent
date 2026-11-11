@@ -211,6 +211,7 @@ final class PermissionCatalog
             RoleName::Owner => self::forOwner(),
             RoleName::Manager => self::forManager(),
             RoleName::Registration => self::forRegistration(),
+            RoleName::ClinicOps => self::forClinicOps(),
             RoleName::Dentist => self::forDentist(),
             RoleName::DentalAssistant => self::forDentalAssistant(),
             RoleName::Nurse => self::forNurse(),
@@ -380,6 +381,21 @@ final class PermissionCatalog
             'payer.view',
             'bpjs.view',
         ];
+    }
+
+    /**
+     * Gabungan frontline: pendaftaran + perawat + farmasi + kasir (tanpa kewenangan dokter/admin).
+     *
+     * @return list<string>
+     */
+    protected static function forClinicOps(): array
+    {
+        return array_values(array_unique(array_merge(
+            self::forRegistration(),
+            self::forNurse(),
+            self::forPharmacy(),
+            self::forCashier(),
+        )));
     }
 
     /**

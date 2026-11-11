@@ -39,12 +39,16 @@ final class SatuSehatFhirPayload
         $normalized = strtolower(trim((string) $localUnit));
 
         return match ($normalized) {
-            'tablet', 'tab' => 'TAB',
+            'tablet', 'tab', 'kaplet' => 'TAB',
             'kapsul', 'capsule', 'cap', 'kap' => 'CAP',
-            'botol', 'bottle', 'bot' => 'BOT',
-            'tube' => 'TUBE',
-            'ampul', 'ampule', 'amp' => 'AMP',
-            'sachet', 'bungkus', 'pkg', 'pack', 'pcs' => 'PKG',
+            'botol', 'bottle', 'bot', 'sirup' => 'BOT',
+            'tube', 'krim', 'salep' => 'TUBE',
+            'ampul', 'ampule', 'amp', 'injeksi' => 'AMP',
+            'infus' => 'IVSOL',
+            'sachet', 'bungkus', 'pkg', 'pack', 'pcs', 'unit' => 'PKG',
+            'tetes', 'tetes_mata', 'tetes_telinga' => 'DROP',
+            'suppositoria' => 'SUPP',
+            'inhaler', 'nebul', 'semprot' => 'AER',
             'mg' => 'TAB',
             default => filled($normalized) && preg_match('/^[A-Z0-9]{2,12}$/', strtoupper($normalized)) === 1
                 ? strtoupper($normalized)

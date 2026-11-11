@@ -69,7 +69,7 @@
                     <i class="bx bx-envelope me-1"></i>Surat
                 </button>
             @endcan
-            @if ($visit->status->isOpen() && auth()->user()?->can('queue.manage'))
+            @if ($visit->status->isOpen() && auth()->user()?->isDentist() && auth()->user()?->can('queue.manage'))
                 <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#care-complete-modal">
                     <i class="bx bx-check me-1"></i>Simpan &amp; Selesaikan Kunjungan
                 </button>
@@ -103,7 +103,7 @@
 </section>
 
 @can('medical_record.view')
-    <x-modal id="sick-letter-modal" title="Surat" size="modal-lg" class="care-modal">
+    <x-modal id="sick-letter-modal" title="Buat surat" size="modal-lg" class="care-modal">
         @include('clinical.care.partials.plan-letters', ['embedded' => true])
     </x-modal>
 @endcan

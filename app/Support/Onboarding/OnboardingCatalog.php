@@ -44,11 +44,8 @@ final class OnboardingCatalog
         return match ($template) {
             OnboardingTemplate::Small => [
                 RoleName::Owner->value,
+                RoleName::ClinicOps->value,
                 RoleName::Dentist->value,
-                RoleName::Registration->value,
-                RoleName::Cashier->value,
-                RoleName::Pharmacy->value,
-                RoleName::Nurse->value,
             ],
             OnboardingTemplate::Medium => RoleName::tenantValues(),
         };
@@ -102,14 +99,17 @@ final class OnboardingCatalog
     }
 
     /**
-     * @return list<array{name: string, unit: string, category: string, base_price: int}>
+     * Dummy master obat dari database/master_obat.xlsx.
+     *
+     * @return list<array<string, mixed>>
      */
     public static function medicineTemplate(): array
     {
-        return [
-            ['name' => 'Paracetamol 500mg', 'unit' => 'tablet', 'category' => 'analgesik', 'base_price' => 1500],
-            ['name' => 'Amoxicillin 500mg', 'unit' => 'kapsul', 'category' => 'antibiotik', 'base_price' => 2500],
-            ['name' => 'Chlorhexidine Mouthwash', 'unit' => 'botol', 'category' => 'antiseptik', 'base_price' => 35000],
-        ];
+        return app(\App\Support\Medicine\MedicineXlsxImporter::class)->masterCatalogRows();
+    }
+
+    public static function medicineTemplateCount(): int
+    {
+        return count(self::medicineTemplate());
     }
 }

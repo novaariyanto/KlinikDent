@@ -1,6 +1,11 @@
 <div class="mb-4">
     <h3 class="mb-1">Role yang disarankan</h3>
-    <p class="text-muted">Role dapat diubah kembali kapan saja melalui Users &amp; Roles.</p>
+    <p class="text-muted">
+        Role dapat diubah kembali kapan saja melalui Users &amp; Roles.
+        @if (($template ?? null) instanceof \App\Enums\OnboardingTemplate && $template === \App\Enums\OnboardingTemplate::Small)
+            Untuk klinik kecil: Owner + Admin Operasional (pendaftaran–farmasi–kasir) + Dokter Gigi sudah cukup.
+        @endif
+    </p>
 </div>
 
 <form method="POST" action="{{ route('onboarding.step', 'roles') }}">

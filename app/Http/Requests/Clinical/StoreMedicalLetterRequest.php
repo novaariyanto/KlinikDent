@@ -61,6 +61,9 @@ class StoreMedicalLetterRequest extends FormRequest
             'radiograph_date' => ['required_if:type,radiograph', 'nullable', 'date'],
             'radiograph_type' => ['required_if:type,radiograph', 'nullable', Rule::in(['periapikal', 'panoramik', 'sefalometri', 'oklusal', 'bitewing', 'lainnya'])],
             'radiograph_region' => ['nullable', 'string', 'max:160'],
+            'radiograph_facility' => ['required_if:type,radiograph', 'nullable', 'string', 'max:160'],
+            'radiograph_indication' => ['nullable', 'string', 'max:2000'],
+            'radiograph_note' => ['nullable', 'string', 'max:2000'],
             'radiograph_finding' => ['nullable', 'string', 'max:2000'],
             'radiograph_conclusion' => ['nullable', 'string', 'max:2000'],
             'procedures_note' => ['nullable', 'string', 'max:2000'],
@@ -87,8 +90,9 @@ class StoreMedicalLetterRequest extends FormRequest
             'treatment_date.required_if' => 'Tanggal perawatan wajib diisi.',
             'control_date.required_if' => 'Tanggal kontrol wajib diisi.',
             'title.required_if' => 'Judul surat wajib diisi.',
-            'radiograph_date.required_if' => 'Tanggal pemeriksaan rontgen wajib diisi.',
-            'radiograph_type.required_if' => 'Jenis pemeriksaan rontgen wajib dipilih.',
+            'radiograph_date.required_if' => 'Tanggal pengantar rontgen wajib diisi.',
+            'radiograph_type.required_if' => 'Jenis pemeriksaan rontgen yang diminta wajib dipilih.',
+            'radiograph_facility.required_if' => 'Rumah sakit / fasilitas tujuan rontgen wajib diisi.',
         ];
     }
 

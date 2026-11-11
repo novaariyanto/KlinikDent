@@ -28,7 +28,7 @@
             id="payers-table"
             :ajax="route('management.payers.data', $payerType ? ['type' => $payerType->value] : [])"
             :columns="$columns"
-            :order="[[4, 'desc']]"
+            :order="[[5, 'desc']]"
         />
     </x-card>
 @endsection

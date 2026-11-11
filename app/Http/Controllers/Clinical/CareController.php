@@ -45,6 +45,9 @@ use App\Support\Clinical\CareExamOptions;
 use App\Support\Clinical\CareProgress;
 use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
+use App\Support\Clinical\ExaminationQueueRow;
+use App\Support\Clinical\PrescriptionItemWriter;
+use App\Support\Clinical\PrescriptionSatuSehatReadiness;
 use App\Support\Clinical\PrintChrome;
 use App\Support\Clinical\PrintSheet;
 use App\Support\Clinical\FdiTeeth;
@@ -59,6 +62,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CareController extends Controller
@@ -194,6 +198,10 @@ class CareController extends Controller
             'canDiscountProcedure' => $user ? app(DoctorFeeWaiverService::class)->canDiscount($user) : false,
             'canApproveDoctorFeeWaiver' => $user ? app(DoctorFeeWaiverService::class)->canApprove($user) : false,
             'medicines' => Medicine::query()->active()->orderBy('name')->get(),
+            'prescriptionTemplates' => \App\Models\PrescriptionTemplate::query()
+                ->with(['author:id,name', 'items.medicine:id,name,unit', 'items.ingredients'])
+                ->orderBy('name')
+                ->get(),
             'history' => $history,
             'careQueues' => $careQueues,
             'assessmentContext' => app(CareEpisodeService::class)->context($visit),
@@ -591,6 +599,7 @@ class CareController extends Controller
             $data['icd9_code'] ?? null,
             $request->user(),
             [
+                'doctor_fee' => $data['doctor_fee'] ?? null,
                 'waive_doctor_fee' => $data['waive_doctor_fee'] ?? false,
                 'discount_type' => $data['discount_type'] ?? null,
                 'discount_value' => $data['discount_value'] ?? null,
@@ -623,6 +632,7 @@ class CareController extends Controller
 
         if ($procedureRecord->isUnbilled() && $request->boolean('has_adjustment_form')) {
             app(DoctorFeeWaiverService::class)->updateUnbilled($visit, $procedureRecord, [
+                'doctor_fee' => $data['doctor_fee'] ?? null,
                 'waive_doctor_fee' => $data['waive_doctor_fee'] ?? false,
                 'discount_type' => $data['discount_type'] ?? null,
                 'discount_value' => $data['discount_value'] ?? null,
@@ -659,6 +669,7 @@ class CareController extends Controller
         abort_unless($user, 403);
 
         $quote = app(DoctorFeeWaiverService::class)->quote($visit, $procedureId, [
+            'doctor_fee' => $request->filled('doctor_fee') ? $request->input('doctor_fee') : null,
             'waive_doctor_fee' => $request->boolean('waive_doctor_fee'),
             'discount_type' => $request->input('discount_type'),
             'discount_value' => $request->input('discount_value'),
@@ -690,45 +701,27 @@ class CareController extends Controller
     public function storePrescriptionItem(StorePrescriptionItemRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
         $prescription = $this->care->draftPrescription($visit, $request->user());
-        $data = $request->validated();
-        $ingredients = $data['ingredients'] ?? [];
-        unset($data['ingredients']);
-        $data['kind'] = $data['kind'] ?? \App\Enums\PrescriptionItemKind::Ready->value;
-        $item = $prescription->items()->create($data);
-
-        foreach ($ingredients as $ingredient) {
-            if (blank($ingredient['name'] ?? null)) {
-                continue;
-            }
-
-            $stockMedicine = filled($ingredient['medicine_id'] ?? null)
-                ? \App\Models\Medicine::query()->find($ingredient['medicine_id'])
-                : null;
-
-            $item->ingredients()->create([
-                'medicine_id' => $ingredient['medicine_id'] ?: null,
-                'name' => $ingredient['name'],
-                'unit' => $ingredient['unit'] ?? null,
-                'quantity' => $ingredient['quantity'],
-                'strength_value' => $ingredient['strength_value']
-                    ?? $stockMedicine?->strength_value,
-                'strength_unit' => $ingredient['strength_unit']
-                    ?? $stockMedicine?->strength_unit,
-            ]);
-        }
+        $item = app(PrescriptionItemWriter::class)->create($prescription, $request->validated());
 
         activity_log('created', $item, $request->validated(), 'Added prescription item', 'prescriptions');
 
-        return $this->respondCare($visit, 'resep', 'Obat ditambahkan ke resep draft.');
+        return $this->respondCare($visit, 'resep', 'Obat ditambahkan ke resep draft.', null, $this->prescriptionAjaxPayload($visit));
     }
 
     public function updatePrescriptionItem(UpdatePrescriptionItemRequest $request, Visit $visit, PrescriptionItem $prescriptionItem): RedirectResponse|JsonResponse
     {
-        $prescriptionItem->update($request->validated());
+        $data = $request->validated();
+        $ingredients = $data['ingredients'] ?? null;
+        unset($data['ingredients'], $data['composition_confirmed']);
+        $prescriptionItem->update($data);
+
+        if ($prescriptionItem->isCompound() && is_array($ingredients)) {
+            app(PrescriptionItemWriter::class)->replaceIngredients($prescriptionItem, $ingredients);
+        }
 
         activity_log('updated', $prescriptionItem, $request->validated(), 'Updated prescription item', 'prescriptions');
 
-        return $this->respondCare($visit, 'resep', 'Item resep diperbarui.');
+        return $this->respondCare($visit, 'resep', 'Item resep diperbarui.', null, $this->prescriptionAjaxPayload($visit));
     }
 
     public function destroyPrescriptionItem(Visit $visit, PrescriptionItem $prescriptionItem): RedirectResponse|JsonResponse
@@ -748,7 +741,7 @@ class CareController extends Controller
             $prescription->delete();
         }
 
-        return $this->respondCare($visit, 'resep', 'Item resep dihapus.');
+        return $this->respondCare($visit, 'resep', 'Item resep dihapus.', null, $this->prescriptionAjaxPayload($visit));
     }
 
     public function sendPrescription(Visit $visit, Prescription $prescription): RedirectResponse|JsonResponse
@@ -759,11 +752,23 @@ class CareController extends Controller
         abort_unless($prescription->isDraft(), 403);
         abort_unless($prescription->items()->exists(), 422);
 
+        $issues = PrescriptionSatuSehatReadiness::forPrescription($prescription);
+        $blocking = PrescriptionSatuSehatReadiness::blockingMessages($issues);
+        if ($blocking !== []) {
+            throw ValidationException::withMessages(['prescription' => $blocking]);
+        }
+
         $prescription->update(['status' => PrescriptionStatus::Sent]);
 
         activity_log('updated', $prescription, ['status' => PrescriptionStatus::Sent->value], 'Sent prescription to pharmacy', 'prescriptions');
 
-        return $this->respondCare($visit, 'resep', 'Resep dikirim ke farmasi.');
+        $message = 'Resep dikirim ke farmasi.';
+        $warnings = PrescriptionSatuSehatReadiness::warningMessages($issues);
+        if ($warnings !== []) {
+            $message .= ' Catatan SATUSEHAT: '.implode(' ', $warnings);
+        }
+
+        return $this->respondCare($visit, 'resep', $message);
     }
 
     public function storeReferral(StoreReferralRequest $request, Visit $visit): RedirectResponse|JsonResponse
@@ -841,6 +846,62 @@ class CareController extends Controller
             'title' => 'Resume Pulang',
             ...$summary,
         ])->setPaper('a4')->stream('resume-pulang-'.$visit->id.'.pdf');
+    }
+
+    public function printPrescription(Visit $visit, Prescription $prescription): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('prescription.view'), 403);
+        abort_unless((int) $prescription->visit_id === (int) $visit->id, 404);
+        abort_unless($prescription->items()->exists(), 422, 'Resep belum memiliki item obat.');
+
+        $prescription->load(['doctor:id,name', 'items.medicine:id,name', 'items.ingredients']);
+        $meta = $this->printMeta($visit);
+
+        activity_log('printed', $prescription, ['visit_id' => $visit->id], 'Cetak resep dari pelayanan', 'prescriptions');
+
+        return Pdf::loadView('clinical.history.print.prescription', [
+            ...$meta,
+            'patient' => $visit->patient,
+            'prescription' => $prescription,
+            'title' => 'Resep Obat',
+            'letterNumber' => 'RX-'.(new ExaminationQueueRow($visit))->registrationNumber().'-'.$prescription->id,
+        ])->setPaper('a5')->stream('resep-'.$prescription->id.'.pdf');
+    }
+
+    public function printPrescriptions(Visit $visit): Response
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('prescription.view'), 403);
+
+        $visit->loadMissing([
+            'patient',
+            'doctor.doctorProfile',
+            'branch',
+            'prescriptions.items.medicine',
+            'prescriptions.items.ingredients',
+            'prescriptions.doctor:id,name',
+        ]);
+
+        $prescriptions = $visit->prescriptions
+            ->filter(fn (Prescription $prescription) => $prescription->items->isNotEmpty())
+            ->values();
+        abort_unless($prescriptions->isNotEmpty(), 422, 'Belum ada resep yang dapat dicetak.');
+
+        if ($prescriptions->count() === 1) {
+            return $this->printPrescription($visit, $prescriptions->first());
+        }
+
+        $meta = $this->printMeta($visit);
+        activity_log('printed', $visit, ['prescription_ids' => $prescriptions->pluck('id')->all()], 'Cetak seluruh resep kunjungan', 'prescriptions');
+
+        return Pdf::loadView('clinical.care.print.prescriptions', [
+            ...$meta,
+            'patient' => $visit->patient,
+            'prescriptions' => $prescriptions,
+            'title' => 'Resep Obat',
+            'letterNumber' => 'RX-'.(new ExaminationQueueRow($visit))->registrationNumber(),
+        ])->setPaper('a5')->stream('resep-kunjungan-'.$visit->id.'.pdf');
     }
 
     public function printInstructions(Visit $visit): Response
@@ -1043,12 +1104,33 @@ class CareController extends Controller
         abort_unless($visit->status->isOpen(), 403);
 
         $actor = request()->user();
+        abort_unless($actor?->isDentist() && $actor->can('queue.manage'), 403);
+
         if ($actor?->can('medical_record.update')) {
             $pending = $this->care->ensureRecord($visit);
             if ($pending->assessment_status !== AssessmentStatus::Completed) {
                 app(CareEpisodeService::class)->assertFollowUpAllowed($visit);
             }
         }
+
+        $draftPrescriptions = $visit->prescriptions()
+            ->where('status', PrescriptionStatus::Draft)
+            ->with(['items.medicine', 'items.ingredients.medicine'])
+            ->get()
+            ->filter(fn (Prescription $prescription) => $prescription->items->isNotEmpty())
+            ->values();
+
+        $ssIssues = [];
+        foreach ($draftPrescriptions as $prescription) {
+            foreach (PrescriptionSatuSehatReadiness::forPrescription($prescription) as $issue) {
+                $ssIssues[] = $issue;
+            }
+        }
+        $blocking = PrescriptionSatuSehatReadiness::blockingMessages($ssIssues);
+        if ($blocking !== []) {
+            throw ValidationException::withMessages(['prescription' => $blocking]);
+        }
+        $ssWarnings = PrescriptionSatuSehatReadiness::warningMessages($ssIssues);
 
         $queue = $visit->queue;
 
@@ -1057,6 +1139,13 @@ class CareController extends Controller
             $queue->update(['status' => QueueStatus::Done]);
         } else {
             abort_unless(request()->user()?->can('queue.manage'), 403);
+        }
+
+        $sentPrescriptions = 0;
+        foreach ($draftPrescriptions as $prescription) {
+            $prescription->update(['status' => PrescriptionStatus::Sent]);
+            activity_log('updated', $prescription, ['status' => PrescriptionStatus::Sent->value], 'Sent prescription to pharmacy', 'prescriptions');
+            $sentPrescriptions++;
         }
 
         $before = activity_snapshot($visit);
@@ -1099,6 +1188,15 @@ class CareController extends Controller
         }
         if ($invoice) {
             $message .= ' Tagihan '.$invoice->number.' dibuat.';
+        }
+        if ($sentPrescriptions > 0) {
+            $message .= ' '.$sentPrescriptions.' resep dikirim ke farmasi. Stok belum dipotong.';
+            if ($ssWarnings !== []) {
+                $message .= ' Catatan SATUSEHAT: '.implode(' ', array_slice($ssWarnings, 0, 3));
+                if (count($ssWarnings) > 3) {
+                    $message .= ' (+'.(count($ssWarnings) - 3).' lainnya)';
+                }
+            }
         }
 
         if ($invoice && $actor?->can('view', $invoice)) {
@@ -1378,6 +1476,60 @@ class CareController extends Controller
     {
         $this->authorize('view', $visit);
         abort_unless(CareTabs::canAccessCare($request->user()), 403);
+    }
+
+    /**
+     * @return array{html: string, finish_html: string}
+     */
+    protected function prescriptionAjaxPayload(Visit $visit): array
+    {
+        $this->loadPrescriptionRelations($visit);
+
+        return [
+            'html' => $this->prescriptionListHtml($visit),
+            'finish_html' => $this->prescriptionFinishHtml($visit),
+        ];
+    }
+
+    protected function loadPrescriptionRelations(Visit $visit): void
+    {
+        $visit->load([
+            'patient',
+            'prescriptions.items.medicine',
+            'prescriptions.items.ingredients.medicine',
+            'prescriptions.doctor',
+        ]);
+    }
+
+    protected function prescriptionListHtml(Visit $visit): string
+    {
+        $user = request()->user();
+        $this->loadPrescriptionRelations($visit);
+
+        $record = $visit->medicalRecord;
+        $writable = (bool) $user
+            && $this->canWriteAny($user)
+            && $visit->status !== VisitStatus::Cancelled;
+
+        if ($writable && $record && app(MedicalRecordLock::class)->isLocked($record)) {
+            $writable = false;
+        }
+
+        return view('clinical.care.partials.plan-prescriptions-list', [
+            'visit' => $visit,
+            'record' => $record,
+            'writable' => $writable,
+            'medicines' => Medicine::query()->active()->orderBy('name')->get(),
+        ])->render();
+    }
+
+    protected function prescriptionFinishHtml(Visit $visit): string
+    {
+        $this->loadPrescriptionRelations($visit);
+
+        return view('clinical.care.partials.care-finish-rx', [
+            'visit' => $visit,
+        ])->render();
     }
 
     protected function canWriteAny(User $user): bool

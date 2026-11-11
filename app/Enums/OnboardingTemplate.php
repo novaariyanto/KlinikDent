@@ -18,8 +18,8 @@ enum OnboardingTemplate: string
     public function description(): string
     {
         return match ($this) {
-            self::Small => 'Cocok untuk klinik gigi dengan tim kecil dan pekerjaan yang dapat dirangkap.',
-            self::Medium => 'Cocok untuk klinik dengan beberapa dokter, tenaga medis, dan staf dengan tanggung jawab yang lebih terpisah.',
+            self::Small => 'Tim kecil: biasanya 1 Admin Operasional (pendaftaran–farmasi–kasir) + 1 Dokter Gigi.',
+            self::Medium => 'Beberapa dokter dan staf terpisah (pendaftaran, perawat, farmasi, kasir, keuangan).',
         };
     }
 

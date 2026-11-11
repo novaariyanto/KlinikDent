@@ -8,6 +8,7 @@ enum RoleName: string
     case Owner = 'owner';
     case Manager = 'manager';
     case Registration = 'registration';
+    case ClinicOps = 'clinic-ops';
     case Dentist = 'dentist';
     case DentalAssistant = 'dental-assistant';
     case Nurse = 'nurse';
@@ -23,6 +24,7 @@ enum RoleName: string
             self::Owner => 'Owner / Super Admin Klinik',
             self::Manager => 'Manager / Admin Klinik',
             self::Registration => 'Pendaftaran',
+            self::ClinicOps => 'Admin Operasional Klinik',
             self::Dentist => 'Dokter Gigi',
             self::DentalAssistant => 'Asisten Dokter',
             self::Nurse => 'Perawat',
@@ -64,6 +66,7 @@ enum RoleName: string
         return match ($this) {
             self::SuperAdminSaas => 'Dashboard SaaS',
             self::Registration => 'Dashboard Pendaftaran',
+            self::ClinicOps => 'Dashboard Operasional',
             self::Dentist => 'Dashboard Dokter',
             self::Pharmacy => 'Dashboard Farmasi',
             self::Cashier => 'Dashboard Kasir',
@@ -76,16 +79,17 @@ enum RoleName: string
     {
         return match ($this) {
             self::SuperAdminSaas => 'Ringkasan tenant, langganan, dan status klinik di platform.',
-            self::Owner => 'Dashboard pemilik klinik akan dikembangkan pada tahap berikutnya.',
-            self::Manager => 'Dashboard operasional klinik akan dikembangkan pada tahap berikutnya.',
-            self::Registration => 'Dashboard pendaftaran pasien akan dikembangkan pada tahap berikutnya.',
-            self::Dentist => 'Dashboard pelayanan dokter akan dikembangkan pada tahap berikutnya.',
-            self::DentalAssistant => 'Dashboard asisten dokter akan dikembangkan pada tahap berikutnya.',
-            self::Nurse => 'Dashboard perawat akan dikembangkan pada tahap berikutnya.',
-            self::Pharmacy => 'Dashboard farmasi akan dikembangkan pada tahap berikutnya.',
-            self::Cashier => 'Dashboard kasir akan dikembangkan pada tahap berikutnya.',
-            self::Finance => 'Dashboard keuangan akan dikembangkan pada tahap berikutnya.',
-            self::Auditor => 'Dashboard auditor bersifat tampilan saja dan akan dikembangkan pada tahap berikutnya.',
+            self::Owner => 'Ringkasan klinik, laporan, dan konfigurasi.',
+            self::Manager => 'Ringkasan operasional dan administrasi klinik.',
+            self::Registration => 'Kunjungan, antrean, dan pendaftaran pasien hari ini.',
+            self::ClinicOps => 'Pusat kerja pendaftaran, antrean, farmasi, dan kasir.',
+            self::Dentist => 'Antrean dan pelayanan klinis pasien Anda.',
+            self::DentalAssistant => 'Antrean dan dukungan pemeriksaan.',
+            self::Nurse => 'Antrean, tanda vital, dan screening pasien.',
+            self::Pharmacy => 'Resep masuk, stok, dan penyerahan obat.',
+            self::Cashier => 'Tagihan, pembayaran, dan shift kasir.',
+            self::Finance => 'Pendapatan, pengeluaran, dan laporan keuangan.',
+            self::Auditor => 'Tampilan read-only untuk audit operasional.',
         };
     }
 

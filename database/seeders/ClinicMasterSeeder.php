@@ -66,7 +66,7 @@ class ClinicMasterSeeder extends Seeder
 
         foreach ([
             ['name' => 'Amoxicillin 500mg', 'unit' => 'kapsul', 'category' => 'antibiotik', 'base_price' => 2500],
-            ['name' => 'Paracetamol 500mg', 'unit' => 'tablet', 'category' => 'analgesik', 'base_price' => 1500],
+            ['name' => 'Paracetamol 500mg', 'unit' => 'tablet', 'category' => 'analgesik_antipiretik', 'base_price' => 1500],
         ] as $medicine) {
             Medicine::query()->updateOrCreate(
                 ['tenant_id' => $tenant->id, 'name' => $medicine['name']],

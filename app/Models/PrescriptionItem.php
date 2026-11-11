@@ -24,6 +24,7 @@ class PrescriptionItem extends Model
         'dosage',
         'frequency',
         'duration',
+        'course',
         'quantity',
     ];
 
@@ -68,6 +69,16 @@ class PrescriptionItem extends Model
     public function isCompound(): bool
     {
         return $this->kind === PrescriptionItemKind::Compound;
+    }
+
+    public function instructionText(): string
+    {
+        return trim(implode(' · ', array_filter([
+            $this->dosage,
+            $this->frequency,
+            $this->duration,
+            $this->course,
+        ])));
     }
 
     public function label(): string

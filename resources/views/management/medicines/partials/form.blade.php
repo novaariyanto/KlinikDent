@@ -25,10 +25,22 @@
         <p class="form-text mt-n2">Contoh: mg, ml, IU.</p>
     </div>
     <div class="col-md-3">
-        <x-select name="unit" label="Satuan kemasan" :options="\App\Models\Medicine::UNITS" :selected="old('unit', $medicine?->unit)" required />
+        <x-select
+            name="unit"
+            label="Satuan kemasan"
+            :options="\App\Models\Medicine::UNITS"
+            :selected="old('unit', $medicine?->unit)"
+            placeholder="Pilih satuan (opsional)"
+        />
     </div>
     <div class="col-md-3">
-        <x-select name="category" label="Kategori" :options="\App\Models\Medicine::CATEGORIES" :selected="old('category', $medicine?->category)" required />
+        <x-select
+            name="category"
+            label="Kategori terapi"
+            :options="\App\Models\Medicine::CATEGORIES"
+            :selected="old('category', $medicine?->category ? \App\Models\Medicine::normalizeCategoryKey((string) $medicine->category) : null)"
+            placeholder="Pilih kategori (opsional)"
+        />
     </div>
     <div class="col-md-4">
         <x-input name="base_price" type="number" label="Harga Dasar" :value="$medicine?->base_price" step="0.01" min="0" required />

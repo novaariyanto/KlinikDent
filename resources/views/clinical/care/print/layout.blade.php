@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <title>{{ $title ?? 'Dokumen Klinik' }}</title>
     <style>
-        @page { margin: 12mm 12mm 16mm 12mm; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #1a1a1a; line-height: 1.35; }
+        @page { margin: 12mm 12mm 20mm 12mm; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 10px; color: #1a1a1a; line-height: 1.35; padding-bottom: 18mm; }
         table { border-collapse: collapse; }
         p { margin: 0 0 6px; }
         .kop { width: 100%; margin-bottom: 4px; }
@@ -56,7 +56,20 @@
         .sign .qr { height: 78px; width: 78px; margin: 3px auto 1px; }
         .sign .name { font-weight: bold; text-decoration: underline; margin-top: 2px; }
         .sign .role { font-size: 9px; }
-        .footer { margin-top: 12px; border-top: 0.6px solid #222; padding-top: 5px; font-size: 8px; color: #333; text-align: center; line-height: 1.4; }
+        /* DomPDF: footer fixed di bawah tiap halaman kertas */
+        .footer {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: -12mm;
+            width: 100%;
+            border-top: 1.2px solid #111;
+            padding-top: 4px;
+            font-size: 8px;
+            color: #333;
+            text-align: center;
+            line-height: 1.4;
+        }
         .hash { font-family: DejaVu Sans Mono, monospace; font-size: 7.5px; word-break: break-all; margin-top: 2px; }
     </style>
 </head>

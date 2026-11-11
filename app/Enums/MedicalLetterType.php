@@ -18,7 +18,7 @@ enum MedicalLetterType: string
             self::Sick => 'Surat Keterangan Sakit',
             self::Healthy => 'Surat Keterangan Sehat',
             self::Examination => 'Surat Keterangan Pemeriksaan',
-            self::Radiograph => 'Surat Keterangan Pemeriksaan Rontgen',
+            self::Radiograph => 'Surat Pengantar Rontgen',
             self::Treatment => 'Surat Keterangan Perawatan',
             self::Control => 'Surat Keterangan Kontrol',
             self::Other => 'Surat Keterangan Medis Lainnya',

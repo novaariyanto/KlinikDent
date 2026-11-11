@@ -52,12 +52,10 @@
             </div>
         </div>
 
-        @if ($visit->status->isOpen() && auth()->user()?->can('queue.manage'))
+        @if ($visit->status->isOpen() && auth()->user()?->isDentist() && auth()->user()?->can('queue.manage'))
             @php
                 $finishProcedures = $visit->procedureRecords;
-                $finishPrescriptions = $visit->prescriptions;
-                $finishRxItems = $finishPrescriptions->flatMap(fn ($rx) => $rx->items);
-                $finishDraftRx = $finishPrescriptions->filter(fn ($rx) => $rx->isDraft());
+                $finishDraftRx = $visit->prescriptions->filter(fn ($rx) => $rx->isDraft());
                 $assessmentOpen = ($record?->assessment_status ?? null) !== \App\Enums\AssessmentStatus::Completed;
                 $finalizeWithVisit = auth()->user()?->can('medical_record.update') && (! $recordFinal || $assessmentOpen);
             @endphp
@@ -90,61 +88,30 @@
                     @endif
                 </div>
 
-                <div class="care-finish-review mb-3">
-                    <h6 class="mb-2">Obat / resep ({{ $finishRxItems->count() }})</h6>
-                    @if ($finishRxItems->isEmpty())
-                        <p class="text-muted small mb-0">Tidak ada obat dicatat.</p>
-                    @else
-                        <x-table>
-                            <thead>
-                                <tr>
-                                    <th>Obat</th>
-                                    <th>Dosis</th>
-                                    <th>Frekuensi</th>
-                                    <th>Aturan pakai</th>
-                                    <th>Qty</th>
-                                    <th>Status resep</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($finishPrescriptions as $prescription)
-                                    @foreach ($prescription->items as $item)
-                                        <tr>
-                                            <td>{{ $item->label() }}</td>
-                                            <td>{{ $item->dosage ?: '-' }}</td>
-                                            <td>{{ $item->frequency ?: '-' }}</td>
-                                            <td>{{ $item->duration ?: '-' }}</td>
-                                            <td>{{ $item->quantity }}</td>
-                                            <td><span class="{{ $prescription->status->badgeClass() }}">{{ $prescription->status->label() }}</span></td>
-                                        </tr>
-                                    @endforeach
-                                @endforeach
-                            </tbody>
-                        </x-table>
-                    @endif
-                    @if ($finishDraftRx->isNotEmpty())
-                        <div class="alert alert-warning mt-2 mb-0 py-2">
-                            Ada {{ $finishDraftRx->count() }} resep masih <strong>draft</strong> (belum dikirim ke farmasi).
-                        </div>
-                    @endif
-                </div>
+                @include('clinical.care.partials.care-finish-rx', ['visit' => $visit])
 
-                <form action="{{ route('care.complete', $visit) }}" method="POST" id="care-complete-form">
+                <form action="{{ route('care.complete', $visit) }}" method="POST" id="care-complete-form" data-finalize="{{ $finalizeWithVisit ? '1' : '0' }}">
                     @csrf
                     <label class="care-complete-confirm" for="care-complete-confirm">
                         <input class="form-check-input" type="checkbox" value="1" id="care-complete-confirm" required>
-                        <span>Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan@if ($finalizeWithVisit) dan finalisasi asesmen serta rekam medis@endif ini.</span>
+                        <span data-care-finish-confirm-text>Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan@if ($finishDraftRx->isNotEmpty()) dan pengiriman resep ke farmasi@endif@if ($finalizeWithVisit) serta finalisasi asesmen dan rekam medis@endif ini.</span>
                     </label>
                 </form>
 
                 <x-slot:footer>
                     <x-button variant="secondary" data-bs-dismiss="modal">Batal</x-button>
                     <x-button type="submit" variant="success" icon="bx bx-check" form="care-complete-form" id="care-complete-submit" class="btn-lg" disabled>
-                        @if ($finalizeWithVisit)
-                            Ya, Selesaikan &amp; Finalisasi
-                        @else
-                            Ya, Selesaikan Kunjungan
-                        @endif
+                        <span data-care-finish-submit-text>
+                            @if ($finalizeWithVisit && $finishDraftRx->isNotEmpty())
+                                Ya, Kirim Resep &amp; Finalisasi
+                            @elseif ($finishDraftRx->isNotEmpty())
+                                Ya, Kirim Resep &amp; Selesaikan
+                            @elseif ($finalizeWithVisit)
+                                Ya, Selesaikan &amp; Finalisasi
+                            @else
+                                Ya, Selesaikan Kunjungan
+                            @endif
+                        </span>
                     </x-button>
                 </x-slot:footer>
             </x-modal>
@@ -523,6 +490,7 @@
     });
     window.careSetStatus = setStatus;
     window.careValidationMessage = validationMessage;
+    window.careMarkDone = markDone;
 
     function showTab(key) {
         document.querySelectorAll('[data-care-pane]').forEach(function (pane) {
@@ -580,15 +548,15 @@
         sync();
     });
 
-    document.querySelectorAll('[data-toggle-panel]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            var target = document.querySelector(btn.getAttribute('data-toggle-panel'));
-            if (!target) return;
-            target.hidden = !target.hidden;
-            if (!target.hidden && $) {
-                $(target).find('.select2-container').css('width', '100%');
-            }
-        });
+    document.addEventListener('click', function (event) {
+        var btn = event.target.closest('[data-toggle-panel]');
+        if (!btn) return;
+        var target = document.querySelector(btn.getAttribute('data-toggle-panel'));
+        if (!target) return;
+        target.hidden = !target.hidden;
+        if (!target.hidden && $) {
+            $(target).find('.select2-container').css('width', '100%');
+        }
     });
 
     function renderResults(box, items) {
@@ -626,12 +594,21 @@
         list.hidden = false;
     }
 
-    document.querySelectorAll('[data-typeahead]').forEach(function (box) {
+    function bindTypeahead(box) {
+        if (!box || box.dataset.typeaheadBound === '1') return;
         var input = box.querySelector('[data-typeahead-q]');
         if (!input) return;
+        box.dataset.typeaheadBound = '1';
         var url = box.dataset.typeaheadUrl;
         var local = [];
-        try { local = JSON.parse(box.dataset.typeaheadItems || '[]'); } catch (e) { local = []; }
+        try {
+            if (box.dataset.typeaheadSource) {
+                var source = document.getElementById(box.dataset.typeaheadSource);
+                local = JSON.parse(source ? source.textContent || '[]' : '[]');
+            } else {
+                local = JSON.parse(box.dataset.typeaheadItems || '[]');
+            }
+        } catch (e) { local = []; }
         var timer;
         function search(q) {
             if (url) {
@@ -672,6 +649,14 @@
                 if (list) list.hidden = true;
             }
         });
+    }
+
+    document.querySelectorAll('[data-typeahead]').forEach(bindTypeahead);
+    document.addEventListener('care:bind-typeahead', function (event) {
+        var root = event.target;
+        if (!root || !root.querySelectorAll) return;
+        if (root.matches && root.matches('[data-typeahead]')) bindTypeahead(root);
+        root.querySelectorAll('[data-typeahead]').forEach(bindTypeahead);
     });
 
     document.querySelectorAll('.care-modal').forEach(function (modal) {
@@ -1043,15 +1028,29 @@
         if (!modal || !confirmCb || !submitBtn || !form) return;
 
         function syncSubmit() {
-            submitBtn.disabled = !confirmCb.checked;
+            var finish = document.getElementById('care-finish-rx');
+            var ssBlocked = finish && finish.getAttribute('data-ss-block') === '1';
+            submitBtn.disabled = !confirmCb.checked || !!ssBlocked;
+            if (ssBlocked) {
+                submitBtn.title = 'Perbaiki kelengkapan resep (SIG / tipe NC·EP·SD) sebelum kirim ke farmasi';
+            } else {
+                submitBtn.removeAttribute('title');
+            }
         }
 
         confirmCb.addEventListener('change', syncSubmit);
+        modal.addEventListener('shown.bs.modal', syncSubmit);
         modal.addEventListener('hidden.bs.modal', function () {
             confirmCb.checked = false;
             syncSubmit();
         });
-        form.addEventListener('submit', function () {
+        form.addEventListener('submit', function (event) {
+            var finish = document.getElementById('care-finish-rx');
+            if (finish && finish.getAttribute('data-ss-block') === '1') {
+                event.preventDefault();
+                syncSubmit();
+                return;
+            }
             submitBtn.disabled = true;
             submitBtn.setAttribute('aria-busy', '1');
         });

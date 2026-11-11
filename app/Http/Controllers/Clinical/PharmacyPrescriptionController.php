@@ -6,11 +6,15 @@ use App\Enums\PrescriptionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Pharmacy\Concerns\ScopesPharmacyBranch;
 use App\Models\Prescription;
+use App\Models\PrescriptionItem;
 use App\Models\User;
+use App\Support\Clinical\PrintChrome;
 use App\Support\Pharmacy\InsufficientStockException;
 use App\Support\Pharmacy\PharmacyStockService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\View\View;
 
 class PharmacyPrescriptionController extends Controller
@@ -94,6 +98,50 @@ class PharmacyPrescriptionController extends Controller
         }
 
         return view('clinical.pharmacy.show', compact('prescription', 'availability', 'stockShort'));
+    }
+
+    public function printLabels(Request $request, Prescription $prescription): Response
+    {
+        $this->authorizePrescription($request->user(), $prescription, viewOnly: true);
+
+        $prescription->load([
+            'visit.patient',
+            'visit.branch',
+            'items.medicine',
+        ]);
+
+        abort_unless($prescription->items->isNotEmpty(), 422, 'Resep belum memiliki item obat.');
+
+        $visit = $prescription->visit;
+        $chrome = PrintChrome::variables((int) $visit->tenant_id, $visit->branch);
+
+        activity_log('printed', $prescription, ['scope' => 'all_labels'], 'Cetak semua label obat farmasi', 'prescriptions');
+
+        return Pdf::loadView('clinical.pharmacy.print.labels', [
+            'clinicName' => $chrome['clinicName'],
+            'patientName' => (string) ($visit->patient?->name ?: '-'),
+            'items' => $prescription->items,
+        ])->setPaper('a6')->stream('label-resep-'.$prescription->id.'.pdf');
+    }
+
+    public function printItemLabel(Request $request, Prescription $prescription, PrescriptionItem $item): Response
+    {
+        $this->authorizePrescription($request->user(), $prescription, viewOnly: true);
+        abort_unless((int) $item->prescription_id === (int) $prescription->id, 404);
+
+        $prescription->load(['visit.patient', 'visit.branch']);
+        $item->loadMissing('medicine');
+
+        $visit = $prescription->visit;
+        $chrome = PrintChrome::variables((int) $visit->tenant_id, $visit->branch);
+
+        activity_log('printed', $item, ['prescription_id' => $prescription->id], 'Cetak label obat farmasi', 'prescriptions');
+
+        return Pdf::loadView('clinical.pharmacy.print.label', [
+            'clinicName' => $chrome['clinicName'],
+            'patientName' => (string) ($visit->patient?->name ?: '-'),
+            'item' => $item,
+        ])->setPaper('a6')->stream('label-resep-'.$prescription->id.'-item-'.$item->id.'.pdf');
     }
 
     public function fulfill(Request $request, Prescription $prescription): RedirectResponse

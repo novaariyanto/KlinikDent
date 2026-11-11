@@ -30,7 +30,12 @@
                     </td>
                     <td>{{ $item->dosage ?: '-' }}</td>
                     <td>{{ $item->frequency ?: '-' }}</td>
-                    <td>{{ $item->duration ?: '-' }}</td>
+                    <td>
+                        {{ $item->duration ?: '-' }}
+                        @if ($item->course)
+                            <br><span style="font-size:8.5px">Durasi {{ $item->course }}</span>
+                        @endif
+                    </td>
                     <td class="num">{{ $item->quantity ?? '-' }}</td>
                 </tr>
             @empty

@@ -18,6 +18,7 @@ final class MenuCatalog
             RoleName::Owner->value => self::owner(),
             RoleName::Manager->value => self::manager(),
             RoleName::Registration->value => self::registration(),
+            RoleName::ClinicOps->value => self::clinicOps(),
             RoleName::Dentist->value => self::dentist(),
             RoleName::DentalAssistant->value => self::dentalAssistant(),
             RoleName::Nurse->value => self::nurse(),
@@ -260,7 +261,6 @@ final class MenuCatalog
             self::item('owner.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan klinik.'),
             self::heading('owner.group.operational', 'Operasional', [
                 self::item('owner.registration', 'Pendaftaran', 'bx bx-user-plus', 'registration.index', 'registration.view', 'Manajemen pendaftaran pasien.'),
-                self::item('owner.queue', 'Antrean', 'bx bx-list-ol', 'queue.index', 'queue.view', 'Antrean pelayanan klinik.'),
                 self::item('owner.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
                 self::item('owner.medical-record', 'Rekam Medis', 'bx bx-folder-open', 'medical-record.index', 'medical_record.view', 'Rekam medis pasien.'),
                 self::item('owner.medical-letters', 'Surat Keterangan', 'bx bx-envelope', 'medical-letters.index', 'medical_record.view', 'Surat keterangan medis pasien.'),
@@ -334,9 +334,6 @@ final class MenuCatalog
             self::item('manager.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
             self::item('manager.registration', 'Pendaftaran', 'bx bx-user-plus', null, 'registration.view', 'Operasional pendaftaran.', [
                 self::item('manager.registration.patients', 'Pasien', 'bx bx-user', 'registration.patients', 'patient.view', 'Manajemen data pasien klinik.'),
-                self::item('manager.registration.visits', 'Kunjungan', 'bx bx-calendar-check', 'registration.visits', 'visit.view', 'Kunjungan pasien.'),
-                self::item('manager.registration.queue', 'Antrean', 'bx bx-list-ol', 'queue.today', 'queue.view', 'Antrean pendaftaran.'),
-                self::item('manager.registration.history', 'Riwayat Pendaftaran', 'bx bx-history', 'registration.history', 'registration.view', 'Riwayat pendaftaran pasien.'),
             ]),
             self::item('manager.doctors', 'Dokter & Jadwal', 'bx bx-user', null, 'doctor.view', 'Dokter dan jadwal praktik.', [
                 self::item('manager.doctors.index', 'Dokter', 'bx bx-user-circle', 'doctors.index', 'doctor.view', 'Daftar dokter klinik.'),
@@ -403,13 +400,6 @@ final class MenuCatalog
             self::item('registration.group', 'Pendaftaran', 'bx bx-user-plus', null, 'registration.view', 'Proses pendaftaran pasien.', [
                 self::item('registration.new', 'Pendaftaran Baru', 'bx bx-plus', 'registration.new', 'registration.create', 'Form pendaftaran pasien baru.'),
                 self::item('registration.patients', 'Pasien', 'bx bx-user', 'registration.patients', 'patient.view', 'Manajemen data pasien klinik.'),
-                self::item('registration.visits.today', 'Kunjungan Hari Ini', 'bx bx-calendar-check', 'registration.visits.today', 'visit.view', 'Kunjungan pasien hari ini.'),
-                self::item('registration.history', 'Riwayat Kunjungan', 'bx bx-history', 'registration.history', 'registration.view', 'Riwayat kunjungan pasien.'),
-            ]),
-            self::item('registration.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pendaftaran.', [
-                self::item('registration.queue.today', 'Antrean Hari Ini', 'bx bx-time-five', 'queue.today', 'queue.view', 'Antrean pelayanan hari ini.'),
-                self::item('registration.queue.loket', 'Loket', 'bx bx-store', 'queue.loket', 'queue.view', 'Loket antrean per sesi dokter.'),
-                self::item('registration.queue.monitor', 'Monitor Antrean', 'bx bx-tv', 'queue.monitor', 'queue.view', 'Monitor tampilan antrean.'),
             ]),
             self::item('registration.schedule', 'Jadwal Dokter', 'bx bx-calendar', null, 'schedule.view', 'Jadwal dokter hari ini.', [
                 self::item('registration.schedule.today', 'Jadwal Hari Ini', 'bx bx-calendar-event', 'doctors.schedule.today', 'schedule.view', 'Jadwal praktik dokter hari ini.'),
@@ -422,6 +412,49 @@ final class MenuCatalog
                 self::item('registration.payers.membership', 'Membership', 'bx bx-star', 'registration.payers.membership', 'payer.view', 'Penjamin membership.'),
             ]),
             self::item('registration.bpjs.vclaim', 'Cek BPJS', 'bx bx-check-shield', 'integrations.bpjs', 'bpjs.view', 'Cek kepesertaan BPJS klinik ini.'),
+        ];
+    }
+
+    /**
+     * Sidebar alur kerja untuk Admin Operasional Klinik (pendaftaran–antrean–farmasi–kasir).
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected static function clinicOps(): array
+    {
+        return [
+            self::heading('ops.group.dashboard', 'Dashboard Operasional', [
+                self::item('ops.dashboard', 'Dashboard Operasional', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Pusat tindak lanjut operasional hari ini.'),
+            ]),
+            self::heading('ops.group.registration', 'Pasien & Pendaftaran', [
+                self::item('ops.registration.new', 'Pendaftaran Baru', 'bx bx-plus', 'registration.new', 'registration.create', 'Daftarkan kunjungan pasien.'),
+                self::item('ops.registration.patients', 'Pasien', 'bx bx-user', 'registration.patients', 'patient.view', 'Data pasien klinik.'),
+                self::item('ops.examination', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Worklist pemeriksaan pasien.'),
+            ]),
+            self::heading('ops.group.pharmacy', 'Farmasi & Resep', [
+                self::item('ops.pharmacy.dashboard', 'Dashboard Farmasi', 'bx bx-package', 'pharmacy.index', 'pharmacy.view', 'Ringkasan farmasi.'),
+                self::item('ops.pharmacy.incoming', 'Resep Masuk', 'bx bx-log-in-circle', 'pharmacy.prescriptions.incoming', 'prescription.view', 'Resep menunggu proses.'),
+                self::item('ops.pharmacy.processing', 'Diproses', 'bx bx-loader', 'pharmacy.prescriptions.processing', 'prescription.update', 'Resep sedang diproses.'),
+                self::item('ops.pharmacy.completed', 'Selesai', 'bx bx-check-circle', 'pharmacy.prescriptions.completed', 'prescription.view', 'Resep sudah diserahkan.'),
+                self::item('ops.pharmacy.stock', 'Stok Obat', 'bx bx-package', 'pharmacy.stock.index', 'stock.view', 'Stok obat cabang.'),
+            ]),
+            self::heading('ops.group.billing', 'Kasir & Pembayaran', [
+                self::item('ops.billing.dashboard', 'Dashboard Kasir', 'bx bx-credit-card', 'billing.index', 'billing.view', 'Ringkasan tagihan dan kasir.'),
+                self::item('ops.billing.invoices.today', 'Tagihan Hari Ini', 'bx bx-receipt', 'billing.invoices.today', 'billing.view', 'Tagihan pasien hari ini.'),
+                self::item('ops.billing.payments', 'Pembayaran', 'bx bx-money', 'billing.payments', 'payment.view', 'Penerimaan pembayaran.'),
+                self::item('ops.billing.receivables', 'Piutang', 'bx bx-wallet', 'billing.receivables', 'receivable.view', 'Piutang pasien.'),
+                self::item('ops.cashier.shifts', 'Shift Kasir', 'bx bx-time-five', 'cashier.shifts.open', 'cash_shift.view', 'Buka atau tutup shift kasir.'),
+            ]),
+            self::heading('ops.group.reports', 'Laporan Operasional', [
+                self::item('ops.reports.index', 'Laporan Klinik', 'bx bx-bar-chart-alt-2', 'reports.index', 'report.view', 'Laporan operasional klinik.'),
+                self::item('ops.pharmacy.reports', 'Laporan Farmasi', 'bx bx-package', 'pharmacy.reports', 'report.view', 'Laporan stok dan obat.'),
+                self::item('ops.cashier.reports', 'Laporan Kasir', 'bx bx-file', 'cashier.reports', 'report.view', 'Laporan transaksi kasir.'),
+            ]),
+            self::heading('ops.group.other', 'Lainnya', [
+                self::item('ops.schedule.today', 'Jadwal Dokter', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal praktik hari ini.'),
+                self::item('ops.payers', 'Penjamin', 'bx bx-id-card', 'management.payers.index', 'payer.view', 'Master penjamin.'),
+                self::item('ops.bpjs', 'Cek BPJS', 'bx bx-check-shield', 'integrations.bpjs', 'bpjs.view', 'Cek kepesertaan BPJS.'),
+            ]),
         ];
     }
 
@@ -457,10 +490,6 @@ final class MenuCatalog
         return [
             self::item('assistant.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja asisten dokter.'),
             self::item('assistant.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
-            self::item('assistant.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pasien.', [
-                self::item('assistant.queue.waiting', 'Pasien Menunggu', 'bx bx-time-five', 'queue.waiting', 'queue.view', 'Pasien yang menunggu dilayani.'),
-                self::item('assistant.queue.called', 'Pasien Dipanggil', 'bx bx-bell', 'queue.called', 'queue.view', 'Pasien yang sedang dipanggil.'),
-            ]),
             self::item('assistant.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat pasien.'),
             self::item('assistant.schedule', 'Jadwal', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal pelayanan hari ini.'),
         ];
@@ -474,10 +503,6 @@ final class MenuCatalog
         return [
             self::item('nurse.dashboard', 'Dashboard', 'bx bx-home-circle', 'dashboard', 'dashboard.view', 'Ringkasan kerja perawat.'),
             self::item('nurse.care.initial', 'Pemeriksaan', 'bx bx-search-alt', 'examinations.initial', 'examination.view', 'Pemeriksaan pasien.'),
-            self::item('nurse.queue', 'Antrean', 'bx bx-list-ol', null, 'queue.view', 'Antrean pasien.', [
-                self::item('nurse.queue.today', 'Antrean Hari Ini', 'bx bx-time-five', 'queue.today', 'queue.view', 'Antrean pelayanan hari ini.'),
-                self::item('nurse.queue.waiting', 'Pasien Menunggu', 'bx bx-user-voice', 'queue.waiting', 'queue.view', 'Pasien yang menunggu dilayani.'),
-            ]),
             self::item('nurse.history', 'Riwayat Pasien', 'bx bx-history', 'patients.history', 'patient_history.view', 'Riwayat pasien.'),
             self::item('nurse.schedule', 'Jadwal', 'bx bx-calendar', 'doctors.schedule.today', 'schedule.view', 'Jadwal pelayanan.'),
         ];

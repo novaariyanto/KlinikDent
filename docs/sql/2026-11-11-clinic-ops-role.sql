@@ -1,0 +1,40 @@
+-- Role baru: clinic-ops (Admin Operasional Klinik)
+-- Sumber: App\Enums\RoleName::ClinicOps + PermissionCatalog::forClinicOps()
+-- Preferensi sync (dev/staging):
+--   php artisan db:seed --class=RolePermissionSeeder
+--   php artisan db:seed --class=MenuSeeder
+--   php artisan db:seed --class=UserSeeder   -- opsional user demo ops@klinikdent.test
+--
+-- Jangan INSERT massal ke prod tanpa review. Spatie memakai tabel:
+--   roles, permissions, role_has_permissions, model_has_roles, menus, menu_role
+--
+-- Permission yang diikat ke role clinic-ops (47):
+--   dashboard.view
+--   patient.view, patient.create, patient.update
+--   patient_history.view
+--   registration.view, registration.create, registration.update, registration.cancel
+--   visit.view
+--   queue.view, queue.manage
+--   examination.view, examination.manage
+--   vital_sign.view, vital_sign.manage
+--   anamnesis.view, anamnesis.manage
+--   care_note.view, care_note.manage
+--   medical_record.view, medical_record.create, medical_record.update
+--   schedule.view, payer.view, bpjs.view
+--   prescription.view, prescription.update
+--   pharmacy.view, pharmacy.manage
+--   medicine.view, medicine.manage
+--   stock.view, stock.manage
+--   purchase.view, purchase.manage
+--   supplier.view, supplier.manage
+--   report.view
+--   billing.view, billing.create, billing.update
+--   payment.view, payment.create
+--   receivable.view
+--   cash_shift.view, cash_shift.manage
+--
+-- Sengaja TIDAK termasuk: diagnosis.*, odontogram.*, roles.*, users.*, finance approve/pay sharing fee.
+--
+-- Setelah seed: clear cache Spatie + sidebar (RolePermissionSeeder sudah memanggil forgetCachedPermissions + Menu::clearCache).
+
+SELECT 'Gunakan artisan db:seed --class=RolePermissionSeeder + MenuSeeder; file ini dokumentasi review DBA.' AS catatan;

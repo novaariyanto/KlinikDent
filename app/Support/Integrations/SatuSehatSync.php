@@ -1867,11 +1867,7 @@ class SatuSehatSync
                         'authoredOn' => $this->fhirTime($start),
                         'requester' => ['reference' => 'Practitioner/'.$practitionerIhs],
                         'dosageInstruction' => [[
-                            'text' => trim(implode(' · ', array_filter([
-                                $item->dosage,
-                                $item->frequency,
-                                $item->duration,
-                            ]))) ?: 'Sesuai instruksi dokter',
+                            'text' => $item->instructionText() ?: 'Sesuai instruksi dokter',
                         ]],
                         'dispenseRequest' => [
                             'quantity' => $dispenseQuantity,

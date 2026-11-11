@@ -1,4 +1,7 @@
-@php($embedded = $embedded ?? false)
+@php
+    $embedded = $embedded ?? false;
+    $letterTemplates = \App\Enums\MedicalLetterType::cases();
+@endphp
 <section class="care-section{{ $embedded ? ' care-section--embedded' : '' }}" id="surat">
     @unless ($embedded)
         <div class="care-section__head">
@@ -7,16 +10,39 @@
         </div>
     @endunless
     <div class="care-section__body">
+        @can('medical_record.update')
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <strong class="small mb-0">Pilih template surat</strong>
+                    <span class="text-muted small">Klik jenis surat yang akan dibuat</span>
+                </div>
+                <div class="letter-template-list">
+                    @foreach ($letterTemplates as $template)
+                        <a
+                            href="{{ route('care.letters.create', ['visit' => $visit, 'type' => $template->value]) }}"
+                            class="letter-template-item"
+                        >
+                            <span>
+                                <strong>{{ $template->label() }}</strong>
+                                <span class="rx-meta d-block mb-0">Template siap pakai · data pasien terisi otomatis</span>
+                            </span>
+                            <span class="btn btn-sm btn-primary">
+                                <i class="bx bx-plus me-1"></i>Buat
+                            </span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endcan
+
         <div class="mb-3 d-flex flex-wrap gap-2">
-            @can('medical_record.update')
-                <x-button href="{{ route('care.letters.create', $visit) }}" variant="soft-success" icon="bx bx-plus">Buat surat</x-button>
-            @endcan
             <x-button href="{{ route('care.resume.pdf', $visit) }}" variant="soft-info" icon="bx bx-file" target="_blank">Resume medis</x-button>
             @can('medical_record.view')
                 <x-button href="{{ route('medical-letters.index', ['patient_id' => $visit->patient_id]) }}" variant="soft-primary" icon="bx bx-list-ul">Riwayat surat pasien</x-button>
             @endcan
         </div>
 
+        <h6 class="mb-2">Surat yang sudah diterbitkan</h6>
         <x-table>
             <thead>
                 <tr>

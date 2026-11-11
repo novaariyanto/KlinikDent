@@ -18,7 +18,7 @@
             id="services-table"
             :ajax="route('management.services.data')"
             :columns="$columns"
-            :order="[[4, 'desc']]"
+            :order="[[5, 'desc']]"
         />
     </x-card>
 @endsection

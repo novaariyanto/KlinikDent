@@ -43,6 +43,7 @@
                         <th>Stok cabang</th>
                         <th>Batch FEFO</th>
                     @endif
+                    <th class="text-end">Label</th>
                 </tr>
             </thead>
             <tbody>
@@ -51,19 +52,36 @@
                         $lines = $availability[$item->id] ?? [];
                         $ready = $item->isCompound() ? null : ($lines[0] ?? null);
                     @endphp
+                    @php
+                        $itemSs = \App\Support\Clinical\PrescriptionSatuSehatReadiness::forItem($item);
+                        $itemSsBlock = \App\Support\Clinical\PrescriptionSatuSehatReadiness::blockingMessages($itemSs);
+                        $itemSsWarn = \App\Support\Clinical\PrescriptionSatuSehatReadiness::warningMessages($itemSs);
+                    @endphp
                     <tr class="{{ $ready && ($ready['tracked'] ?? false) && ! $ready['enough'] ? 'table-danger' : '' }}">
                         <td>
                             <x-medicine-meta :medicine="$item->medicine" :name="$item->label()" :show-missing-kfa="! $item->isCompound()" />
+                            @if ($item->medication_type)
+                                <div class="text-muted font-size-12">{{ $item->medication_type->value }} · {{ $item->medication_type->label() }}</div>
+                            @endif
                             @if ($item->isCompound())
                                 <span class="badge bg-light text-dark">Racikan</span>
-                                @if ($item->medication_type)
-                                    <div class="text-muted font-size-12">Tipe {{ $item->medication_type->value }}</div>
-                                @endif
+                            @endif
+                            @if ($itemSsBlock !== [])
+                                <div class="text-danger font-size-12">Belum siap SATUSEHAT</div>
+                            @elseif ($itemSsWarn !== [])
+                                <div class="text-warning font-size-12">Farmasi OK · tanpa SATUSEHAT</div>
+                            @else
+                                <div class="text-success font-size-12">Siap farmasi &amp; SATUSEHAT</div>
                             @endif
                         </td>
                         <td>{{ $item->dosage ?: '-' }}</td>
                         <td>{{ $item->frequency ?: '-' }}</td>
-                        <td>{{ $item->duration ?: '-' }}</td>
+                        <td>
+                            {{ $item->duration ?: '-' }}
+                            @if ($item->course)
+                                <div class="text-muted font-size-12">{{ $item->course }}</div>
+                            @endif
+                        </td>
                         <td>{{ $item->quantity }}@if (! $item->isCompound() && filled($ready['unit'] ?? null)) {{ $ready['unit'] }}@endif</td>
                         @if ($prescription->isSent())
                             @if ($item->isCompound())
@@ -72,6 +90,15 @@
                                 @include('clinical.pharmacy.partials.stock-cells', ['line' => $ready])
                             @endif
                         @endif
+                        <td class="text-end">
+                            <a href="{{ route('pharmacy.prescriptions.item-label', [$prescription, $item]) }}"
+                               target="_blank" rel="noopener"
+                               class="btn btn-sm btn-light border"
+                               title="Cetak label"
+                               aria-label="Cetak label {{ $item->label() }}">
+                                <i class="bx bx-printer"></i>
+                            </a>
+                        </td>
                     </tr>
                     @if ($item->isCompound())
                         @foreach ($item->ingredients as $index => $ingredient)
@@ -88,6 +115,7 @@
                                 @if ($prescription->isSent())
                                     @include('clinical.pharmacy.partials.stock-cells', ['line' => $line])
                                 @endif
+                                <td></td>
                             </tr>
                         @endforeach
                     @endif
@@ -103,6 +131,15 @@
             @endif
             @if ($canOpenCashier)
                 <x-button href="{{ route('billing.invoices.show', ['invoice' => $invoice, 'from' => 'pelayanan']) }}" variant="secondary" icon="bx bx-receipt">Kasir</x-button>
+            @endif
+            @if ($prescription->items->isNotEmpty())
+                <x-button
+                    href="{{ route('pharmacy.prescriptions.labels', $prescription) }}"
+                    variant="secondary"
+                    icon="bx bx-printer"
+                    target="_blank"
+                    rel="noopener"
+                >Cetak semua label</x-button>
             @endif
             <x-button href="{{ $backUrl }}" variant="secondary">Kembali</x-button>
             @if ($canFulfill)

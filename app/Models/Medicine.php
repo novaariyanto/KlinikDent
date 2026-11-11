@@ -15,14 +15,41 @@ class Medicine extends Model
     use BelongsToTenant, HasFactory;
 
     /**
+     * Kategori terapi obat.
+     *
      * @var array<string, string>
      */
     public const CATEGORIES = [
+        'analgesik_antipiretik' => 'Analgesik dan antipiretik',
         'antibiotik' => 'Antibiotik',
-        'analgesik' => 'Analgesik',
-        'antiseptik' => 'Antiseptik',
+        'antihistamin_antialergi' => 'Antihistamin dan antialergi',
+        'antihipertensi' => 'Antihipertensi',
+        'antidiabetes' => 'Antidiabetes',
         'antiinflamasi' => 'Antiinflamasi',
+        'antasida_saluran_cerna' => 'Antasida dan obat saluran cerna',
+        'antitusif_ekspektoran' => 'Antitusif dan ekspektoran',
+        'antijamur' => 'Antijamur',
+        'antivirus' => 'Antivirus',
+        'vitamin_suplemen' => 'Vitamin dan suplemen',
+        'anestesi' => 'Anestesi',
+        'obat_kulit' => 'Obat kulit (dermatologis)',
+        'obat_mata' => 'Obat mata (oftalmik)',
+        'obat_tht' => 'Obat THT',
+        'obat_saluran_pernapasan' => 'Obat saluran pernapasan',
+        'obat_hormonal' => 'Obat hormonal',
+        'obat_kardiovaskular' => 'Obat kardiovaskular',
+        'obat_saraf_psikiatri' => 'Obat saraf dan psikiatri',
         'lainnya' => 'Lainnya',
+    ];
+
+    /**
+     * Alias kategori lama → key baru (kompatibilitas data existing).
+     *
+     * @var array<string, string>
+     */
+    public const CATEGORY_ALIASES = [
+        'analgesik' => 'analgesik_antipiretik',
+        'antiseptik' => 'lainnya',
     ];
 
     /**
@@ -30,7 +57,22 @@ class Medicine extends Model
      */
     public const UNITS = [
         'tablet' => 'Tablet',
+        'injeksi' => 'Injeksi',
         'kapsul' => 'Kapsul',
+        'infus' => 'Infus',
+        'unit' => 'Unit',
+        'sirup' => 'Sirup',
+        'tetes_mata' => 'Tetes mata',
+        'kaplet' => 'Kaplet',
+        'krim' => 'Krim',
+        'suppositoria' => 'Suppositoria',
+        'tetes' => 'Tetes',
+        'salep' => 'Salep',
+        'inhaler' => 'Inhaler',
+        'tetes_telinga' => 'Tetes telinga',
+        'nebul' => 'Nebul',
+        'semprot' => 'Semprot',
+        // kompatibilitas data lama
         'botol' => 'Botol',
         'tube' => 'Tube',
         'ampul' => 'Ampul',
@@ -92,9 +134,19 @@ class Medicine extends Model
                 $medicine->strength_value = null;
             }
 
-            $type = $medicine->margin_type === 'percent' ? 'percent' : 'fixed';
-            $base = number_format((float) $medicine->base_price, 2, '.', '');
-            $margin = number_format((float) $medicine->margin_value, 2, '.', '');
+            if ($medicine->unit === '') {
+                $medicine->unit = null;
+            }
+
+            $medicine->category = filled($medicine->category)
+                ? self::normalizeCategoryKey((string) $medicine->category)
+                : null;
+
+            $type = filled($medicine->margin_type) && $medicine->margin_type === 'percent'
+                ? 'percent'
+                : 'fixed';
+            $base = number_format((float) ($medicine->base_price ?? 0), 2, '.', '');
+            $margin = number_format((float) ($medicine->margin_value ?? 0), 2, '.', '');
 
             $medicine->margin_type = $type;
             $medicine->base_price = $base;
@@ -109,7 +161,11 @@ class Medicine extends Model
             return null;
         }
 
-        $value = rtrim(rtrim(number_format((float) $this->strength_value, 4, '.', ''), '0'), '.');
+        $formatted = number_format((float) $this->strength_value, 4, '.', '');
+        $value = rtrim(rtrim($formatted, '0'), '.');
+        if ($value === '') {
+            $value = '0';
+        }
 
         return $value.' '.$this->strength_unit;
     }
@@ -167,12 +223,47 @@ class Medicine extends Model
 
     public function categoryLabel(): string
     {
-        return self::CATEGORIES[$this->category] ?? $this->category;
+        if (! filled($this->category)) {
+            return '—';
+        }
+
+        $key = self::normalizeCategoryKey((string) $this->category);
+
+        return $key ? (self::CATEGORIES[$key] ?? $this->category) : '—';
+    }
+
+    public static function normalizeCategoryKey(?string $category): ?string
+    {
+        $key = strtolower(trim((string) $category));
+
+        if ($key === '') {
+            return null;
+        }
+
+        if (isset(self::CATEGORY_ALIASES[$key])) {
+            return self::CATEGORY_ALIASES[$key];
+        }
+
+        if (array_key_exists($key, self::CATEGORIES)) {
+            return $key;
+        }
+
+        foreach (self::CATEGORIES as $slug => $label) {
+            if (strtolower($label) === $key) {
+                return $slug;
+            }
+        }
+
+        return null;
     }
 
     public function unitLabel(): string
     {
-        return self::UNITS[$this->unit] ?? $this->unit;
+        if (! filled($this->unit)) {
+            return '—';
+        }
+
+        return self::UNITS[$this->unit] ?? (string) $this->unit;
     }
 
     /**

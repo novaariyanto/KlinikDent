@@ -18,7 +18,7 @@
             id="procedures-table"
             :ajax="route('management.procedures.data')"
             :columns="$columns"
-            :order="[[6, 'desc']]"
+            :order="[[7, 'desc']]"
         />
     </x-card>
 @endsection

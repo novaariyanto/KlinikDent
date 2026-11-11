@@ -81,13 +81,26 @@ class DoctorFeeWaiverService
     public function quote(Visit $visit, int $procedureId, array $adjustment, User $actor): array
     {
         $resolved = $this->resolveAdjustment($visit, $actor, $adjustment);
+        $masterComponents = $this->tariffs->componentsFor($visit, $procedureId);
+        $master = $this->calculator->normalizeComponents($masterComponents);
+        $components = $this->applyDoctorFeeOverride($masterComponents, $adjustment, persist: false);
+
         $quote = $this->calculator->quote(
-            $this->tariffs->componentsFor($visit, $procedureId),
+            $components,
             $resolved['type'],
             $resolved['discount_type'],
             $resolved['discount_value'],
         );
 
+        $doctorCharged = $quote['doctor_fee_charged'] ?? $quote['doctor_fee'];
+        $doctorReduction = bcsub($master['doctor_fee'], (string) $doctorCharged, 2);
+        if (bccomp($doctorReduction, '0', 2) < 0) {
+            $doctorReduction = '0.00';
+        }
+
+        $quote['doctor_fee_master'] = $master['doctor_fee'];
+        $quote['tariff_price_master'] = $master['tariff_price'];
+        $quote['doctor_fee_reduction'] = $doctorReduction;
         $quote['waiver_status'] = $resolved['status']->value;
         $quote['include_waived_in_sharing_fee'] = $resolved['include_waived_in_sharing_fee'];
         $quote['can_waive'] = $this->canWaive($actor, $visit);
@@ -95,7 +108,7 @@ class DoctorFeeWaiverService
         $quote['requires_approval'] = $resolved['status'] === DoctorFeeWaiverStatus::Pending;
 
         if ($resolved['status'] === DoctorFeeWaiverStatus::Pending) {
-            $normal = $this->calculator->quote($this->tariffs->componentsFor($visit, $procedureId));
+            $normal = $this->calculator->quote($components);
             $quote['charged_unit_price'] = $normal['charged_unit_price'];
             $quote['doctor_fee_charged'] = $normal['doctor_fee_charged'];
             $quote['doctor_fee_waived'] = '0.00';
@@ -111,7 +124,9 @@ class DoctorFeeWaiverService
     public function attributesForCreate(Visit $visit, int $procedureId, array $adjustment, User $actor): array
     {
         $resolved = $this->resolveAdjustment($visit, $actor, $adjustment, persist: true);
-        $components = $this->tariffs->componentsFor($visit, $procedureId);
+        $masterComponents = $this->tariffs->componentsFor($visit, $procedureId);
+        $master = $this->calculator->normalizeComponents($masterComponents);
+        $components = $this->applyDoctorFeeOverride($masterComponents, $adjustment, persist: true);
         $applied = $resolved['status'] === DoctorFeeWaiverStatus::Pending
             ? ProcedureAdjustmentType::Normal
             : $resolved['type'];
@@ -124,10 +139,10 @@ class DoctorFeeWaiverService
 
         return [
             'price_at_time' => $quote['charged_unit_price'],
-            'tariff_price_at_time' => $quote['tariff_price'],
+            'tariff_price_at_time' => $master['tariff_price'],
             'doctor_fee_at_time' => $quote['doctor_fee'],
-            'bhp_amount_at_time' => $quote['bhp_amount'],
-            'clinic_fee_at_time' => $quote['clinic_fee'],
+            'bhp_amount_at_time' => $master['bhp_amount'],
+            'clinic_fee_at_time' => $master['clinic_fee'],
             'adjustment_type' => $resolved['type']->value,
             'discount_type' => $resolved['type'] === ProcedureAdjustmentType::ProcedureDiscount
                 ? $resolved['discount_type']?->value
@@ -460,6 +475,50 @@ class DoctorFeeWaiverService
             ->latest('id')
             ->first()
             ?->update(['invoice_id' => $invoice->id]);
+    }
+
+    /**
+     * @param  array{doctor_fee?: string|int|float|null, bhp_amount?: string|int|float|null, clinic_fee?: string|int|float|null, price?: string|int|float|null}  $components
+     * @param  array<string, mixed>  $adjustment
+     * @return array{doctor_fee: string, bhp_amount: string, clinic_fee: string, price: string}
+     */
+    protected function applyDoctorFeeOverride(array $components, array $adjustment, bool $persist = false): array
+    {
+        $master = $this->calculator->normalizeComponents($components);
+
+        if (! array_key_exists('doctor_fee', $adjustment) || $adjustment['doctor_fee'] === null || $adjustment['doctor_fee'] === '') {
+            return [
+                'doctor_fee' => $master['doctor_fee'],
+                'bhp_amount' => $master['bhp_amount'],
+                'clinic_fee' => $master['clinic_fee'],
+                'price' => $master['tariff_price'],
+            ];
+        }
+
+        $override = $this->calculator->normalize((string) $adjustment['doctor_fee']);
+        $outOfRange = bccomp($override, '0', 2) < 0 || bccomp($override, $master['doctor_fee'], 2) > 0;
+
+        if ($persist && $outOfRange) {
+            throw ValidationException::withMessages([
+                'doctor_fee' => 'Jasa dokter hanya boleh diisi dari Rp 0 sampai Rp '.number_format((float) $master['doctor_fee'], 0, ',', '.').'.',
+            ]);
+        }
+
+        if (bccomp($override, '0', 2) < 0) {
+            $override = '0.00';
+        }
+
+        if (bccomp($override, $master['doctor_fee'], 2) > 0) {
+            $override = $master['doctor_fee'];
+        }
+
+        return [
+            'doctor_fee' => $override,
+            'bhp_amount' => $master['bhp_amount'],
+            'clinic_fee' => $master['clinic_fee'],
+            // price master tetap sebagai acuan; charged mengikuti komponen jasa dokter yang diubah
+            'price' => $master['tariff_price'],
+        ];
     }
 
     protected function truthy(mixed $value): bool
