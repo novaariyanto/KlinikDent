@@ -316,7 +316,7 @@ class PatientController extends Controller
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function enrichWilayahFields(array $data): array
+    public function enrichWilayahFields(array $data): array
     {
         $cityCode = (string) ($data['city_code'] ?? '');
         $villageCode = (string) ($data['village_code'] ?? '');

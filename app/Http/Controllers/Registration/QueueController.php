@@ -135,10 +135,10 @@ class QueueController extends Controller
     /**
      * @return \Illuminate\Database\Eloquent\Builder<Queue>
      */
-    protected function filteredQuery(Request $request): \Illuminate\Database\Eloquent\Builder
+    public function filteredQuery(Request $request, ?string $scope = null): \Illuminate\Database\Eloquent\Builder
     {
         $user = $request->user();
-        $filter = $request->query('filter', $this->filterFromRoute($request));
+        $filter = $scope ?? $request->query('filter', $this->filterFromRoute($request));
 
         $query = Queue::query()
             ->with(['visit.patient', 'visit.doctor', 'visit.room'])

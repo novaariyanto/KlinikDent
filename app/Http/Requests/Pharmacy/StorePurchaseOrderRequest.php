@@ -55,7 +55,14 @@ class StorePurchaseOrderRequest extends FormRequest
             ->values()
             ->all();
 
-        $this->merge(['items' => $items]);
+        $merge = ['items' => $items];
+
+        $active = $this->attributes->get('active_branch');
+        if (! $this->filled('branch_id') && $active instanceof \App\Models\Branch) {
+            $merge['branch_id'] = $active->id;
+        }
+
+        $this->merge($merge);
     }
 
     /**

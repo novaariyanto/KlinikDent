@@ -34,11 +34,10 @@ class DashboardMetricsService
     ) {}
 
     /**
-     * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, href: string}>, note: string|null}
+     * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, route: string, href: string}>, note: string|null}
      */
-    public function forUser(User $user, ?RoleName $role = null): array
+    public function forUser(User $user, ?RoleName $role = null, ?int $branchId = null): array
     {
-        $branchId = null;
         $roles = $user->getRoleNames()
             ->map(fn (string $name) => RoleName::tryFrom($name))
             ->filter()
@@ -52,12 +51,13 @@ class DashboardMetricsService
 
         $fingerprint = $roles->map(fn (RoleName $assigned) => $assigned->value)->sort()->implode('|');
         $branchFingerprint = implode(',', $user->restrictedBranchIds() ?? ['all']);
+        $preferred = $branchId ?? 'none';
 
         if (app()->environment('testing')) {
             return $this->mergeForRoles($user, $roles, $branchId);
         }
 
-        $key = implode(':', ['dashboard', $user->id, $fingerprint ?: 'none', $branchFingerprint]);
+        $key = implode(':', ['dashboard', $user->id, $fingerprint ?: 'none', $branchFingerprint, $preferred]);
 
         return Cache::remember($key, 120, function () use ($user, $roles, $branchId) {
             return $this->mergeForRoles($user, $roles, $branchId);
@@ -66,7 +66,7 @@ class DashboardMetricsService
 
     /**
      * @param  Collection<int, RoleName>  $roles
-     * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, href: string}>, note: string|null}
+     * @return array{cards: list<array{label: string, value: string, href?: string|null}>, links: list<array{label: string, route: string, href: string}>, note: string|null}
      */
     protected function mergeForRoles(User $user, $roles, ?int $branchId): array
     {
@@ -422,7 +422,7 @@ class DashboardMetricsService
 
     /**
      * @param  array<string, string>  $items
-     * @return list<array{label: string, href: string}>
+     * @return list<array{label: string, route: string, href: string}>
      */
     protected function links(array $items): array
     {
@@ -430,7 +430,11 @@ class DashboardMetricsService
 
         foreach ($items as $label => $route) {
             if (Route::has($route)) {
-                $links[] = ['label' => $label, 'href' => route($route)];
+                $links[] = [
+                    'label' => $label,
+                    'route' => $route,
+                    'href' => route($route),
+                ];
             }
         }
 

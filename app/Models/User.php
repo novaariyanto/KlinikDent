@@ -13,12 +13,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use BelongsToTenant, HasFactory, HasRoles, Notifiable;
+    use BelongsToTenant, HasApiTokens, HasFactory, HasRoles, Notifiable;
+
+    protected string $guard_name = 'web';
 
     /**
      * @var list<string>

@@ -31,6 +31,7 @@ class RegisterRequest extends FormRequest
                 'integer',
                 Rule::exists('saas_packages', 'id')->where(fn ($query) => $query->where('is_active', true)),
             ],
+            'device_name' => ['sometimes', 'nullable', 'string', 'max:255'],
         ];
     }
 

@@ -22,17 +22,7 @@ class ClinicalDocumentService
         array $payload,
         ?Model $reference = null,
     ): ClinicalDocument {
-        $existing = ClinicalDocument::query()
-            ->where('visit_id', $visit->id)
-            ->where('type', $type)
-            ->when($reference, function ($query) use ($reference) {
-                $query->where('reference_type', $reference::class)
-                    ->where('reference_id', $reference->getKey());
-            }, function ($query) use ($number) {
-                $query->where('number', $number);
-            })
-            ->where('status', ClinicalDocumentStatus::Valid)
-            ->first();
+        $existing = $this->findValid($visit, $type, $reference, $number);
 
         if ($existing) {
             return $existing;
@@ -84,6 +74,25 @@ class ClinicalDocumentService
             'signature_path' => $signaturePath,
             'signature_provider' => 'visual',
         ]);
+    }
+
+    public function findValid(
+        Visit $visit,
+        ClinicalDocumentType $type,
+        ?Model $reference = null,
+        ?string $number = null,
+    ): ?ClinicalDocument {
+        return ClinicalDocument::query()
+            ->where('visit_id', $visit->id)
+            ->where('type', $type)
+            ->when($reference, function ($query) use ($reference) {
+                $query->where('reference_type', $reference::class)
+                    ->where('reference_id', $reference->getKey());
+            }, function ($query) use ($number) {
+                $query->where('number', $number);
+            })
+            ->where('status', ClinicalDocumentStatus::Valid)
+            ->first();
     }
 
     public function signatureSrc(?string $path): ?string

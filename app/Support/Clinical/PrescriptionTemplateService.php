@@ -92,7 +92,7 @@ class PrescriptionTemplateService
     {
         $template->loadMissing('items.medicine', 'items.ingredients');
 
-        return DB::transaction(function () use ($visit, $user, $template) {
+        $result = DB::transaction(function () use ($visit, $user, $template) {
             $prescription = app(ClinicalCareService::class)->draftPrescription($visit, $user);
             $applied = 0;
             $skipped = [];
@@ -141,6 +141,16 @@ class PrescriptionTemplateService
 
             return ['prescription' => $prescription, 'skipped' => $skipped];
         });
+
+        activity_log('created', $template, ['visit_id' => $visit->id], 'Template '.$template->name.' diterapkan.', 'prescriptions');
+
+        return $result;
+    }
+
+    public function delete(PrescriptionTemplate $template): void
+    {
+        activity_log('deleted', $template, ['name' => $template->name], 'Template resep '.$template->name.' dihapus.', 'prescriptions');
+        $template->delete();
     }
 
     /**

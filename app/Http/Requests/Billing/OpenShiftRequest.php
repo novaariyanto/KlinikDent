@@ -34,4 +34,12 @@ class OpenShiftRequest extends FormRequest
             'opening_balance' => ['required', 'numeric', 'min:0'],
         ];
     }
+
+    protected function prepareForValidation(): void
+    {
+        $active = $this->attributes->get('active_branch');
+        if (! $this->filled('branch_id') && $active instanceof \App\Models\Branch) {
+            $this->merge(['branch_id' => $active->id]);
+        }
+    }
 }

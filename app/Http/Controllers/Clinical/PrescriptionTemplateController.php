@@ -55,8 +55,7 @@ class PrescriptionTemplateController extends Controller
         abort_unless($requestUser->can('prescription.create'), 403);
         abort_unless($prescriptionTemplate->canBeManagedBy($requestUser), 403);
 
-        activity_log('deleted', $prescriptionTemplate, ['name' => $prescriptionTemplate->name], 'Template resep '.$prescriptionTemplate->name.' dihapus.', 'prescriptions');
-        $prescriptionTemplate->delete();
+        $this->templates->delete($prescriptionTemplate);
 
         return $this->respondTemplate($visit, $requestUser, 'Template resep dihapus.');
     }
@@ -79,8 +78,6 @@ class PrescriptionTemplateController extends Controller
                 ->route('care.show', ['visit' => $visit, 'tab' => 'resep'])
                 ->withErrors($exception->errors());
         }
-
-        activity_log('created', $prescriptionTemplate, ['visit_id' => $visit->id], 'Template '.$prescriptionTemplate->name.' diterapkan.', 'prescriptions');
 
         $message = 'Template diterapkan ke resep draft. Periksa dan ubah item sebelum dikirim.';
         if ($result['skipped'] !== []) {
