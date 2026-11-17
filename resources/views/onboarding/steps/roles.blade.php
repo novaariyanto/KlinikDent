@@ -3,7 +3,7 @@
     <p class="text-muted">
         Role dapat diubah kembali kapan saja melalui Users &amp; Roles.
         @if (($template ?? null) instanceof \App\Enums\OnboardingTemplate && $template === \App\Enums\OnboardingTemplate::Small)
-            Untuk klinik kecil: Owner + Admin Operasional (pendaftaran–farmasi–kasir) + Dokter Gigi sudah cukup.
+            Untuk klinik kecil: Owner + Admin Operasional + Perawat + Dokter Gigi sudah cukup. Memilih Admin Operasional otomatis menyertakan akses Perawat.
         @endif
     </p>
 </div>
@@ -50,3 +50,15 @@
 
     @include('onboarding.partials.actions')
 </form>
+
+@push('scripts')
+<script>
+document.querySelector('form[action*="roles"]')?.addEventListener('change', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || input.type !== 'checkbox') return;
+    if (input.value !== @json(\App\Enums\RoleName::ClinicOps->value) || !input.checked) return;
+    const nurse = document.querySelector('input[type="checkbox"][name="roles[]"][value="' + @json(\App\Enums\RoleName::Nurse->value) + '"]');
+    if (nurse) nurse.checked = true;
+});
+</script>
+@endpush

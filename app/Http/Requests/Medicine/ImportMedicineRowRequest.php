@@ -37,13 +37,11 @@ class ImportMedicineRowRequest extends FormRequest
     {
         $this->merge([
             'margin_type' => filled($this->input('margin_type')) ? $this->input('margin_type') : 'fixed',
-            'margin_value' => filled($this->input('margin_value')) ? $this->input('margin_value') : 0,
-            'base_price' => filled($this->input('base_price')) ? $this->input('base_price') : 0,
+            'margin_value' => Medicine::normalizeDecimalInput($this->input('margin_value')) ?? 0,
+            'base_price' => Medicine::normalizeDecimalInput($this->input('base_price')) ?? 0,
             'is_active' => $this->has('is_active') ? $this->boolean('is_active') : true,
             'kfa_code' => filled($this->input('kfa_code')) ? preg_replace('/\s+/', '', (string) $this->input('kfa_code')) : null,
-            'strength_value' => ($this->input('strength_value') === '' || $this->input('strength_value') === null)
-                ? null
-                : $this->input('strength_value'),
+            'strength_value' => Medicine::normalizeDecimalInput($this->input('strength_value')),
             'strength_unit' => filled($this->input('strength_unit')) ? trim((string) $this->input('strength_unit')) : null,
             'unit' => filled($this->input('unit')) ? strtolower(trim((string) $this->input('unit'))) : null,
             'category' => filled($this->input('category'))

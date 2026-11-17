@@ -56,9 +56,9 @@
                     <div class="exam-reveal mt-2" data-sys-panel="hypertension" @unless (in_array('hypertension', $conditions, true)) hidden @endunless>
                         <label class="form-label">Tekanan darah</label>
                         <div class="vital-inline">
-                            <input class="form-control" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="120" aria-label="Sistole">
+                            <input class="form-control vital-example" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="cth: 120" aria-label="Sistole">
                             <span>/</span>
-                            <input class="form-control" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="80" aria-label="Diastole">
+                            <input class="form-control vital-example" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="cth: 80" aria-label="Diastole">
                             <span class="text-muted">mmHg</span>
                         </div>
                     </div>
@@ -242,34 +242,34 @@
                 @method('PUT')
                 @if ($embedded)
                     <div class="soap-vital-grid">
-                        <label>Sistole <span>mmHg</span><input class="form-control" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="120"></label>
-                        <label>Diastole <span>mmHg</span><input class="form-control" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="80"></label>
-                        <label>Nadi <span>x/mnt</span><input class="form-control" name="pulse" value="{{ $vitalSigns['pulse'] ?? '' }}" inputmode="numeric" placeholder="84"></label>
-                        <label>Napas <span>x/mnt</span><input class="form-control" name="respiration" value="{{ $vitalSigns['respiration'] ?? '' }}" inputmode="numeric" placeholder="20"></label>
-                        <label>Suhu <span>°C</span><input class="form-control" name="temperature" value="{{ $vitalSigns['temperature'] ?? '' }}" inputmode="decimal" placeholder="36.5"></label>
-                        <label>Berat <span>kg</span><input class="form-control" name="weight" value="{{ $vitalSigns['weight'] ?? '' }}" inputmode="decimal" placeholder="60"></label>
-                        <label>Tinggi <span>cm</span><input class="form-control" name="height" value="{{ $vitalSigns['height'] ?? '' }}" inputmode="decimal" placeholder="160"></label>
-                        <label class="soap-vital-grid__wide">Keadaan umum<input class="form-control" name="general_condition" value="{{ $vitalSigns['general_condition'] ?? '' }}" placeholder="Baik"></label>
-                        <label class="soap-vital-grid__wide">Kesadaran<input class="form-control" name="consciousness" value="{{ $vitalSigns['consciousness'] ?? '' }}" placeholder="Compos mentis"></label>
+                        <label>Sistole <span>mmHg</span><input class="form-control vital-example" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="cth: 120"></label>
+                        <label>Diastole <span>mmHg</span><input class="form-control vital-example" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="cth: 80"></label>
+                        <label>Nadi <span>x/mnt</span><input class="form-control vital-example" name="pulse" value="{{ $vitalSigns['pulse'] ?? '' }}" inputmode="numeric" placeholder="cth: 84"></label>
+                        <label>Napas <span>x/mnt</span><input class="form-control vital-example" name="respiration" value="{{ $vitalSigns['respiration'] ?? '' }}" inputmode="numeric" placeholder="cth: 20"></label>
+                        <label>Suhu <span>°C</span><input class="form-control vital-example" name="temperature" value="{{ $vitalSigns['temperature'] ?? '' }}" inputmode="decimal" placeholder="cth: 36.5"></label>
+                        <label>Berat <span>kg</span><input class="form-control vital-example" name="weight" value="{{ $vitalSigns['weight'] ?? '' }}" inputmode="decimal" placeholder="cth: 60"></label>
+                        <label>Tinggi <span>cm</span><input class="form-control vital-example" name="height" value="{{ $vitalSigns['height'] ?? '' }}" inputmode="decimal" placeholder="cth: 160"></label>
+                        <label class="soap-vital-grid__wide">Keadaan umum<input class="form-control vital-example" name="general_condition" value="{{ $vitalSigns['general_condition'] ?? '' }}" placeholder="cth: Baik"></label>
+                        <label class="soap-vital-grid__wide">Kesadaran<input class="form-control vital-example" name="consciousness" value="{{ $vitalSigns['consciousness'] ?? '' }}" placeholder="cth: Compos mentis"></label>
                     </div>
                 @else
                 <div class="vital-grid">
                     <div>
                         <label class="form-label">TD</label>
                         <div class="vital-inline">
-                            <input class="form-control" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="120">
+                            <input class="form-control vital-example" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="cth: 120">
                             <span>/</span>
-                            <input class="form-control" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="80">
+                            <input class="form-control vital-example" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="cth: 80">
                             <span class="text-muted">mmHg</span>
                         </div>
                     </div>
-                    <x-input name="pulse" label="Nadi" :value="$vitalSigns['pulse'] ?? null" placeholder="80" />
-                    <x-input name="temperature" label="Suhu" :value="$vitalSigns['temperature'] ?? null" placeholder="36.5" />
-                    <x-input name="respiration" label="Respirasi" :value="$vitalSigns['respiration'] ?? null" placeholder="18" />
-                    <x-input name="weight" label="Berat (kg)" :value="$vitalSigns['weight'] ?? null" />
-                    <x-input name="height" label="Tinggi (cm)" :value="$vitalSigns['height'] ?? null" />
-                    <x-input name="general_condition" label="Keadaan umum" :value="$vitalSigns['general_condition'] ?? null" />
-                    <x-input name="consciousness" label="Kesadaran" :value="$vitalSigns['consciousness'] ?? null" />
+                    <x-input name="pulse" label="Nadi" :value="$vitalSigns['pulse'] ?? null" placeholder="cth: 80" class="vital-example" />
+                    <x-input name="temperature" label="Suhu" :value="$vitalSigns['temperature'] ?? null" placeholder="cth: 36.5" class="vital-example" />
+                    <x-input name="respiration" label="Respirasi" :value="$vitalSigns['respiration'] ?? null" placeholder="cth: 18" class="vital-example" />
+                    <x-input name="weight" label="Berat (kg)" :value="$vitalSigns['weight'] ?? null" placeholder="cth: 60" class="vital-example" />
+                    <x-input name="height" label="Tinggi (cm)" :value="$vitalSigns['height'] ?? null" placeholder="cth: 160" class="vital-example" />
+                    <x-input name="general_condition" label="Keadaan umum" :value="$vitalSigns['general_condition'] ?? null" placeholder="cth: Baik" class="vital-example" />
+                    <x-input name="consciousness" label="Kesadaran" :value="$vitalSigns['consciousness'] ?? null" placeholder="cth: Compos mentis" class="vital-example" />
                 </div>
                 @endif
             </form>

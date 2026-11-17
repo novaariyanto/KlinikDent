@@ -73,10 +73,6 @@ final class CareTabs
             $sections['resep'] = ['label' => 'Resep', 'icon' => 'bx bx-package'];
         }
 
-        if ($user->can('referral.view')) {
-            $sections['rujukan'] = ['label' => 'Rujukan', 'icon' => 'bx bx-transfer'];
-        }
-
         if ($user->can('medical_record.view') || $user->can('referral.view') || $user->can('care_note.view')) {
             $sections['ringkasan'] = ['label' => 'Ringkasan pulang', 'icon' => 'bx bx-file'];
         }
@@ -119,8 +115,8 @@ final class CareTabs
             'tindakan' => 'tindakan',
             'plan' => 'tindakan',
             'procedures' => 'tindakan',
-            'rujukan' => 'rujukan',
-            'referrals' => 'rujukan',
+            'rujukan' => 'ringkasan',
+            'referrals' => 'ringkasan',
             'surat' => 'ringkasan',
             'dokumen' => 'ringkasan',
             'adendum' => 'ringkasan',

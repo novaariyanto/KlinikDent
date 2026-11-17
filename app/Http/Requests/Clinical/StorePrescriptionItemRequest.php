@@ -34,7 +34,8 @@ class StorePrescriptionItemRequest extends FormRequest
 
         $kind = $this->input('kind', PrescriptionItemKind::Ready->value);
         $compound = $kind === PrescriptionItemKind::Compound->value;
-        $interactive = in_array($this->input('_form'), ['prescription-create', 'compound-create'], true);
+        $interactive = in_array($this->input('_form'), ['prescription-create', 'compound-create'], true)
+            && $this->input('_form') !== 'rx-editor-create';
 
         return [
             'kind' => ['nullable', Rule::enum(PrescriptionItemKind::class)],
@@ -54,6 +55,15 @@ class StorePrescriptionItemRequest extends FormRequest
             'duration' => [Rule::requiredIf($interactive), 'nullable', 'string', 'max:160'],
             'course' => ['nullable', 'string', 'max:100'],
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
+            'signa_p' => ['nullable', 'string', 'max:20'],
+            'signa_s' => ['nullable', 'string', 'max:20'],
+            'signa_sr' => ['nullable', 'string', 'max:20'],
+            'signa_m' => ['nullable', 'string', 'max:20'],
+            'waktu' => ['nullable', 'string', 'max:100'],
+            'jho' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'unit' => ['nullable', 'string', 'max:30'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'composition_confirmed' => [Rule::excludeIf(! $compound || ! $interactive), 'accepted'],
             'ingredients' => [Rule::excludeIf(! $compound), 'required', 'array', 'min:1'],
             'ingredients.*.name' => ['required_with:ingredients', 'string', 'max:120'],
@@ -150,12 +160,19 @@ class StorePrescriptionItemRequest extends FormRequest
             $medicationType = MedicationTypeCode::EqualParts->value;
         }
 
-        $this->merge([
+        $nullable = ['signa_p', 'signa_s', 'signa_sr', 'signa_m', 'waktu', 'unit', 'notes', 'course'];
+        $merge = [
             'kind' => $kind,
             'medication_type' => $medicationType,
             'ingredients' => $ingredients,
             'medicine_id' => $compound ? null : $this->input('medicine_id'),
-            'course' => filled($this->input('course')) ? trim((string) $this->input('course')) : null,
-        ]);
+            'jho' => filled($this->input('jho')) ? (int) $this->input('jho') : null,
+            'unit_price' => filled($this->input('unit_price')) ? $this->input('unit_price') : null,
+        ];
+        foreach ($nullable as $field) {
+            $merge[$field] = filled($this->input($field)) ? trim((string) $this->input($field)) : null;
+        }
+
+        $this->merge($merge);
     }
 }

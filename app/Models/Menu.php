@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\AddonCode;
 use App\Enums\MenuScope;
 use App\Enums\MenuType;
 use App\Enums\UserStatus;
+use App\Support\Saas\AddonGate;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
@@ -237,9 +239,52 @@ class Menu extends Model
             );
         });
 
+        $filtered = static::filterByAddonEntitlements($filtered, $user);
+
         request()->attributes->set($key, $filtered);
 
         return $filtered;
+    }
+
+    /**
+     * Filter Add-on per-request (jangan masukkan ke cache permission forever).
+     *
+     * @param  Collection<int, Menu>  $menus
+     * @return Collection<int, Menu>
+     */
+    protected static function filterByAddonEntitlements(Collection $menus, ?User $user): Collection
+    {
+        if (! $user) {
+            return $menus;
+        }
+
+        $tenant = $user->tenant;
+        $whatsappActive = $tenant && AddonGate::isActive($tenant, AddonCode::WhatsApp);
+
+        return $menus
+            ->map(function (self $menu) use ($user, $whatsappActive) {
+                $copy = clone $menu;
+
+                if ($copy->relationLoaded('children')) {
+                    $copy->setRelation('children', static::filterByAddonEntitlements($copy->children, $user));
+                }
+
+                return $copy;
+            })
+            ->filter(function (self $menu) use ($whatsappActive) {
+                $route = is_string($menu->route_name) ? $menu->route_name : '';
+
+                if ($route !== '' && str_starts_with($route, 'whatsapp.') && ! $whatsappActive) {
+                    return false;
+                }
+
+                if ($menu->type === MenuType::Heading || $menu->children->isNotEmpty()) {
+                    return $menu->children->isNotEmpty();
+                }
+
+                return true;
+            })
+            ->values();
     }
 
     /**

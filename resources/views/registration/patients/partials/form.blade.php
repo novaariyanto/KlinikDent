@@ -19,6 +19,15 @@
         <x-select name="gender" label="Jenis Kelamin" :options="$genders ?? []" :selected="old('gender', $patient?->gender?->value)" />
     </div>
     <div class="col-md-4">
+        <x-select
+            name="blood_type"
+            label="Golongan Darah"
+            :options="$bloodTypes ?? []"
+            :selected="old('blood_type', $patient?->blood_type?->value)"
+            placeholder="Pilih"
+        />
+    </div>
+    <div class="col-md-4">
         <x-input name="birth_place" label="Tempat Lahir" :value="$patient?->birth_place" />
     </div>
     <div class="col-md-4">

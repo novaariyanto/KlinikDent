@@ -45,6 +45,7 @@ final class OnboardingCatalog
             OnboardingTemplate::Small => [
                 RoleName::Owner->value,
                 RoleName::ClinicOps->value,
+                RoleName::Nurse->value,
                 RoleName::Dentist->value,
             ],
             OnboardingTemplate::Medium => RoleName::tenantValues(),

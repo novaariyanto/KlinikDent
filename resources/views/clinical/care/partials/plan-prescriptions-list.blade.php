@@ -1,308 +1,475 @@
 @php
-    $ingredientState = function ($ingredient) {
-        if ($ingredient instanceof \App\Models\PrescriptionCompoundItem) {
-            return [
-                'name' => $ingredient->name,
-                'medicine_id' => $ingredient->medicine_id,
-                'quantity' => $ingredient->quantity,
-                'per_dose_quantity' => $ingredient->per_dose_quantity,
-                'unit' => $ingredient->unit,
-                'strength_value' => $ingredient->strength_value,
-                'strength_unit' => $ingredient->strength_unit,
-                'role' => $ingredient->role ?: 'active',
-                'additive_kind' => $ingredient->additive_kind,
-            ];
-        }
+    use App\Support\Pharmacy\MedicineStockQuery;
 
-        return is_array($ingredient) ? $ingredient : [];
-    };
-    $patientAge = $visit->patient?->age();
-    $isChild = $patientAge !== null && $patientAge < 18;
-    $patientWeight = is_array($record?->vital_signs ?? null) ? ($record->vital_signs['weight'] ?? null) : null;
+    $draft = $visit->prescriptions->first(fn ($rx) => $rx->isDraft())
+        ?? $visit->prescriptions->sortByDesc('id')->first();
+    $medicineIds = $visit->prescriptions
+        ->flatMap(fn ($rx) => $rx->items->pluck('medicine_id'))
+        ->merge($medicines->pluck('id'))
+        ->filter()
+        ->unique()
+        ->values()
+        ->all();
+    $stockMap = app(MedicineStockQuery::class)->availableByMedicines(
+        (int) $visit->tenant_id,
+        (int) $visit->branch_id,
+        $medicineIds,
+    );
+    $unitOptions = \App\Models\Medicine::UNITS;
     $ssIssues = \App\Support\Clinical\PrescriptionSatuSehatReadiness::forVisit($visit);
     $ssBlocking = \App\Support\Clinical\PrescriptionSatuSehatReadiness::blockingMessages($ssIssues);
     $ssWarnings = \App\Support\Clinical\PrescriptionSatuSehatReadiness::warningMessages($ssIssues);
+    $estimate = $visit->prescriptions->flatMap->items->sum(fn ($item) => $item->subtotal());
+    $canEditDraft = $writable && auth()->user()?->can('prescription.create');
+    $racikIndex = 0;
 @endphp
-        @if ($ssBlocking !== [] || $ssWarnings !== [])
-            <div class="alert {{ $ssBlocking !== [] ? 'alert-danger' : 'alert-warning' }} py-2 mb-3" role="status">
-                <div class="fw-semibold mb-1">Kesiapan pengiriman farmasi · SATUSEHAT</div>
-                @if ($ssBlocking !== [])
-                    <ul class="mb-1 ps-3">
-                        @foreach ($ssBlocking as $message)
-                            <li>{{ $message }}</li>
-                        @endforeach
-                    </ul>
-                    <p class="mb-0 small">Perbaiki item di atas sebelum kirim ke farmasi / selesaikan kunjungan.</p>
-                @endif
-                @if ($ssWarnings !== [])
-                    <ul class="mb-0 ps-3 {{ $ssBlocking !== [] ? 'mt-2' : '' }}">
-                        @foreach ($ssWarnings as $message)
-                            <li>{{ $message }}</li>
-                        @endforeach
-                    </ul>
-                @endif
-            </div>
-        @endif
-        @if ($isChild)
-            <div class="rx-child-note">
-                <span class="badge bg-info">Pasien anak</span>
-                <span>{{ $visit->patient?->ageLabel() }} · Berat {{ filled($patientWeight) ? $patientWeight.' kg' : 'belum diisi' }}</span>
-                <span class="rx-meta mb-0">Dosis ditentukan dokter, tidak otomatis dari berat badan.</span>
-            </div>
-        @endif
 
-        @forelse ($visit->prescriptions as $prescription)
-            <div class="plan-block rx-plan-block">
-                <div class="rx-plan-head">
-                    <strong>Resep #{{ $prescription->id }}</strong>
-                    <div class="rx-toolbar">
-                        <span class="{{ $prescription->status->badgeClass() }}">{{ $prescription->status->label() }}</span>
-                        @can('prescription.view')
-                            @if ($prescription->items->isNotEmpty())
-                                <a href="{{ route('care.prescription.pdf', [$visit, $prescription]) }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border" title="Cetak resep" aria-label="Cetak resep #{{ $prescription->id }}">
-                                    <i class="bx bx-printer me-1"></i>Cetak
-                                </a>
-                            @endif
-                        @endcan
-                        @can('prescription.create')
-                            @if ($writable && $prescription->isDraft() && $prescription->items->isNotEmpty())
-                                <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#rx-save-template-{{ $prescription->id }}" title="Simpan sebagai template" aria-label="Simpan sebagai template">
-                                    <i class="bx bx-bookmark-plus me-1"></i>Simpan sebagai template
-                                </button>
-                            @endif
-                        @endcan
-                    </div>
-                </div>
-                <x-table class="rx-table mb-0">
-                    <thead>
-                        <tr>
-                            <th>Obat</th>
-                            <th>Dosis</th>
-                            <th>Frekuensi</th>
-                            <th>Aturan pakai</th>
-                            <th>Qty</th>
-                            @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
-                                <th class="text-end">Aksi</th>
-                            @endif
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($prescription->items as $item)
-                            <tr>
-                                <td>
-                                    <div class="fw-semibold">{{ $item->label() }}</div>
-                                    @if ($item->medication_type)
-                                        <div class="rx-meta">{{ $item->medication_type->value }} · {{ $item->medication_type->label() }}</div>
-                                    @endif
-                                    @if ($item->medicine && ! filled($item->medicine->kfa_code))
-                                        <div class="rx-meta rx-meta--warn">Belum KFA — tidak ke SATUSEHAT</div>
-                                    @elseif ($item->medicine?->kfa_code)
+<div class="rx-editor" data-rx-editor
+     data-store="{{ route('care.prescription-item.store', $visit) }}"
+     data-template-apply-base="{{ url('/visits/'.$visit->id.'/care/prescription-templates') }}"
+     data-editable="{{ $canEditDraft ? '1' : '0' }}"
+     data-auto-draft="{{ $canEditDraft && $visit->prescriptions->every(fn ($rx) => $rx->items->isEmpty()) ? '1' : '0' }}"
+     autocomplete="off">
+    @if ($ssBlocking !== [] || $ssWarnings !== [])
+        <div class="alert {{ $ssBlocking !== [] ? 'alert-danger' : 'alert-warning' }} py-1 px-2 mb-0 small" role="status">
+            <strong>SATUSEHAT:</strong>
+            {{ implode(' · ', array_merge($ssBlocking, $ssWarnings)) }}
+        </div>
+    @endif
+
+    <div class="rx-toolbar-mini">
+        @can('prescription.view')
+            <a href="{{ route('care.prescriptions.pdf', $visit) }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border">
+                <i class="bx bx-printer me-1"></i>Cetak
+            </a>
+        @endcan
+        @if ($canEditDraft)
+            @if ($draft && $draft->isDraft() && $draft->items->isNotEmpty())
+                <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#rx-save-template-{{ $draft->id }}">
+                    # Simpan Sebagai Template
+                </button>
+            @endif
+            <select class="form-select form-select-sm" style="max-width:14rem" data-rx-template-select>
+                <option value="">Pilih Template Resep</option>
+                @foreach ($prescriptionTemplates ?? [] as $template)
+                    <option value="{{ $template->id }}">{{ $template->name }}</option>
+                @endforeach
+            </select>
+        @endif
+    </div>
+
+    <div class="table-responsive rx-editor-table-wrap">
+        <table class="table table-sm table-bordered rx-editor-table mb-0">
+            <thead>
+                <tr>
+                    <th>Barang</th>
+                    <th>Kekuatan</th>
+                    <th>Dosis</th>
+                    <th>Stok</th>
+                    <th>Satuan</th>
+                    <th>Signa (P/S/Sr/M)</th>
+                    <th>Waktu</th>
+                    <th>JHO</th>
+                    <th>Qty</th>
+                    <th>Keterangan</th>
+                    <th>Harga</th>
+                    <th>Subtotal</th>
+                    <th>Aksi</th>
+                </tr>
+            </thead>
+            <tbody data-rx-rows>
+                @forelse ($visit->prescriptions as $prescription)
+                    @foreach ($prescription->items as $item)
+                        @php
+                            $isCompound = $item->isCompound();
+                            if ($isCompound) {
+                                $racikIndex++;
+                            }
+                            $stock = $item->medicine_id ? ($stockMap[$item->medicine_id] ?? 0) : null;
+                            $rowEditable = $canEditDraft && $prescription->isDraft() && auth()->user()?->can('prescription.update');
+                        @endphp
+                        <tr class="rx-row {{ $isCompound ? 'rx-row--compound' : '' }}"
+                            data-rx-row
+                            data-item-id="{{ $item->id }}"
+                            data-kind="{{ $item->kind?->value }}"
+                            data-update="{{ route('care.prescription-item.update', [$visit, $item]) }}"
+                            data-destroy="{{ route('care.prescription-item.destroy', [$visit, $item]) }}">
+                            <td>
+                                @if ($isCompound)
+                                    <div class="fw-semibold">R/ RACIK-{{ str_pad((string) $racikIndex, 2, '0', STR_PAD_LEFT) }}</div>
+                                    <div class="rx-meta">{{ $item->label() }}</div>
+                                    @foreach ($item->ingredients as $ingredient)
+                                        <div class="rx-meta">· {{ $ingredient->compositionLabel() }}</div>
+                                    @endforeach
+                                    <input type="hidden" name="medicine_id" value="{{ $item->medicine_id }}">
+                                @elseif ($rowEditable)
+                                    <select class="form-select form-select-sm" name="medicine_id" data-rx-medicine-id data-rx-medicine-select autocomplete="off">
+                                        <option value="">Cari obat…</option>
+                                        @foreach ($medicines as $medicine)
+                                            <option value="{{ $medicine->id }}" @selected((int) $item->medicine_id === (int) $medicine->id)>{{ $medicine->name }}{{ ($strength = $medicine->strengthLabel()) ? ' · '.$strength : '' }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <div class="fw-semibold">{{ $item->medicine?->name ?: $item->label() }}</div>
+                                    @if ($item->medicine?->kfa_code)
                                         <div class="rx-meta">KFA {{ $item->medicine->kfa_code }}</div>
                                     @endif
-                                    @if ($item->isCompound())
-                                        @foreach ($item->ingredients as $ingredient)
-                                            <div class="rx-meta">{{ $ingredient->compositionLabel() }}</div>
-                                        @endforeach
-                                        @php
-                                            $missingKfa = $item->ingredients->contains(function ($ing) {
-                                                return $ing->medicine_id && ! filled(optional($ing->medicine)->kfa_code);
-                                            });
-                                        @endphp
-                                        @if ($missingKfa)
-                                            <div class="rx-meta rx-meta--warn">Bahan belum KFA — tidak ke SATUSEHAT</div>
-                                        @endif
-                                    @endif
-                                </td>
-                                <td>{{ $item->dosage ?: '-' }}</td>
-                                <td>{{ $item->frequency ?: '-' }}</td>
-                                <td>
-                                    {{ $item->duration ?: '-' }}
-                                    @if ($item->course)
-                                        <div class="rx-meta">{{ $item->course }}</div>
-                                    @endif
-                                </td>
-                                <td>{{ $item->quantity }}{{ $item->isCompound() ? ' bks' : '' }}</td>
-                                @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
-                                    <td class="text-end">
-                                        <div class="rx-actions justify-content-end">
-                                            <button type="button" class="btn btn-sm btn-soft-primary rx-icon-btn" data-toggle-panel="#rx-edit-{{ $item->id }}" title="Ubah" aria-label="Ubah item resep">
-                                                <i class="bx bx-edit"></i>
-                                            </button>
-                                            <form action="{{ route('care.prescription-item.destroy', [$visit, $item]) }}" method="POST" class="d-inline" data-rx-ajax data-rx-confirm="Hapus obat ini dari resep?">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button class="btn btn-sm btn-soft-danger rx-icon-btn" type="submit" title="Hapus" aria-label="Hapus item resep">
-                                                    <i class="bx bx-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </td>
+                                    <input type="hidden" name="medicine_id" value="{{ $item->medicine_id }}">
                                 @endif
-                            </tr>
-                            @if ($writable && $prescription->isDraft() && auth()->user()?->can('prescription.update'))
-                                @php
-                                    $editingThis = old('_form') === 'prescription-update' && (string) old('_item') === (string) $item->id;
-                                @endphp
-                                <tr id="rx-edit-{{ $item->id }}" @if (! $editingThis) hidden @endif>
-                                    <td colspan="6">
-                                        <form action="{{ route('care.prescription-item.update', [$visit, $item]) }}" method="POST" class="care-inline-form rx-inline-form rx-form" data-rx-ajax>
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="hidden" name="_form" value="prescription-update">
-                                            <input type="hidden" name="_item" value="{{ $item->id }}">
-                                            @if ($item->isCompound())
-                                                @php
-                                                    $editRows = $editingThis ? array_values(old('ingredients', [])) : $item->ingredients->map($ingredientState)->all();
-                                                @endphp
-                                                @include('clinical.care.partials.prescription-compound-fields', [
-                                                    'sigPrefix' => 'rx-edit-'.$item->id,
-                                                    'ingredientRows' => $editRows,
-                                                    'medicines' => $medicines,
-                                                    'medicationType' => $editingThis ? old('medication_type', $item->medication_type?->value) : $item->medication_type?->value,
-                                                    'dosage' => $editingThis ? old('dosage') : $item->dosage,
-                                                    'frequency' => $editingThis ? old('frequency') : $item->frequency,
-                                                    'duration' => $editingThis ? old('duration') : $item->duration,
-                                                    'course' => $editingThis ? old('course') : $item->course,
-                                                    'quantity' => $editingThis ? old('quantity') : $item->quantity,
-                                                ])
-                                            @else
-                                                <div class="row g-2">
-                                                    <div class="col-md-6 col-lg-3">
-                                                        <label class="form-label" for="rx-dosage-{{ $item->id }}">Dosis</label>
-                                                        @include('clinical.care.partials.prescription-sig', ['group' => 'doses', 'target' => 'rx-dosage-'.$item->id])
-                                                        <x-input name="dosage" :id="'rx-dosage-'.$item->id" label="" :value="$editingThis ? old('dosage') : $item->dosage" required />
-                                                    </div>
-                                                    <div class="col-md-6 col-lg-3">
-                                                        <label class="form-label" for="rx-frequency-{{ $item->id }}">Frekuensi</label>
-                                                        @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'target' => 'rx-frequency-'.$item->id])
-                                                        <x-input name="frequency" :id="'rx-frequency-'.$item->id" label="" :value="$editingThis ? old('frequency') : $item->frequency" required />
-                                                    </div>
-                                                    <div class="col-md-6 col-lg-3">
-                                                        <label class="form-label" for="rx-duration-{{ $item->id }}">Aturan pakai</label>
-                                                        @include('clinical.care.partials.prescription-sig', ['group' => 'instructions', 'target' => 'rx-duration-'.$item->id])
-                                                        <x-input name="duration" :id="'rx-duration-'.$item->id" label="" :value="$editingThis ? old('duration') : $item->duration" required />
-                                                    </div>
-                                                    <div class="col-6 col-md-3 col-lg-2">
-                                                        <label class="form-label" for="rx-course-{{ $item->id }}">Durasi</label>
-                                                        @include('clinical.care.partials.prescription-sig', ['group' => 'courses', 'target' => 'rx-course-'.$item->id])
-                                                        <x-input name="course" :id="'rx-course-'.$item->id" label="" :value="$editingThis ? old('course') : $item->course" />
-                                                    </div>
-                                                    <div class="col-6 col-md-3 col-lg-1">
-                                                        <x-input name="quantity" type="number" min="1" :id="'rx-qty-'.$item->id" label="Qty" :value="$editingThis ? old('quantity') : $item->quantity" required />
-                                                    </div>
-                                                </div>
-                                            @endif
-                                            <div class="rx-toolbar justify-content-end mt-1">
-                                                <button type="submit" class="btn btn-sm btn-primary" title="Simpan" aria-label="Simpan perubahan item">
-                                                    <i class="bx bx-save me-1"></i>Simpan
-                                                </button>
-                                            </div>
-                                        </form>
-                                    </td>
-                                </tr>
+                                <input type="hidden" name="medication_type" value="{{ $item->medication_type?->value }}">
+                            </td>
+                            <td class="text-nowrap" data-rx-strength>{{ $item->medicine?->strengthLabel() ?: '—' }}</td>
+                            <td style="min-width:6rem">
+                                @if ($rowEditable)
+                                    <div class="rx-sig-field">
+                                        <input class="form-control form-control-sm" name="dosage" value="{{ $item->dosage }}" data-rx-field autocomplete="off">
+                                        @include('clinical.care.partials.prescription-sig', [
+                                            'group' => $isCompound ? 'forms' : 'doses',
+                                            'name' => 'dosage',
+                                            'compact' => true,
+                                        ])
+                                    </div>
+                                @else
+                                    {{ $item->dosage ?: '—' }}
+                                @endif
+                            </td>
+                            <td class="text-center" data-rx-stock>
+                                @if ($stock === null)
+                                    —
+                                @else
+                                    <span class="badge {{ $stock > 0 ? 'bg-success' : 'bg-danger' }}">{{ $stock }}</span>
+                                @endif
+                            </td>
+                            <td style="min-width:6rem">
+                                @if ($rowEditable && ! $isCompound)
+                                    <select class="form-select form-select-sm" name="unit" data-rx-field>
+                                        <option value="">—</option>
+                                        @foreach ($unitOptions as $value => $label)
+                                            <option value="{{ $value }}" @selected(($item->unit ?: $item->medicine?->unit) === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    {{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—') }}
+                                @endif
+                            </td>
+                            <td>
+                                @if ($rowEditable)
+                                    <div class="rx-sig-field">
+                                        <div class="rx-signa">
+                                            <input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" placeholder="P" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" placeholder="S" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_sr" value="{{ $item->signa_sr }}" placeholder="Sr" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_m" value="{{ $item->signa_m }}" placeholder="M" data-rx-field data-rx-signa autocomplete="off">
+                                        </div>
+                                        <input type="hidden" name="frequency" value="{{ $item->frequency }}" data-rx-frequency>
+                                        @include('clinical.care.partials.prescription-sig', [
+                                            'group' => 'frequencies',
+                                            'name' => 'frequency',
+                                            'mode' => 'signa',
+                                            'compact' => true,
+                                        ])
+                                    </div>
+                                @else
+                                    {{ $item->signaLine() ?: ($item->frequency ?: '—') }}
+                                @endif
+                            </td>
+                            <td style="min-width:5rem">
+                                @if ($rowEditable)
+                                    <div class="rx-sig-field">
+                                        <input class="form-control form-control-sm" name="waktu" value="{{ $item->waktu }}" data-rx-field autocomplete="off">
+                                        @include('clinical.care.partials.prescription-sig', [
+                                            'group' => 'instructions',
+                                            'name' => 'waktu',
+                                            'compact' => true,
+                                        ])
+                                    </div>
+                                @else
+                                    {{ $item->waktu ?: '—' }}
+                                @endif
+                            </td>
+                            <td style="min-width:3.5rem">
+                                @if ($rowEditable)
+                                    <div class="rx-sig-field">
+                                        <input class="form-control form-control-sm" name="jho" type="number" min="1" value="{{ $item->jho }}" data-rx-field autocomplete="off">
+                                        @include('clinical.care.partials.prescription-sig', [
+                                            'group' => 'courses',
+                                            'name' => 'jho',
+                                            'compact' => true,
+                                        ])
+                                    </div>
+                                @else
+                                    {{ $item->jho ?: '—' }}
+                                @endif
+                            </td>
+                            <td style="min-width:3.5rem">
+                                @if ($rowEditable)
+                                    <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="{{ $item->quantity }}" data-rx-field data-rx-qty>
+                                @else
+                                    {{ $item->quantity }}
+                                @endif
+                            </td>
+                            <td style="min-width:7rem">
+                                @if ($rowEditable)
+                                    <input class="form-control form-control-sm" name="notes" value="{{ $item->notes }}" data-rx-field>
+                                    <input type="hidden" name="duration" value="{{ $item->duration }}">
+                                    <input type="hidden" name="course" value="{{ $item->course }}">
+                                @else
+                                    {{ $item->notes ?: ($item->duration ?: '—') }}
+                                @endif
+                            </td>
+                            <td class="text-end text-nowrap" data-rx-price data-raw="{{ (float) ($item->unit_price ?? 0) }}">{{ number_format((float) ($item->unit_price ?? 0), 2, ',', '.') }}</td>
+                            <td class="text-end text-nowrap" data-rx-subtotal>{{ number_format($item->subtotal(), 2, ',', '.') }}</td>
+                            <td class="text-center text-nowrap">
+                                @if ($rowEditable)
+                                    <button type="button" class="btn btn-sm btn-danger" data-rx-delete title="Hapus">
+                                        <i class="bx bx-trash"></i>
+                                    </button>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                @empty
+                    @unless ($canEditDraft)
+                        <tr data-rx-empty>
+                            <td colspan="13" class="text-muted text-center py-2">Belum ada item resep.</td>
+                        </tr>
+                    @endunless
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+
+    @if ($canEditDraft)
+        <div class="rx-editor-actions">
+            <button type="button" class="btn btn-sm btn-primary" data-rx-add-ready>+ Non Racik</button>
+            <button type="button" class="btn btn-sm btn-secondary" data-rx-add-compound>+ Racik</button>
+        </div>
+
+        <template id="rx-draft-ready-template">
+            <tr class="rx-row rx-row--draft" data-rx-draft data-kind="ready">
+                <td>
+                    <select class="form-select form-select-sm" name="medicine_id" data-rx-medicine-id data-rx-medicine-select autocomplete="off">
+                        <option value="">Cari obat…</option>
+                        @foreach ($medicines as $medicine)
+                            <option value="{{ $medicine->id }}">{{ $medicine->name }}{{ ($strength = $medicine->strengthLabel()) ? ' · '.$strength : '' }}</option>
+                        @endforeach
+                    </select>
+                    <input type="hidden" name="medication_type" value="NC">
+                </td>
+                <td data-rx-strength>—</td>
+                <td>
+                    <div class="rx-sig-field">
+                        <input class="form-control form-control-sm" name="dosage" data-rx-field placeholder="cth: 1 tab" autocomplete="off">
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'doses', 'name' => 'dosage', 'compact' => true])
+                    </div>
+                </td>
+                <td class="text-center" data-rx-stock>—</td>
+                <td>
+                    <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
+                        <option value="">—</option>
+                        @foreach ($unitOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </td>
+                <td>
+                    <div class="rx-sig-field">
+                        <div class="rx-signa">
+                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" data-rx-field data-rx-signa autocomplete="off">
+                        </div>
+                        <input type="hidden" name="frequency" data-rx-frequency>
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
+                    </div>
+                </td>
+                <td>
+                    <div class="rx-sig-field">
+                        <input class="form-control form-control-sm" name="waktu" data-rx-field autocomplete="off">
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'instructions', 'name' => 'waktu', 'compact' => true])
+                    </div>
+                </td>
+                <td>
+                    <div class="rx-sig-field">
+                        <input class="form-control form-control-sm" name="jho" type="number" min="1" data-rx-field autocomplete="off">
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'courses', 'name' => 'jho', 'compact' => true])
+                    </div>
+                </td>
+                <td><input class="form-control form-control-sm" name="quantity" type="number" min="1" value="1" data-rx-field data-rx-qty></td>
+                <td>
+                    <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Keterangan">
+                </td>
+                <td class="text-end" data-rx-price>0,00</td>
+                <td class="text-end" data-rx-subtotal>0,00</td>
+                <td class="text-center text-nowrap">
+                    <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal"><i class="bx bx-x"></i></button>
+                </td>
+            </tr>
+        </template>
+
+        <template id="rx-draft-compound-template">
+            <tr class="rx-row rx-row--draft rx-row--compound" data-rx-draft data-kind="racikan">
+                <td>
+                    <div class="fw-semibold mb-1">R/ RACIK <span data-rx-racik-label></span></div>
+                    <input type="hidden" name="kind" value="racikan">
+                    <input type="hidden" name="medication_type" value="EP">
+                    <div class="rx-draft-ingredients" data-rx-ingredients></div>
+                    <button type="button" class="btn btn-sm btn-light border mt-1" data-rx-add-ingredient>+ Bahan</button>
+                </td>
+                <td>—</td>
+                <td>
+                    <div class="rx-sig-field">
+                        <input class="form-control form-control-sm" name="dosage" data-rx-field placeholder="bentuk sediaan" autocomplete="off">
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'forms', 'name' => 'dosage', 'compact' => true])
+                    </div>
+                </td>
+                <td class="text-center">—</td>
+                <td>
+                    <select class="form-select form-select-sm" name="unit" data-rx-field>
+                        <option value="">—</option>
+                        <option value="bungkus">Bungkus/puyer</option>
+                        @foreach ($unitOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </td>
+                <td>
+                    <div class="rx-sig-field">
+                        <div class="rx-signa">
+                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" data-rx-field data-rx-signa autocomplete="off">
+                        </div>
+                        <input type="hidden" name="frequency" data-rx-frequency>
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
+                    </div>
+                </td>
+                <td>
+                    <div class="rx-sig-field">
+                        <input class="form-control form-control-sm" name="waktu" data-rx-field autocomplete="off">
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'instructions', 'name' => 'waktu', 'compact' => true])
+                    </div>
+                </td>
+                <td>
+                    <div class="rx-sig-field">
+                        <input class="form-control form-control-sm" name="jho" type="number" min="1" data-rx-field autocomplete="off">
+                        @include('clinical.care.partials.prescription-sig', ['group' => 'courses', 'name' => 'jho', 'compact' => true])
+                    </div>
+                </td>
+                <td><input class="form-control form-control-sm" name="quantity" type="number" min="1" value="1" data-rx-field data-rx-qty></td>
+                <td>
+                    <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Indikasi / ket.">
+                </td>
+                <td class="text-end" data-rx-price>0,00</td>
+                <td class="text-end" data-rx-subtotal>0,00</td>
+                <td class="text-center text-nowrap">
+                    <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal"><i class="bx bx-x"></i></button>
+                </td>
+            </tr>
+        </template>
+
+        <template id="rx-draft-ingredient-template">
+            <div class="rx-draft-ingredient" data-rx-ingredient>
+                <select class="form-select form-select-sm" data-ing-medicine-id data-rx-medicine-select data-rx-ing-medicine-select autocomplete="off">
+                    <option value="">Pilih bahan stok…</option>
+                    @foreach ($medicines as $medicine)
+                        <option value="{{ $medicine->id }}">{{ $medicine->catalogLabel() }}</option>
+                    @endforeach
+                </select>
+                <input type="text" class="form-control form-control-sm" data-ing-name placeholder="Nama bahan" maxlength="120" autocomplete="off">
+                <input type="number" class="form-control form-control-sm" data-ing-qty min="1" value="1" title="Qty bahan">
+                <button type="button" class="btn btn-sm btn-soft-danger" data-rx-remove-ingredient>×</button>
+            </div>
+        </template>
+    @endif
+
+    <div class="rx-editor-footer">
+        <div class="rx-estimate">
+            Estimasi Biaya:
+            <strong data-rx-estimate>Rp {{ number_format($estimate, 2, ',', '.') }}</strong>
+        </div>
+    </div>
+
+    @can('prescription.create')
+        @if ($canEditDraft && $draft && $draft->isDraft() && $draft->items->isNotEmpty())
+            @php
+                $prescription = $draft;
+                $saveFormKey = 'template-from-'.$prescription->id;
+                $reopenSave = old('_form') === $saveFormKey;
+                $ingredientState = function ($ingredient) {
+                    if ($ingredient instanceof \App\Models\PrescriptionCompoundItem) {
+                        return [
+                            'name' => $ingredient->name,
+                            'medicine_id' => $ingredient->medicine_id,
+                            'quantity' => $ingredient->quantity,
+                            'per_dose_quantity' => $ingredient->per_dose_quantity,
+                            'unit' => $ingredient->unit,
+                            'strength_value' => $ingredient->strength_value,
+                            'strength_unit' => $ingredient->strength_unit,
+                            'role' => $ingredient->role ?: 'active',
+                            'additive_kind' => $ingredient->additive_kind,
+                        ];
+                    }
+
+                    return is_array($ingredient) ? $ingredient : [];
+                };
+                $saveSources = $reopenSave
+                    ? collect(old('items', []))->values()
+                    : $prescription->items->values();
+            @endphp
+            <x-modal id="rx-save-template-{{ $prescription->id }}" title="Simpan sebagai template" size="modal-xl" class="care-modal" :data-show-on-load="$reopenSave ? '' : null">
+                <p class="form-text mb-2">Beri nama template dari isi resep draft ini.</p>
+                <form action="{{ route('care.prescription-templates.store', $visit) }}" method="POST" class="rx-form" data-template-editor data-rx-ajax>
+                    @csrf
+                    <input type="hidden" name="_form" value="{{ $saveFormKey }}">
+                    <x-input name="name" label="Nama template" :value="$reopenSave ? old('name') : ''" placeholder="Resep sakit gigi" required />
+                    <div data-template-rows>
+                        @foreach ($saveSources as $index => $source)
+                            @php
+                                $isModel = $source instanceof \App\Models\PrescriptionItem;
+                                $kind = $isModel ? ($source->kind?->value ?? 'ready') : ($source['kind'] ?? 'ready');
+                            @endphp
+                            @if ($kind === 'racikan')
+                                @include('clinical.care.partials.prescription-template-compound-row', [
+                                    'index' => $index,
+                                    'prefix' => 'tpl-cmp-rx-'.$prescription->id.'-'.$index,
+                                    'row' => $isModel ? [
+                                        'medication_type' => $source->medication_type?->value,
+                                        'dosage' => $source->dosage,
+                                        'frequency' => $source->frequency,
+                                        'duration' => $source->duration,
+                                        'course' => $source->course,
+                                        'quantity' => $source->quantity,
+                                        'ingredients' => $source->ingredients->map(fn ($ingredient) => $ingredient->only(['name', 'medicine_id', 'unit', 'role', 'additive_kind', 'quantity', 'per_dose_quantity', 'strength_value', 'strength_unit']))->all(),
+                                    ] : $source,
+                                    'medicines' => $medicines,
+                                ])
+                            @else
+                                @include('clinical.care.partials.prescription-template-row', [
+                                    'index' => $index,
+                                    'prefix' => 'tpl-rx-'.$prescription->id.'-'.$index,
+                                    'row' => $isModel ? [
+                                        'medicine_id' => $source->medicine_id,
+                                        'medicine_label' => $source->medicine?->catalogLabel(),
+                                        'dosage' => $source->dosage,
+                                        'frequency' => $source->frequency,
+                                        'duration' => $source->duration,
+                                        'course' => $source->course,
+                                        'unit' => $source->medicine?->unitLabel(),
+                                        'quantity' => $source->quantity,
+                                    ] : $source,
+                                    'medicines' => $medicines,
+                                ])
                             @endif
                         @endforeach
-                    </tbody>
-                </x-table>
-                @if ($writable && $prescription->isDraft())
-                    <p class="rx-meta mt-2 mb-0">Draft · dikirim ke farmasi saat Simpan &amp; Selesaikan Kunjungan.</p>
-                @endif
-                @can('prescription.create')
-                    @if ($writable && $prescription->isDraft() && $prescription->items->isNotEmpty())
-                        @php
-                            $saveFormKey = 'template-from-'.$prescription->id;
-                            $reopenSave = old('_form') === $saveFormKey;
-                            $saveSources = $reopenSave
-                                ? collect(old('items', []))->values()
-                                : $prescription->items->values();
-                        @endphp
-                        <x-modal id="rx-save-template-{{ $prescription->id }}" title="Simpan sebagai template" size="modal-xl" class="care-modal" :data-show-on-load="$reopenSave ? '' : null">
-                            <p class="form-text mb-2">Obat resep ini sudah diisi. Beri nama template, lalu simpan. Racikan ikut tersimpan.</p>
-                            <form action="{{ route('care.prescription-templates.store', $visit) }}" method="POST" class="rx-form" data-template-editor data-rx-ajax>
-                                @csrf
-                                <input type="hidden" name="_form" value="{{ $saveFormKey }}">
-                                <x-input name="name" label="Nama template" :value="$reopenSave ? old('name') : ''" placeholder="Resep sakit gigi" required />
-                                <div data-template-rows>
-                                    @foreach ($saveSources as $index => $source)
-                                        @php
-                                            $isModel = $source instanceof \App\Models\PrescriptionItem;
-                                            $kind = $isModel ? ($source->kind?->value ?? 'ready') : ($source['kind'] ?? 'ready');
-                                        @endphp
-                                        @if ($kind === 'racikan')
-                                            @include('clinical.care.partials.prescription-template-compound-row', [
-                                                'index' => $index,
-                                                'prefix' => 'tpl-cmp-rx-'.$prescription->id.'-'.$index,
-                                                'row' => $isModel ? [
-                                                    'medication_type' => $source->medication_type?->value,
-                                                    'dosage' => $source->dosage,
-                                                    'frequency' => $source->frequency,
-                                                    'duration' => $source->duration,
-                                                    'course' => $source->course,
-                                                    'quantity' => $source->quantity,
-                                                    'ingredients' => $source->ingredients->map(fn ($ingredient) => $ingredient->only(['name', 'medicine_id', 'unit', 'role', 'additive_kind', 'quantity', 'per_dose_quantity', 'strength_value', 'strength_unit']))->all(),
-                                                ] : $source,
-                                                'medicines' => $medicines,
-                                            ])
-                                        @else
-                                            @include('clinical.care.partials.prescription-template-row', [
-                                                'index' => $index,
-                                                'prefix' => 'tpl-rx-'.$prescription->id.'-'.$index,
-                                                'row' => $isModel ? [
-                                                    'medicine_id' => $source->medicine_id,
-                                                    'medicine_label' => $source->medicine?->catalogLabel(),
-                                                    'dosage' => $source->dosage,
-                                                    'frequency' => $source->frequency,
-                                                    'duration' => $source->duration,
-                                                    'course' => $source->course,
-                                                    'unit' => $source->medicine?->unitLabel(),
-                                                    'quantity' => $source->quantity,
-                                                ] : $source,
-                                                'medicines' => $medicines,
-                                            ])
-                                        @endif
-                                    @endforeach
-                                </div>
-                                <template data-template-row-template>
-                                    @include('clinical.care.partials.prescription-template-row', [
-                                        'index' => '__i__',
-                                        'prefix' => 'tpl-rx-'.$prescription->id.'-__i__',
-                                        'row' => ['quantity' => 1],
-                                        'medicines' => $medicines,
-                                    ])
-                                </template>
-                                <template data-template-compound-template>
-                                    @include('clinical.care.partials.prescription-template-compound-row', [
-                                        'index' => '__i__',
-                                        'prefix' => 'tpl-cmp-rx-'.$prescription->id.'-__i__',
-                                        'row' => [
-                                            'medication_type' => 'EP',
-                                            'quantity' => 1,
-                                            'ingredients' => [
-                                                ['role' => 'active', 'quantity' => 1],
-                                                ['role' => 'active', 'quantity' => 1],
-                                            ],
-                                        ],
-                                        'medicines' => $medicines,
-                                    ])
-                                </template>
-                                <div class="rx-toolbar justify-content-between mt-1">
-                                    <div class="rx-toolbar">
-                                        <button type="button" class="btn btn-sm btn-light border" data-add-template-row title="Tambah obat" aria-label="Tambah obat ke template">
-                                            <i class="bx bx-plus me-1"></i>Tambah obat
-                                        </button>
-                                        <button type="button" class="btn btn-sm btn-light border" data-add-template-compound title="Tambah racikan" aria-label="Tambah racikan ke template">
-                                            <i class="bx bx-capsule me-1"></i>Tambah racikan
-                                        </button>
-                                    </div>
-                                    <button type="submit" class="btn btn-sm btn-primary" title="Simpan template" aria-label="Simpan template">
-                                        <i class="bx bx-save me-1"></i>Simpan
-                                    </button>
-                                </div>
-                            </form>
-                        </x-modal>
-                    @endif
-                @endcan
-            </div>
-        @empty
-            <p class="text-muted">Tidak ada resep.</p>
-        @endforelse
+                    </div>
+                    <div class="text-end mt-2">
+                        <button type="submit" class="btn btn-sm btn-primary"><i class="bx bx-save me-1"></i>Simpan</button>
+                    </div>
+                </form>
+            </x-modal>
+        @endif
+    @endcan
+</div>

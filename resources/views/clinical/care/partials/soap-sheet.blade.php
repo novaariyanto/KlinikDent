@@ -108,7 +108,22 @@
     });
     $canEditDiagnosis = $writable && auth()->user()?->can('diagnosis.manage');
     $isFollowUp = ($assessmentContext['kind'] ?? $record?->assessment_kind) === \App\Enums\AssessmentKind::FollowUp;
-    $soapDiagnosis = $visit->diagnoses->sortByDesc('id')->first();
+    $primaryDiagnosis = $visit->diagnoses->first(
+        fn ($diagnosis) => $diagnosis->rank === \App\Enums\DiagnosisRank::Primary
+    );
+    $secondaryDiagnoses = $visit->diagnoses
+        ->filter(fn ($diagnosis) => $diagnosis->rank === \App\Enums\DiagnosisRank::Secondary)
+        ->values();
+    if (! $primaryDiagnosis) {
+        $legacyDiagnosis = $visit->diagnoses->sortBy('id')->first();
+        if ($legacyDiagnosis) {
+            $primaryDiagnosis = $legacyDiagnosis;
+            $secondaryDiagnoses = $visit->diagnoses
+                ->reject(fn ($diagnosis) => (int) $diagnosis->id === (int) $legacyDiagnosis->id)
+                ->values();
+        }
+    }
+    $soapDiagnosis = $primaryDiagnosis;
 @endphp
 
 <section class="care-section" id="soap">
@@ -185,19 +200,68 @@
                             <div class="soap-sheet__fill">
                                 <div class="soap-icd" id="soap-icd" data-store="{{ route('care.diagnosis.store', $visit) }}" data-search="{{ route('care.diagnosis.search', $visit) }}">
                                     @if ($canEditDiagnosis)
-                                        <div class="soap-icd__one">
-                                        <select class="form-select" data-icd-one data-search="{{ route('care.diagnosis.search', $visit) }}" data-store="{{ route('care.diagnosis.store', $visit) }}" @if ($soapDiagnosis) data-update="{{ route('care.diagnosis.update', [$visit, $soapDiagnosis]) }}" data-destroy="{{ route('care.diagnosis.destroy', [$visit, $soapDiagnosis]) }}" @endif>
-                                            <option value=""></option>
-                                            @if ($soapDiagnosis && filled($soapDiagnosis->code))
-                                                <option value="{{ $soapDiagnosis->code }}" selected data-description="{{ $soapDiagnosis->description }}">{{ $soapDiagnosis->code }} — {{ $soapDiagnosis->description }}</option>
-                                            @elseif ($soapDiagnosis)
-                                                <option value="id:{{ $soapDiagnosis->id }}" selected data-description="{{ $soapDiagnosis->description }}">{{ $soapDiagnosis->description }}</option>
-                                            @endif
-                                        </select>
-                                        <button type="button" class="btn btn-sm btn-soft-secondary" data-icd-reset @unless ($soapDiagnosis) hidden @endunless>Reset</button>
+                                        <span class="soap-icd__label">Diagnosa utama</span>
+                                        <div class="soap-icd__one soap-icd__row">
+                                            <select class="form-select" data-icd-one data-rank="primary" data-search="{{ route('care.diagnosis.search', $visit) }}" data-store="{{ route('care.diagnosis.store', $visit) }}" @if ($soapDiagnosis) data-update="{{ route('care.diagnosis.update', [$visit, $soapDiagnosis]) }}" data-destroy="{{ route('care.diagnosis.destroy', [$visit, $soapDiagnosis]) }}" @endif>
+                                                <option value=""></option>
+                                                @if ($soapDiagnosis && filled($soapDiagnosis->code))
+                                                    <option value="{{ $soapDiagnosis->code }}" selected data-description="{{ $soapDiagnosis->description }}">{{ $soapDiagnosis->code }} — {{ $soapDiagnosis->description }}</option>
+                                                @elseif ($soapDiagnosis)
+                                                    <option value="id:{{ $soapDiagnosis->id }}" selected data-description="{{ $soapDiagnosis->description }}">{{ $soapDiagnosis->description }}</option>
+                                                @endif
+                                            </select>
+                                            <button type="button" class="btn btn-sm btn-soft-secondary" data-icd-reset @unless ($soapDiagnosis) hidden @endunless>Reset</button>
                                         </div>
+
+                                        <span class="soap-icd__label mt-2">Diagnosa sekunder</span>
+                                        <div class="soap-icd__secondary" data-icd-secondary-list>
+                                            @forelse ($secondaryDiagnoses as $secondary)
+                                                <div class="soap-icd__row" data-soap-icd-row>
+                                                    <select
+                                                        class="form-select"
+                                                        data-icd-select
+                                                        data-icd-url="{{ route('care.diagnosis.search', $visit) }}"
+                                                        data-update="{{ route('care.diagnosis.update', [$visit, $secondary]) }}"
+                                                        data-destroy="{{ route('care.diagnosis.destroy', [$visit, $secondary]) }}"
+                                                    >
+                                                        <option value=""></option>
+                                                        @if (filled($secondary->code))
+                                                            <option value="{{ $secondary->code }}" selected data-description="{{ $secondary->description }}">{{ $secondary->code }} — {{ $secondary->description }}</option>
+                                                        @else
+                                                            <option value="id:{{ $secondary->id }}" selected data-description="{{ $secondary->description }}">{{ $secondary->description }}</option>
+                                                        @endif
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-soft-danger" data-icd-secondary-remove title="Hapus">×</button>
+                                                </div>
+                                            @empty
+                                                <div class="soap-icd__row" data-soap-icd-row>
+                                                    <select class="form-select" data-icd-select data-icd-url="{{ route('care.diagnosis.search', $visit) }}">
+                                                        <option value=""></option>
+                                                    </select>
+                                                    <button type="button" class="btn btn-sm btn-soft-danger" data-icd-secondary-remove title="Hapus" hidden>×</button>
+                                                </div>
+                                            @endforelse
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-soft-primary mt-1" data-icd-secondary-add>+ Diagnosa sekunder</button>
+                                        <template id="soap-icd-secondary-template">
+                                            <div class="soap-icd__row" data-soap-icd-row>
+                                                <select class="form-select" data-icd-select data-icd-url="{{ route('care.diagnosis.search', $visit) }}">
+                                                    <option value=""></option>
+                                                </select>
+                                                <button type="button" class="btn btn-sm btn-soft-danger" data-icd-secondary-remove title="Hapus">×</button>
+                                            </div>
+                                        </template>
                                     @else
-                                        <span>{{ $soapDiagnosis ? trim((filled($soapDiagnosis->code) ? $soapDiagnosis->code.' — ' : '').$soapDiagnosis->description) : '—' }}</span>
+                                        @php
+                                            $dxLines = collect([$soapDiagnosis])->filter()->merge($secondaryDiagnoses)->unique('id')->map(function ($diagnosis) {
+                                                return trim((filled($diagnosis->code) ? $diagnosis->code.' — ' : '').$diagnosis->description);
+                                            })->filter()->values();
+                                        @endphp
+                                        @forelse ($dxLines as $line)
+                                            <div>{{ $line }}</div>
+                                        @empty
+                                            <span>—</span>
+                                        @endforelse
                                     @endif
                                 </div>
                                 @if ($isFollowUp)

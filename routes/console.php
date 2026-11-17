@@ -2,6 +2,7 @@
 
 use App\Console\Commands\BackupDatabase;
 use App\Console\Commands\DispatchWhatsAppAutomations;
+use App\Console\Commands\ExpireAddonSubscriptions;
 use App\Console\Commands\ExpireTenantSubscriptions;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -12,5 +13,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command(ExpireTenantSubscriptions::class)->dailyAt('01:15');
+Schedule::command(ExpireAddonSubscriptions::class)->dailyAt('01:20');
 Schedule::command(BackupDatabase::class)->dailyAt('02:30');
 Schedule::command(DispatchWhatsAppAutomations::class)->everyMinute()->withoutOverlapping();

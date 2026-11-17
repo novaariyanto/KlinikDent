@@ -17,15 +17,30 @@ class PrescriptionItemWriter
     {
         $ingredients = is_array($data['ingredients'] ?? null) ? $data['ingredients'] : [];
 
+        $medicineId = $data['medicine_id'] ?? null;
+        $medicine = $medicineId ? Medicine::query()->find($medicineId) : null;
+        $unitPrice = array_key_exists('unit_price', $data) && $data['unit_price'] !== null && $data['unit_price'] !== ''
+            ? $data['unit_price']
+            : $medicine?->base_price;
+
         $item = $prescription->items()->create([
             'kind' => $data['kind'] ?? PrescriptionItemKind::Ready->value,
             'medication_type' => $data['medication_type'] ?? MedicationTypeCode::NonCompound->value,
-            'medicine_id' => $data['medicine_id'] ?? null,
+            'medicine_id' => $medicineId,
             'dosage' => $data['dosage'] ?? null,
             'frequency' => $data['frequency'] ?? null,
             'duration' => $data['duration'] ?? null,
             'course' => $data['course'] ?? null,
             'quantity' => $data['quantity'] ?? 1,
+            'signa_p' => $data['signa_p'] ?? null,
+            'signa_s' => $data['signa_s'] ?? null,
+            'signa_sr' => $data['signa_sr'] ?? null,
+            'signa_m' => $data['signa_m'] ?? null,
+            'waktu' => $data['waktu'] ?? null,
+            'jho' => $data['jho'] ?? null,
+            'unit' => $data['unit'] ?? $medicine?->unit,
+            'notes' => $data['notes'] ?? null,
+            'unit_price' => $unitPrice,
         ]);
 
         $this->addIngredients($item, $ingredients);

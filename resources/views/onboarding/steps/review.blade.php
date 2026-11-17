@@ -13,10 +13,11 @@
         <div class="col-md-6"><strong>Layanan</strong><div>{{ $summary['services'] ?: 'Belum dikonfigurasi' }}</div></div>
         <div class="col-md-6"><strong>Obat</strong><div>{{ $summary['medicines'] ?: 'Belum dikonfigurasi' }}</div></div>
         <div class="col-md-6">
-            <strong>Integrasi</strong>
+            <strong>Integrasi & Add-on</strong>
             <div>
                 SATUSEHAT: {{ $summary['satusehat'] ? 'Terkonfigurasi' : 'Dilewati (opsional)' }}<br>
-                BPJS: {{ $summary['bpjs'] ? 'Terkonfigurasi' : 'Dilewati (opsional)' }}
+                BPJS: {{ $summary['bpjs'] ? 'Terkonfigurasi' : 'Dilewati (opsional)' }}<br>
+                WhatsApp Add-on: {{ ! empty($summary['whatsapp_addon']) ? 'Aktif' : 'Belum aktif (opsional)' }}
             </div>
         </div>
     </div>

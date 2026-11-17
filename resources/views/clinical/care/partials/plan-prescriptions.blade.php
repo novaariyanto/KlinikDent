@@ -8,35 +8,7 @@
     $templateRows = $reopenTemplate ? array_values(old('items', [])) : [['quantity' => 1]];
 @endphp
 <section class="care-section rx-compact{{ $embedded ? ' care-section--embedded' : '' }}" id="resep">
-    <div class="{{ $embedded ? 'rx-toolbar justify-content-end mb-2' : 'care-section__head d-flex justify-content-between align-items-start gap-2' }}">
-        @unless ($embedded)
-        <div>
-            <h5 class="care-section__title">Resep</h5>
-            <p class="care-section__hint">Draft bisa diubah. Resep dikirim ke farmasi saat kunjungan diselesaikan (harus lengkap SIG + tipe NC/EP/SD; KFA agar ikut SATUSEHAT). Stok belum dipotong.</p>
-        </div>
-        @endunless
-        <div class="rx-toolbar">
-            @can('prescription.view')
-                <a href="{{ route('care.prescriptions.pdf', $visit) }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border" title="Cetak resep" aria-label="Cetak resep" id="rx-print-all">
-                    <i class="bx bx-printer me-1"></i>Cetak resep
-                </a>
-            @endcan
-            @can('prescription.create')
-                @if ($writable)
-                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#rx-create-modal" title="Tambah obat" aria-label="Tambah obat">
-                        <i class="bx bx-plus me-1"></i>Tambah obat
-                    </button>
-                    <button type="button" class="btn btn-sm btn-secondary" data-bs-toggle="modal" data-bs-target="#rx-compound-modal" title="Tambah racikan" aria-label="Tambah racikan">
-                        <i class="bx bx-capsule me-1"></i>Tambah racikan
-                    </button>
-                    <button type="button" class="btn btn-sm btn-light border" data-bs-toggle="modal" data-bs-target="#rx-template-modal" title="Template resep" aria-label="Template resep">
-                        <i class="bx bx-copy me-1"></i>Template resep
-                    </button>
-                @endif
-            @endcan
-        </div>
-    </div>
-    <div class="care-section__body">
+    <div class="care-section__body p-0">
         <div id="rx-list">
             @include('clinical.care.partials.plan-prescriptions-list')
         </div>
@@ -191,7 +163,26 @@
                     </x-slot:footer>
                 </x-modal>
 
-                <script type="application/json" id="rx-medicine-catalog">@json($medicines->map(fn ($medicine) => ['id' => $medicine->id, 'label' => $medicine->catalogLabel(), 'unit' => $medicine->unitLabel()])->values())</script>
+                @php
+                    $rxCatalogStock = app(\App\Support\Pharmacy\MedicineStockQuery::class)->availableByMedicines(
+                        (int) $visit->tenant_id,
+                        (int) $visit->branch_id,
+                        $medicines->pluck('id')->all(),
+                    );
+                    $rxMedicineCatalog = $medicines->map(function ($medicine) use ($rxCatalogStock) {
+                        return [
+                            'id' => $medicine->id,
+                            'label' => $medicine->catalogLabel(),
+                            'name' => $medicine->name,
+                            'unit' => $medicine->unit,
+                            'unit_label' => $medicine->unitLabel(),
+                            'strength' => $medicine->strengthLabel(),
+                            'price' => (float) ($medicine->base_price ?? 0),
+                            'stock' => (int) ($rxCatalogStock[$medicine->id] ?? 0),
+                        ];
+                    })->values();
+                @endphp
+                <script type="application/json" id="rx-medicine-catalog">@json($rxMedicineCatalog)</script>
 
                 <x-modal id="rx-template-modal" title="Template resep" size="modal-lg" class="care-modal">
                     <div class="rx-toolbar justify-content-between align-items-center mb-2">
@@ -302,7 +293,21 @@
         }
     }
 
-    function replaceRxList(html) {
+    function rxDisableBrowserAutofill(scope) {
+        var root = scope || document;
+        root.querySelectorAll('.rx-sig-field input, .rx-sig-field select').forEach(function (el) {
+            el.setAttribute('autocomplete', 'off');
+            el.setAttribute('autocapitalize', 'off');
+            el.setAttribute('autocorrect', 'off');
+            el.setAttribute('spellcheck', 'false');
+            el.setAttribute('data-lpignore', 'true');
+            el.setAttribute('data-1p-ignore', 'true');
+            el.setAttribute('data-form-type', 'other');
+        });
+    }
+
+    function replaceRxList(html, options) {
+        options = options || {};
         document.querySelectorAll('body > [id^="rx-save-template-"]').forEach(function (el) {
             el.remove();
         });
@@ -312,11 +317,36 @@
         list.querySelectorAll('.care-modal').forEach(function (modal) {
             document.body.appendChild(modal);
         });
+        rxDestroyMedicineSelects(list);
         list.dispatchEvent(new CustomEvent('care:bind-typeahead', { bubbles: true }));
         list.querySelectorAll('[data-compound-form]').forEach(function (form) {
             syncStrength(form);
             preview(form);
         });
+        rxDisableBrowserAutofill(list);
+        rxInitMedicineSelects(list);
+        rxSeedDefaultDraft({ focus: false });
+        if (options.focusItemId) {
+            var focusRow = list.querySelector('[data-rx-row][data-item-id="' + options.focusItemId + '"]');
+            if (focusRow) {
+                rxSetActiveRow(focusRow, null, { openSig: options.openSig !== false });
+                var focusField = options.focusName
+                    ? focusRow.querySelector('[name="' + options.focusName + '"]')
+                    : null;
+                if (!focusField) {
+                    focusField = focusRow.querySelector('input:not([type="hidden"]), select, textarea');
+                }
+                if (focusField) {
+                    focusField.focus({ preventScroll: true });
+                    if (typeof options.selectionStart === 'number' && focusField.setSelectionRange) {
+                        try {
+                            var pos = options.selectionStart;
+                            focusField.setSelectionRange(pos, pos);
+                        } catch (e) {}
+                    }
+                }
+            }
+        }
     }
 
     function replaceTemplatesList(html) {
@@ -677,12 +707,87 @@
     document.addEventListener('click', function (event) {
         var sig = event.target.closest('[data-sig-fill]');
         if (sig) {
-            var holder = sig.closest('[data-sig-for]');
-            var input = holder && document.getElementById(holder.getAttribute('data-sig-for'));
-            if (input) {
-                input.value = sig.getAttribute('data-sig-fill');
-                input.dispatchEvent(new Event('input', { bubbles: true }));
+            var holder = sig.closest('[data-sig-for], [data-sig-name]');
+            var sigName = sig.getAttribute('data-sig-name') || (holder && holder.getAttribute('data-sig-name')) || '';
+            var sigMode = sig.getAttribute('data-sig-mode') || (holder && holder.getAttribute('data-sig-mode')) || '';
+            if (!holder && !sigName && !sig.getAttribute('data-sig-for')) return;
+            var fillValue = sig.getAttribute('data-sig-fill') || '';
+            var row = (holder && holder.closest('[data-rx-row], [data-rx-draft]'))
+                || document.querySelector('[data-rx-row].rx-row--active, [data-rx-draft].rx-row--active');
+            var input = null;
+            if (holder && holder.hasAttribute('data-sig-for')) {
+                input = document.getElementById(holder.getAttribute('data-sig-for'));
+            } else if (row && sigName) {
+                var tipNode = (holder && holder.closest('.rx-sig-tip')) || row.querySelector('.rx-sig-tip[data-sig-name="' + sigName + '"]');
+                var fieldWrap = tipNode ? tipNode.closest('.rx-sig-field') : null;
+                input = (fieldWrap || row).querySelector('[name="' + sigName + '"]');
             }
+            if (sigMode === 'signa' && row) {
+                var p = sig.getAttribute('data-sig-p');
+                var s = sig.getAttribute('data-sig-s');
+                if ((p == null || s == null) && fillValue) {
+                    var interval = String(fillValue).match(/tiap\s+(\d+)\s*jam/i);
+                    if (interval) {
+                        var hours = Number(interval[1]);
+                        if (hours > 0 && hours <= 24) {
+                            p = String(Math.max(1, Math.round(24 / hours)));
+                            s = '1';
+                        }
+                    } else if (/^(PRN|SOS)\b/i.test(String(fillValue).trim()) || /^(PRN|SOS)$/i.test(String(sig.textContent || '').trim())) {
+                        p = '1';
+                        s = '1';
+                    }
+                }
+                if (p != null && s != null) {
+                    var pInput = row.querySelector('[name="signa_p"]');
+                    var sInput = row.querySelector('[name="signa_s"]');
+                    var srInput = row.querySelector('[name="signa_sr"]');
+                    var mInput = row.querySelector('[name="signa_m"]');
+                    if (pInput) pInput.value = p;
+                    if (sInput) sInput.value = s;
+                    if (srInput && !String(srInput.value || '').trim()) srInput.value = '0';
+                    if (mInput && !String(mInput.value || '').trim()) mInput.value = '0';
+                    rxSyncSigna(row);
+                    if (input) input.value = fillValue;
+                    ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (field) {
+                        var el = row.querySelector('[name="' + field + '"]');
+                        if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                } else if (input) {
+                    input.value = fillValue;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+                var qtySigna = row.querySelector('[data-rx-qty]');
+                if (qtySigna) qtySigna.dataset.manual = '';
+                rxAutoQty(row);
+                if (row.matches('[data-rx-row]')) row.dataset.dirty = '1';
+                rxScheduleAutoSave(row);
+                rxHideAllSigPopovers();
+                return;
+            }
+            if (input) {
+                if (row && sigName === 'jho') {
+                    var daysFromHelp = rxParseDays(fillValue) || rxParseAmount(fillValue);
+                    if (daysFromHelp) input.value = String(daysFromHelp);
+                    var course = row.querySelector('[name="course"]');
+                    if (course) course.value = fillValue;
+                } else {
+                    input.value = fillValue;
+                }
+                if (row && sigName === 'waktu') {
+                    var durationField = row.querySelector('[name="duration"]');
+                    if (durationField) durationField.value = fillValue;
+                }
+                if (row) {
+                    var qtyHelp = row.querySelector('[data-rx-qty]');
+                    if (qtyHelp) qtyHelp.dataset.manual = '';
+                }
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+                if (row) rxAutoQty(row);
+                rxScheduleAutoSave(row);
+            }
+            rxHideAllSigPopovers();
             return;
         }
 
@@ -860,5 +965,819 @@
         form.querySelectorAll('[data-ingredient-row]').forEach(refreshIngredientDisplay);
         preview(form);
     });
+
+    function rxCsrf() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        return meta ? meta.getAttribute('content') : '';
+    }
+
+    function rxMoney(value) {
+        var num = Number(value || 0);
+        return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function rxSyncSigna(row) {
+        var parts = ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].map(function (name) {
+            var input = row.querySelector('[name="' + name + '"]');
+            var val = input ? String(input.value || '').trim() : '';
+            return val === '' ? '0' : val;
+        });
+        var line = parts.join('-');
+        var freqHidden = row.querySelector('[data-rx-frequency]');
+        if (freqHidden) freqHidden.value = line;
+        return line;
+    }
+
+    function rxPriceOf(row) {
+        var priceText = row.querySelector('[data-rx-price]');
+        if (!priceText) return 0;
+        if (priceText.dataset.raw != null && priceText.dataset.raw !== '') {
+            return Number(priceText.dataset.raw) || 0;
+        }
+        return Number(String(priceText.textContent || '0').replace(/\./g, '').replace(',', '.')) || 0;
+    }
+
+    function rxParseAmount(value) {
+        var text = String(value || '').trim().replace(',', '.');
+        if (!text) return null;
+        if (/^(½|1\/2)/.test(text)) return 0.5;
+        if (/^(¼|1\/4)/.test(text)) return 0.25;
+        if (/^(¾|3\/4)/.test(text)) return 0.75;
+        var frac = text.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/);
+        if (frac) {
+            var den = Number(frac[2]);
+            return den ? Number(frac[1]) / den : null;
+        }
+        var num = text.match(/^(\d+(?:\.\d+)?)/);
+        return num ? Number(num[1]) : null;
+    }
+
+    function rxParseDays(value) {
+        var text = String(value || '').trim().toLowerCase();
+        if (!text) return null;
+        var match = text.match(/(\d+)\s*hari/);
+        if (match) return Number(match[1]);
+        if (/^(\d+)$/.test(text)) return Number(text);
+        return null;
+    }
+
+    function rxAutoQty(row) {
+        if (!row) return;
+        var qtyInput = row.querySelector('[data-rx-qty]');
+        if (!qtyInput || qtyInput.dataset.manual === '1') {
+            rxRecalcRow(row);
+            return;
+        }
+        var p = rxParseAmount((row.querySelector('[name="signa_p"]') || {}).value);
+        var s = rxParseAmount((row.querySelector('[name="signa_s"]') || {}).value);
+        var dosage = rxParseAmount((row.querySelector('[name="dosage"]') || {}).value);
+        var jhoInput = row.querySelector('[name="jho"]');
+        var notes = (row.querySelector('[name="notes"]') || {}).value || '';
+        var course = (row.querySelector('[name="course"]') || {}).value || '';
+        var days = rxParseAmount((jhoInput || {}).value) || rxParseDays(notes) || rxParseDays(course);
+        if (jhoInput && !String(jhoInput.value || '').trim() && days) {
+            jhoInput.value = String(days);
+        }
+        if (!p || p <= 0 || !days || days <= 0) {
+            rxRecalcRow(row);
+            return;
+        }
+        var perDose = (s && s > 0) ? s : ((dosage && dosage > 0) ? dosage : 1);
+        var qty = Math.ceil(p * perDose * days);
+        if (qty < 1) qty = 1;
+        if (qty > 1000) qty = 1000;
+        if (String(qtyInput.value) !== String(qty)) qtyInput.value = String(qty);
+        rxRecalcRow(row);
+    }
+
+    function rxRecalcRow(row) {
+        var qtyInput = row.querySelector('[data-rx-qty]');
+        var qty = Number(qtyInput ? qtyInput.value : 0) || 0;
+        var price = rxPriceOf(row);
+        var sub = row.querySelector('[data-rx-subtotal]');
+        if (sub) sub.textContent = rxMoney(qty * price);
+        rxRecalcEstimate();
+    }
+
+    function rxRecalcEstimate() {
+        var total = 0;
+        document.querySelectorAll('[data-rx-row], [data-rx-draft]').forEach(function (row) {
+            var qtyInput = row.querySelector('[data-rx-qty]');
+            var qty = Number(qtyInput ? qtyInput.value : 0) || 0;
+            total += qty * rxPriceOf(row);
+        });
+        var target = document.querySelector('[data-rx-estimate]');
+        if (target) target.textContent = 'Rp ' + rxMoney(total);
+    }
+
+    function rxCollectRowPayload(row) {
+        var data = {
+            _token: rxCsrf(),
+            _method: 'PUT',
+            _form: 'rx-editor-row',
+            quantity: 1,
+            medication_type: 'NC'
+        };
+        row.querySelectorAll('[data-rx-field], [data-rx-frequency], input[type="hidden"][name]').forEach(function (input) {
+            if (!input.name) return;
+            data[input.name] = input.value;
+        });
+        rxSyncSigna(row);
+        var freq = row.querySelector('[data-rx-frequency]');
+        if (freq) data.frequency = freq.value;
+        if (!data.dosage) data.dosage = data.dosage || '-';
+        if (!data.frequency) data.frequency = rxSyncSigna(row) || '-';
+        if (!data.duration) data.duration = data.notes || data.duration || '-';
+        var priceEl = row.querySelector('[data-rx-price]');
+        if (priceEl && priceEl.dataset.raw != null && priceEl.dataset.raw !== '' && data.unit_price == null) {
+            data.unit_price = priceEl.dataset.raw;
+        }
+        return data;
+    }
+
+    function rxSaveRow(row, options) {
+        options = options || {};
+        var url = row.getAttribute('data-update');
+        if (!url || row.dataset.busy === '1') return Promise.resolve();
+        if (!rxRowShouldSave(row)) return Promise.resolve();
+        row.dataset.busy = '1';
+        var payload = rxCollectRowPayload(row);
+        var body = new FormData();
+        Object.keys(payload).forEach(function (key) {
+            if (payload[key] != null) body.append(key, payload[key]);
+        });
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': rxCsrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: body
+        }).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (payload) {
+                if (!res.ok) {
+                    var msg = (payload && payload.message) || (payload && payload.errors && Object.values(payload.errors)[0] && Object.values(payload.errors)[0][0]) || 'Gagal menyimpan baris resep';
+                    throw new Error(msg);
+                }
+                row.dataset.dirty = '0';
+                if (!options.silent && payload.html != null) replaceRxList(payload.html);
+                if (payload.finish_html != null) replaceFinishRx(payload.finish_html);
+            });
+        }).finally(function () {
+            row.dataset.busy = '0';
+        });
+    }
+
+    var rxAutoTimers = new WeakMap();
+
+    function rxMedicineIdOf(row) {
+        var el = row && row.querySelector('[data-rx-medicine-id]');
+        return el ? String(el.value || '').trim() : '';
+    }
+
+    function rxDraftReadyToSave(row) {
+        if (!row) return false;
+        var kind = row.getAttribute('data-kind') || 'ready';
+        if (kind === 'racikan') {
+            var named = 0;
+            row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
+                var name = (ing.querySelector('[data-ing-name]') || {}).value
+                    || (ing.querySelector('[data-typeahead-q]') || {}).value
+                    || '';
+                if (String(name).trim()) named += 1;
+            });
+            return named >= 1;
+        }
+        return !!rxMedicineIdOf(row);
+    }
+
+    function rxRowShouldSave(row) {
+        if (!row || !row.isConnected) return false;
+        if (row.matches('[data-rx-draft]')) return rxDraftReadyToSave(row);
+        if (!row.matches('[data-rx-row]')) return false;
+        var kind = row.getAttribute('data-kind') || 'ready';
+        if (kind === 'racikan') return true;
+        // Baris non-racik tanpa obat = kosong → jangan disimpan.
+        if (row.querySelector('[data-rx-medicine-id]')) return !!rxMedicineIdOf(row);
+        return true;
+    }
+
+    function rxCaptureFocusState(row) {
+        var active = document.activeElement;
+        if (!active || !row.contains(active)) {
+            return { focusName: null, selectionStart: null };
+        }
+        return {
+            focusName: active.getAttribute('name') || null,
+            selectionStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+        };
+    }
+
+    function rxScheduleAutoSave(row) {
+        if (!row) return;
+        var prev = rxAutoTimers.get(row);
+        if (prev) clearTimeout(prev);
+        // Baris kosong (tanpa obat / tanpa bahan) tidak dijadwalkan sama sekali.
+        if (!rxRowShouldSave(row)) {
+            rxAutoTimers.delete(row);
+            return;
+        }
+        var timer = setTimeout(function () {
+            rxAutoTimers.delete(row);
+            if (!rxRowShouldSave(row) || row.dataset.busy === '1') return;
+            if (row.matches('[data-rx-draft]')) {
+                var focusState = rxCaptureFocusState(row);
+                if (window.careSetStatus) window.careSetStatus('Menyimpan…');
+                rxSaveDraftRow(row, {
+                    background: true,
+                    focusItemId: true,
+                    focusName: focusState.focusName,
+                    selectionStart: focusState.selectionStart,
+                }).then(function () {
+                    if (window.careSetStatus) window.careSetStatus('✓ Tersimpan');
+                }).catch(function () {
+                    if (window.careSetStatus) window.careSetStatus('Gagal menyimpan', true);
+                });
+                return;
+            }
+            if (row.matches('[data-rx-row]')) {
+                if (window.careSetStatus) window.careSetStatus('Menyimpan…');
+                rxSaveRow(row, { silent: true, background: true }).then(function () {
+                    if (window.careSetStatus) window.careSetStatus('✓ Tersimpan');
+                }).catch(function () {
+                    if (window.careSetStatus) window.careSetStatus('Gagal menyimpan', true);
+                });
+            }
+        }, 1200);
+        rxAutoTimers.set(row, timer);
+    }
+
+    function rxPromoteDraftRow(row, payload) {
+        if (!row || !payload || !payload.item_id) return false;
+        var kind = row.getAttribute('data-kind') || 'ready';
+        if (kind === 'racikan') return false;
+
+        var editor = document.querySelector('[data-rx-editor]');
+        var storeUrl = editor ? editor.getAttribute('data-store') : '';
+        if (!storeUrl) return false;
+        var itemUrl = storeUrl.replace(/\/?$/, '') + '/' + payload.item_id;
+
+        row.classList.remove('rx-row--draft');
+        row.removeAttribute('data-rx-draft');
+        row.setAttribute('data-rx-row', '');
+        row.setAttribute('data-item-id', payload.item_id);
+        row.setAttribute('data-update', itemUrl);
+        row.setAttribute('data-destroy', itemUrl);
+        row.dataset.dirty = '0';
+        row.dataset.busy = '0';
+
+        var actions = row.querySelector('td:last-child');
+        if (actions) {
+            actions.innerHTML = '<button type="button" class="btn btn-sm btn-danger" data-rx-delete title="Hapus"><i class="bx bx-trash"></i></button>';
+        }
+
+        if (payload.finish_html != null) replaceFinishRx(payload.finish_html);
+        rxEnsureEmptyReadyDraft();
+        return true;
+    }
+
+    var rxSigOpenToggle = null;
+    var rxSigIgnoreToggleUntil = 0;
+    var rxSigShowToken = 0;
+
+    function rxHideAllSigPopovers(exceptToggle) {
+        document.querySelectorAll('[data-rx-sig-popover]').forEach(function (toggle) {
+            if (exceptToggle && toggle === exceptToggle) return;
+            toggle.setAttribute('aria-expanded', 'false');
+            var field = toggle.closest('.rx-sig-field');
+            if (field) field.classList.remove('is-sig-open');
+            if (!window.bootstrap || !window.bootstrap.Popover) return;
+            var inst = window.bootstrap.Popover.getInstance(toggle);
+            if (inst) inst.hide();
+        });
+        if (!exceptToggle || rxSigOpenToggle !== exceptToggle) rxSigOpenToggle = exceptToggle || null;
+    }
+
+    function rxSigPopoverInstance(toggle) {
+        if (!toggle || !window.bootstrap || !window.bootstrap.Popover) return null;
+        var existing = window.bootstrap.Popover.getInstance(toggle);
+        if (existing) return existing;
+        var tip = toggle.closest('.rx-sig-tip');
+        var template = tip && tip.querySelector('.rx-sig-tip__template');
+        return window.bootstrap.Popover.getOrCreateInstance(toggle, {
+            html: true,
+            sanitize: false,
+            trigger: 'manual',
+            placement: 'bottom',
+            container: 'body',
+            customClass: 'rx-sig-popover',
+            content: template ? template.innerHTML : '',
+        });
+    }
+
+    function rxShowSigPopover(toggle) {
+        if (!toggle) return;
+        if (rxSigOpenToggle === toggle && toggle.getAttribute('aria-describedby')) return;
+
+        var field = toggle.closest('.rx-sig-field');
+        document.querySelectorAll('.rx-sig-field.is-sig-open').forEach(function (el) {
+            if (field && el === field) return;
+            el.classList.remove('is-sig-open');
+        });
+        if (field) field.classList.add('is-sig-open');
+        toggle.setAttribute('aria-expanded', 'true');
+        rxHideAllSigPopovers(toggle);
+        rxSigOpenToggle = toggle;
+        rxSigIgnoreToggleUntil = Date.now() + 400;
+
+        var token = ++rxSigShowToken;
+        requestAnimationFrame(function () {
+            if (token !== rxSigShowToken || rxSigOpenToggle !== toggle) return;
+            var inst = rxSigPopoverInstance(toggle);
+            if (inst) inst.show();
+        });
+    }
+
+    function rxShowSigPopoverForSource(row, sourceEl) {
+        if (!row) {
+            rxHideAllSigPopovers();
+            return;
+        }
+        if (sourceEl && sourceEl.closest && sourceEl.closest('.rx-sig-popover, [data-sig-fill], [data-rx-sig-popover]')) {
+            return;
+        }
+        var field = sourceEl && sourceEl.closest ? sourceEl.closest('.rx-sig-field') : null;
+        if (field && row.contains(field)) {
+            var toggle = field.querySelector('[data-rx-sig-popover]');
+            if (toggle) {
+                rxShowSigPopover(toggle);
+                return;
+            }
+        }
+        if (!field) rxHideAllSigPopovers();
+    }
+
+    function rxSetActiveRow(row, sourceEl, options) {
+        options = options || {};
+        var sameRow = !!(row && row.classList.contains('rx-row--active'));
+        if (!sameRow) {
+            document.querySelectorAll('[data-rx-row].rx-row--active, [data-rx-draft].rx-row--active').forEach(function (el) {
+                el.classList.remove('rx-row--active');
+            });
+        }
+        if (!row) {
+            rxHideAllSigPopovers();
+            return;
+        }
+        row.classList.add('rx-row--active');
+        if (options.openSig !== false) rxShowSigPopoverForSource(row, sourceEl || null);
+    }
+
+    function rxOnFieldEdit(event) {
+        var target = event.target;
+        if (!target || !target.matches) return;
+        var draft = target.closest('[data-rx-draft]');
+        var row = target.closest('[data-rx-row]');
+        var active = draft || row;
+        if (!active) return;
+        if (!target.matches('[data-rx-field], [data-rx-signa], [data-rx-qty], [data-typeahead-q], [data-ing-name], [data-ing-qty], [data-rx-medicine-id], [data-ing-medicine-id]')) {
+            return;
+        }
+        rxSetActiveRow(active, target, { openSig: false });
+        if (target.matches('[data-rx-signa]')) rxSyncSigna(active);
+        if (target.matches('[data-rx-qty]')) {
+            target.dataset.manual = '1';
+            rxRecalcRow(active);
+        } else if (target.matches('[name="dosage"], [data-rx-signa], [name="jho"], [name="notes"]')) {
+            var qtyField = active.querySelector('[data-rx-qty]');
+            if (qtyField) qtyField.dataset.manual = '';
+            rxAutoQty(active);
+        }
+        if (row) row.dataset.dirty = '1';
+        rxScheduleAutoSave(active);
+    }
+
+    document.addEventListener('focusin', function (event) {
+        if (event.target.closest('.rx-sig-popover, [data-sig-fill], [data-rx-sig-popover]')) return;
+        var row = event.target.closest('[data-rx-row], [data-rx-draft]');
+        if (row && row.closest('[data-rx-editor]')) rxSetActiveRow(row, event.target);
+    });
+
+    document.addEventListener('mousedown', function (event) {
+        if (event.target.closest('.rx-sig-popover, [data-sig-fill], [data-rx-sig-popover]')) return;
+        var row = event.target.closest('[data-rx-row], [data-rx-draft]');
+        if (row && row.closest('[data-rx-editor]')) {
+            // Hanya tandai row aktif; buka popover di focusin agar tidak ketutup oleh click yang sama.
+            rxSetActiveRow(row, event.target, { openSig: false });
+            return;
+        }
+        if (!event.target.closest('[data-rx-editor]')) rxSetActiveRow(null);
+    });
+
+    document.addEventListener('click', function (event) {
+        var tipBtn = event.target.closest('[data-rx-sig-popover]');
+        if (!tipBtn) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (Date.now() < rxSigIgnoreToggleUntil && rxSigOpenToggle === tipBtn) return;
+        var tipRow = tipBtn.closest('[data-rx-row], [data-rx-draft]');
+        if (tipRow) tipRow.classList.add('rx-row--active');
+        var open = tipBtn.getAttribute('aria-describedby') || (rxSigOpenToggle === tipBtn);
+        if (open) rxHideAllSigPopovers();
+        else rxShowSigPopover(tipBtn);
+    });
+
+    document.addEventListener('input', rxOnFieldEdit);
+    document.addEventListener('change', function (event) {
+        rxOnFieldEdit(event);
+        var templateSelect = event.target.closest('[data-rx-template-select]');
+        if (templateSelect && templateSelect.value) {
+            var applyUrl = '{{ url('/visits/'.$visit->id.'/care/prescription-templates') }}/' + templateSelect.value + '/apply';
+            var body = new FormData();
+            body.append('_token', rxCsrf());
+            fetch(applyUrl, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': rxCsrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: body
+            }).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (payload) {
+                    if (!res.ok) throw new Error((payload && payload.message) || 'Gagal menerapkan template');
+                    if (payload.html != null) replaceRxList(payload.html);
+                    if (payload.finish_html != null) replaceFinishRx(payload.finish_html);
+                    templateSelect.value = '';
+                });
+            }).catch(function (error) {
+                window.alert(error && error.message ? error.message : 'Gagal menerapkan template');
+                templateSelect.value = '';
+            });
+        }
+    });
+
+    document.addEventListener('click', function (event) {
+        var del = event.target.closest('[data-rx-delete]');
+        if (del) {
+            var row = del.closest('[data-rx-row]');
+            if (!row || !window.confirm('Hapus item resep ini?')) return;
+            var destroyUrl = row.getAttribute('data-destroy');
+            if (!destroyUrl) return;
+            var body = new FormData();
+            body.append('_token', rxCsrf());
+            body.append('_method', 'DELETE');
+            fetch(destroyUrl, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': rxCsrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                body: body
+            }).then(function (res) {
+                return res.json().catch(function () { return {}; }).then(function (payload) {
+                    if (!res.ok) throw new Error((payload && payload.message) || 'Gagal menghapus');
+                    if (payload.html != null) replaceRxList(payload.html);
+                    if (payload.finish_html != null) replaceFinishRx(payload.finish_html);
+                });
+            }).catch(function (error) {
+                window.alert(error && error.message ? error.message : 'Gagal menghapus');
+            });
+            return;
+        }
+
+        if (event.target.closest('[data-rx-add-ready]')) {
+            var readyRow = rxAddDraftRow('ready');
+            if (readyRow) rxSetActiveRow(readyRow);
+            return;
+        }
+        if (event.target.closest('[data-rx-add-compound]')) {
+            var compoundRow = rxAddDraftRow('racikan');
+            if (compoundRow) rxSetActiveRow(compoundRow);
+            return;
+        }
+        if (event.target.closest('[data-rx-add-ingredient]')) {
+            var draftCompound = event.target.closest('[data-rx-draft]');
+            if (draftCompound) rxAddIngredient(draftCompound);
+            return;
+        }
+        if (event.target.closest('[data-rx-remove-ingredient]')) {
+            var ing = event.target.closest('[data-rx-ingredient]');
+            var wrap = ing && ing.parentElement;
+            if (ing) ing.remove();
+            if (wrap && !wrap.querySelector('[data-rx-ingredient]')) {
+                var parentDraft = wrap.closest('[data-rx-draft]');
+                if (parentDraft) rxAddIngredient(parentDraft);
+            }
+            return;
+        }
+        if (event.target.closest('[data-rx-draft-cancel]')) {
+            var cancelRow = event.target.closest('[data-rx-draft]');
+            if (cancelRow) cancelRow.remove();
+            rxEnsureEmptyState();
+            return;
+        }
+    });
+
+    function rxCatalog() {
+        var node = document.getElementById('rx-medicine-catalog');
+        try { return JSON.parse(node ? node.textContent || '[]' : '[]'); } catch (e) { return []; }
+    }
+
+    function rxCatalogItem(id) {
+        return rxCatalog().find(function (item) { return String(item.id) === String(id); }) || null;
+    }
+
+    function rxEditorRoot() {
+        return document.querySelector('[data-rx-editor]');
+    }
+
+    function rxCanEdit() {
+        var editor = rxEditorRoot();
+        return !!(editor && editor.getAttribute('data-editable') === '1');
+    }
+
+    function rxHasOpenReadyDraft() {
+        var tbody = document.querySelector('[data-rx-rows]');
+        if (!tbody) return false;
+        return !!tbody.querySelector('[data-rx-draft][data-kind="ready"]');
+    }
+
+    function rxHasEmptyReadyDraft() {
+        var tbody = document.querySelector('[data-rx-rows]');
+        if (!tbody) return false;
+        var found = false;
+        tbody.querySelectorAll('[data-rx-draft][data-kind="ready"]').forEach(function (row) {
+            if (!rxDraftReadyToSave(row)) found = true;
+        });
+        return found;
+    }
+
+    function rxEnsureEmptyReadyDraft() {
+        if (!rxCanEdit()) return null;
+        if (rxHasEmptyReadyDraft()) return null;
+        return rxAddDraftRow('ready', { focus: false });
+    }
+
+    function rxSeedDefaultDraft(options) {
+        options = options || {};
+        var tbody = document.querySelector('[data-rx-rows]');
+        if (!tbody || !rxCanEdit()) return;
+        var empty = tbody.querySelector('[data-rx-empty]');
+        if (empty) empty.remove();
+        if (options.requireEmpty) {
+            rxEnsureEmptyReadyDraft();
+            return;
+        }
+        if (rxHasOpenReadyDraft()) return;
+        rxAddDraftRow('ready', { focus: options.focus !== false });
+    }
+
+    function rxEnsureEmptyState() {
+        var tbody = document.querySelector('[data-rx-rows]');
+        if (!tbody) return;
+        var hasRows = tbody.querySelector('[data-rx-row], [data-rx-draft]');
+        var empty = tbody.querySelector('[data-rx-empty]');
+        if (rxCanEdit()) {
+            if (empty) empty.remove();
+            if (!rxHasOpenReadyDraft()) rxAddDraftRow('ready', { focus: false });
+            return;
+        }
+        if (hasRows) {
+            if (empty) empty.remove();
+            return;
+        }
+        if (!empty) {
+            var tr = document.createElement('tr');
+            tr.setAttribute('data-rx-empty', '');
+            tr.innerHTML = '<td colspan="13" class="text-muted text-center py-2">Belum ada item resep.</td>';
+            tbody.appendChild(tr);
+        }
+    }
+
+    function rxDestroyMedicineSelects(scope) {
+        if (!$ || !$.fn || !$.fn.select2) return;
+        $(scope || document).find('[data-rx-medicine-select]').each(function () {
+            var $el = $(this);
+            if ($el.data('select2')) $el.select2('destroy');
+        });
+    }
+
+    function rxInitMedicineSelects(scope) {
+        if (!$ || !$.fn || !$.fn.select2) return;
+        $(scope || document).find('[data-rx-medicine-select]').each(function () {
+            var $el = $(this);
+            if ($el.data('select2')) return;
+            var isIngredient = $el.is('[data-rx-ing-medicine-select]');
+            $el.select2({
+                width: '100%',
+                placeholder: isIngredient ? 'Pilih bahan stok…' : 'Cari obat…',
+                allowClear: true,
+                dropdownParent: $(document.body),
+                language: {
+                    noResults: function () { return 'Obat tidak ditemukan'; },
+                    searching: function () { return 'Mencari…'; },
+                },
+            });
+        });
+    }
+
+    function rxBindDraft(row) {
+        if (!row) return row;
+        row.querySelectorAll('[data-typeahead]').forEach(function (box) {
+            box.dataset.typeaheadBound = '';
+        });
+        rxDisableBrowserAutofill(row);
+        rxInitMedicineSelects(row);
+        row.dispatchEvent(new CustomEvent('care:bind-typeahead', { bubbles: true }));
+        return row;
+    }
+
+    function rxAddDraftRow(kind, options) {
+        options = options || {};
+        var tbody = document.querySelector('[data-rx-rows]');
+        var tpl = document.getElementById(kind === 'racikan' ? 'rx-draft-compound-template' : 'rx-draft-ready-template');
+        if (!tbody || !tpl) return null;
+        var empty = tbody.querySelector('[data-rx-empty]');
+        if (empty) empty.remove();
+        var wrap = document.createElement('tbody');
+        wrap.innerHTML = tpl.innerHTML.trim();
+        var row = wrap.firstElementChild;
+        if (!row) return null;
+        tbody.appendChild(row);
+        if (kind === 'racikan') {
+            var count = tbody.querySelectorAll('[data-rx-draft][data-kind="racikan"]').length;
+            var label = row.querySelector('[data-rx-racik-label]');
+            if (label) label.textContent = '-' + String(count).padStart(2, '0');
+            rxAddIngredient(row);
+            rxAddIngredient(row);
+        }
+        rxBindDraft(row);
+        if (options.focus !== false) {
+            rxSetActiveRow(row);
+            var focus = row.querySelector('[data-rx-medicine-select]:not([data-rx-ing-medicine-select])')
+                || row.querySelector('[data-rx-medicine-select]');
+            if (focus && $ && $(focus).data('select2')) {
+                $(focus).select2('open');
+            } else if (focus) {
+                focus.focus();
+            }
+        }
+        return row;
+    }
+
+    function rxAddIngredient(draftRow) {
+        var list = draftRow.querySelector('[data-rx-ingredients]');
+        var tpl = document.getElementById('rx-draft-ingredient-template');
+        if (!list || !tpl) return;
+        var wrap = document.createElement('div');
+        wrap.innerHTML = tpl.innerHTML.trim();
+        var row = wrap.firstElementChild;
+        if (!row) return;
+        list.appendChild(row);
+        rxBindDraft(row);
+    }
+
+    function rxFillMedicine(row, medicineId) {
+        var item = rxCatalogItem(medicineId);
+        if (!item) return;
+        var strength = row.querySelector('[data-rx-strength]');
+        var stock = row.querySelector('[data-rx-stock]');
+        var price = row.querySelector('[data-rx-price]');
+        var unit = row.querySelector('[data-rx-unit]');
+        if (strength) strength.textContent = item.strength || '—';
+        if (stock) stock.innerHTML = '<span class="badge ' + (item.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + (item.stock || 0) + '</span>';
+        if (price) {
+            price.textContent = rxMoney(item.price || 0);
+            price.dataset.raw = String(item.price || 0);
+        }
+        if (unit && item.unit) unit.value = item.unit;
+        var ingName = row.querySelector('[data-ing-name]');
+        if (ingName && item.name) ingName.value = item.name;
+        rxRecalcRow(row);
+        rxScheduleAutoSave(row.closest('[data-rx-draft]') || row);
+    }
+
+    function rxSaveDraftRow(row, options) {
+        options = options || {};
+        if (!row || row.dataset.busy === '1') return Promise.resolve();
+        if (!rxRowShouldSave(row)) return Promise.resolve();
+        var editor = document.querySelector('[data-rx-editor]');
+        var storeUrl = editor ? editor.getAttribute('data-store') : '';
+        if (!storeUrl) return Promise.reject(new Error('URL simpan tidak ditemukan'));
+
+        var kind = row.getAttribute('data-kind') || 'ready';
+        var body = new FormData();
+        body.append('_token', rxCsrf());
+        body.append('_form', 'rx-editor-create');
+        body.append('kind', kind === 'racikan' ? 'racikan' : 'ready');
+        body.append('medication_type', kind === 'racikan' ? 'EP' : 'NC');
+        body.append('quantity', (row.querySelector('[name="quantity"]') || {}).value || 1);
+
+        ['dosage', 'frequency', 'waktu', 'jho', 'unit', 'notes', 'signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name) {
+            var input = row.querySelector('[name="' + name + '"]');
+            if (input && String(input.value || '').trim() !== '') body.append(name, input.value);
+        });
+
+        rxSyncSigna(row);
+        var freq = row.querySelector('[data-rx-frequency]');
+        var signaLine = freq ? freq.value : '';
+        body.append('frequency', signaLine || (row.querySelector('[name="frequency"]') || {}).value || '-');
+        body.append('dosage', (row.querySelector('[name="dosage"]') || {}).value || '-');
+        body.append('duration', (row.querySelector('[name="notes"]') || {}).value || '-');
+
+        if (kind === 'racikan') {
+            var ingredients = [];
+            row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
+                var name = (ing.querySelector('[data-ing-name]') || {}).value || (ing.querySelector('[data-typeahead-q]') || {}).value || '';
+                name = String(name).trim();
+                if (!name) return;
+                ingredients.push({
+                    name: name,
+                    medicine_id: (ing.querySelector('[data-ing-medicine-id]') || {}).value || '',
+                    quantity: (ing.querySelector('[data-ing-qty]') || {}).value || 1,
+                    role: 'active'
+                });
+            });
+            if (ingredients.length < 1) return Promise.resolve();
+            ingredients.forEach(function (ing, index) {
+                body.append('ingredients[' + index + '][name]', ing.name);
+                body.append('ingredients[' + index + '][medicine_id]', ing.medicine_id);
+                body.append('ingredients[' + index + '][quantity]', ing.quantity);
+                body.append('ingredients[' + index + '][role]', 'active');
+            });
+            body.append('composition_confirmed', '1');
+        } else {
+            var medicineId = rxMedicineIdOf(row);
+            if (!medicineId) return Promise.resolve();
+            body.append('medicine_id', medicineId);
+            var priceEl = row.querySelector('[data-rx-price]');
+            if (priceEl && priceEl.dataset.raw) body.append('unit_price', priceEl.dataset.raw);
+        }
+
+        row.dataset.busy = '1';
+        return fetch(storeUrl, {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': rxCsrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: body
+        }).then(function (res) {
+            return res.json().catch(function () { return {}; }).then(function (payload) {
+                if (!res.ok) {
+                    var msg = (payload && payload.message)
+                        || (payload && payload.errors && Object.values(payload.errors)[0] && Object.values(payload.errors)[0][0])
+                        || 'Gagal menyimpan item';
+                    throw new Error(msg);
+                }
+                if (options.background && rxPromoteDraftRow(row, payload)) {
+                    return payload;
+                }
+                if (payload.html != null) {
+                    replaceRxList(payload.html, options.focusItemId ? {
+                        focusItemId: payload.item_id,
+                        focusName: options.focusName || null,
+                        selectionStart: options.selectionStart,
+                        openSig: false,
+                    } : {});
+                }
+                if (payload.finish_html != null) replaceFinishRx(payload.finish_html);
+                return payload;
+            });
+        }).finally(function () {
+            if (row.isConnected) row.dataset.busy = '0';
+        });
+    }
+
+    document.addEventListener('change', function (event) {
+        var medicineId = event.target.closest('[data-rx-medicine-id], [data-ing-medicine-id]');
+        if (!medicineId) return;
+        var draft = medicineId.closest('[data-rx-draft], [data-rx-ingredient]');
+        var savedRow = medicineId.closest('[data-rx-row]');
+        if (medicineId.hasAttribute('data-rx-medicine-id')) {
+            if (!medicineId.value) return;
+            var targetRow = (draft && draft.closest('[data-rx-draft]')) || draft || savedRow;
+            if (!targetRow) return;
+            rxFillMedicine(targetRow, medicineId.value);
+            if (savedRow) {
+                var priceEl = savedRow.querySelector('[data-rx-price]');
+                var item = rxCatalogItem(medicineId.value);
+                if (priceEl && item) {
+                    priceEl.textContent = rxMoney(item.price || 0);
+                    priceEl.dataset.raw = String(item.price || 0);
+                    var unitPrice = savedRow.querySelector('[name="unit_price"]');
+                    if (unitPrice) unitPrice.value = String(item.price || 0);
+                    else {
+                        var hiddenPrice = document.createElement('input');
+                        hiddenPrice.type = 'hidden';
+                        hiddenPrice.name = 'unit_price';
+                        hiddenPrice.value = String(item.price || 0);
+                        savedRow.appendChild(hiddenPrice);
+                    }
+                }
+                savedRow.dataset.dirty = '1';
+            }
+            rxScheduleAutoSave(targetRow);
+            rxEnsureEmptyReadyDraft();
+            return;
+        }
+        if (!draft || !medicineId.value) return;
+        var catalogItem = rxCatalogItem(medicineId.value);
+        var name = draft.querySelector('[data-ing-name]');
+        if (catalogItem && name) name.value = catalogItem.name || name.value;
+        rxScheduleAutoSave(medicineId.closest('[data-rx-draft]'));
+    });
+
+    rxDisableBrowserAutofill(document.getElementById('rx-list'));
+    rxInitMedicineSelects(document.getElementById('rx-list'));
+    rxSeedDefaultDraft();
 })();
 </script>

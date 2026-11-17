@@ -22,6 +22,9 @@ class Prescription extends Model
         'visit_id',
         'doctor_id',
         'status',
+        'pharmacy_depot',
+        'prescription_kind',
+        'iter',
     ];
 
     /**
@@ -33,6 +36,7 @@ class Prescription extends Model
             'visit_id' => 'integer',
             'doctor_id' => 'integer',
             'status' => PrescriptionStatus::class,
+            'iter' => 'integer',
         ];
     }
 

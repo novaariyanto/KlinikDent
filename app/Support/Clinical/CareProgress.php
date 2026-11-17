@@ -39,7 +39,6 @@ final class CareProgress
             }),
             'tindakan' => $visit->procedureRecords->isNotEmpty(),
             'resep' => $prescriptions,
-            'rujukan' => $visit->referrals->isNotEmpty(),
             'ringkasan' => $visit->referrals->isNotEmpty() || $plan,
         ];
     }

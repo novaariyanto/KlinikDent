@@ -3,6 +3,7 @@
 namespace App\Support\Medicine;
 
 use App\Models\Medicine;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -63,8 +64,9 @@ class MedicineXlsxImporter
             ]);
         }
 
+        // formatData=false agar angka mentah (1000) bukan string terformat ("1,000.000")
         return $this->parseSheetRows(
-            $spreadsheet->getActiveSheet()->toArray(null, true, true, false)
+            $spreadsheet->getActiveSheet()->toArray(null, true, false, false)
         );
     }
 
@@ -88,7 +90,7 @@ class MedicineXlsxImporter
         }
 
         return $this->parseSheetRows(
-            $spreadsheet->getActiveSheet()->toArray(null, true, true, false)
+            $spreadsheet->getActiveSheet()->toArray(null, true, false, false)
         );
     }
 
@@ -173,22 +175,34 @@ class MedicineXlsxImporter
         }
 
         if (filled($data['kfa_code'] ?? null)) {
-            $kfaExists = Medicine::query()
+            $existingByKfa = Medicine::query()
                 ->where('tenant_id', $tenantId)
                 ->where('kfa_code', $data['kfa_code'])
-                ->exists();
+                ->first();
 
-            if ($kfaExists) {
+            if ($existingByKfa) {
                 return [
-                    'status' => 'failed',
-                    'message' => 'Kode KFA sudah dipakai obat lain.',
+                    'status' => 'skipped',
+                    'message' => 'Kode KFA sudah dipakai obat lain ('.$existingByKfa->name.').',
+                    'medicine_id' => $existingByKfa->id,
                 ];
             }
         }
 
-        $medicine = Medicine::query()->create(array_merge($data, [
-            'tenant_id' => $tenantId,
-        ]));
+        try {
+            $medicine = Medicine::query()->create(array_merge($data, [
+                'tenant_id' => $tenantId,
+            ]));
+        } catch (QueryException $exception) {
+            if ((string) $exception->errorInfo[0] === '23000') {
+                return [
+                    'status' => 'skipped',
+                    'message' => 'Obat atau kode KFA sudah ada.',
+                ];
+            }
+
+            throw $exception;
+        }
 
         activity_log(
             'created',
@@ -300,9 +314,7 @@ class MedicineXlsxImporter
             'kfa_code' => filled($payload['kfa_code'] ?? null)
                 ? preg_replace('/\s+/', '', (string) $payload['kfa_code'])
                 : null,
-            'strength_value' => ($payload['strength_value'] ?? '') === '' || $payload['strength_value'] === null
-                ? null
-                : $payload['strength_value'],
+            'strength_value' => $this->normalizeNumber($payload['strength_value'] ?? null),
             'strength_unit' => $this->normalizeStrengthUnit($payload['strength_unit'] ?? null),
             'unit' => filled($payload['unit'] ?? null)
                 ? strtolower(trim((string) $payload['unit']))
@@ -310,13 +322,51 @@ class MedicineXlsxImporter
             'category' => filled($payload['category'] ?? null)
                 ? Medicine::normalizeCategoryKey((string) $payload['category'])
                 : null,
-            'base_price' => $payload['base_price'] ?? null,
+            'base_price' => $this->normalizeNumber($payload['base_price'] ?? null) ?? 0,
             'margin_type' => filled($payload['margin_type'] ?? null)
                 ? strtolower(trim((string) $payload['margin_type']))
                 : 'fixed',
-            'margin_value' => filled($payload['margin_value'] ?? null) ? $payload['margin_value'] : 0,
+            'margin_value' => $this->normalizeNumber($payload['margin_value'] ?? null) ?? 0,
             'is_active' => (bool) $isActive,
         ];
+    }
+
+    /**
+     * Buang pemisah ribuan (1,000.000 / 1.000,000) agar aman untuk kolom decimal.
+     */
+    protected function normalizeNumber(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        $raw = trim(str_replace([' ', "\u{00A0}"], '', (string) $value));
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_contains($raw, ',') && str_contains($raw, '.')) {
+            if (strrpos($raw, ',') > strrpos($raw, '.')) {
+                // 1.000,5 → Eropa
+                $raw = str_replace('.', '', $raw);
+                $raw = str_replace(',', '.', $raw);
+            } else {
+                // 1,000.5 → US
+                $raw = str_replace(',', '', $raw);
+            }
+        } elseif (str_contains($raw, ',')) {
+            if (preg_match('/^\d{1,3}(,\d{3})+$/', $raw)) {
+                $raw = str_replace(',', '', $raw);
+            } else {
+                $raw = str_replace(',', '.', $raw);
+            }
+        }
+
+        return is_numeric($raw) ? (float) $raw : null;
     }
 
     /**

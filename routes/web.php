@@ -46,8 +46,11 @@ use App\Http\Controllers\Marketing\StarterKitController;
 use App\Http\Controllers\MenuController;
 use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\Onboarding\OnboardingController;
+use App\Http\Controllers\Owner\AddonMarketplaceController;
 use App\Http\Controllers\Owner\PlanController;
 use App\Http\Controllers\Owner\PracticeArchiveController;
+use App\Http\Controllers\Saas\AddonController as SaasAddonController;
+use App\Http\Controllers\Saas\AddonSubscriptionController as SaasAddonSubscriptionController;
 use App\Http\Controllers\Pharmacy\PharmacyDashboardController;
 use App\Http\Controllers\Pharmacy\PharmacyReportController;
 use App\Http\Controllers\Pharmacy\PurchaseOrderController;
@@ -354,6 +357,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::post('/visits/{visit}/care/prescription-items', [CareController::class, 'storePrescriptionItem'])->name('care.prescription-item.store');
                 Route::put('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'updatePrescriptionItem'])->name('care.prescription-item.update');
                 Route::delete('/visits/{visit}/care/prescription-items/{prescriptionItem}', [CareController::class, 'destroyPrescriptionItem'])->name('care.prescription-item.destroy');
+                Route::put('/visits/{visit}/care/prescriptions/{prescription}/meta', [CareController::class, 'updatePrescriptionMeta'])->name('care.prescription.meta');
                 Route::post('/visits/{visit}/care/prescriptions/{prescription}/send', [CareController::class, 'sendPrescription'])->name('care.prescription.send');
                 Route::post('/visits/{visit}/care/prescription-templates', [PrescriptionTemplateController::class, 'store'])->name('care.prescription-templates.store');
                 Route::put('/visits/{visit}/care/prescription-templates/{prescriptionTemplate}', [PrescriptionTemplateController::class, 'update'])->name('care.prescription-templates.update');
@@ -548,6 +552,25 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 ->middleware('permission:plan.view')
                 ->name('subscription.invoices.finish');
 
+            Route::get('/addons', [AddonMarketplaceController::class, 'index'])
+                ->middleware('permission:addon.view')
+                ->name('addons.index');
+            Route::get('/addons/invoices/midtrans/finish', [AddonMarketplaceController::class, 'finish'])
+                ->middleware('permission:addon.view')
+                ->name('addons.invoices.finish');
+            Route::get('/addons/invoices/{saasAddonInvoice}/checkout', [AddonMarketplaceController::class, 'checkout'])
+                ->middleware('permission:addon.view')
+                ->name('addons.checkout');
+            Route::get('/addons/{saasAddon:code}', [AddonMarketplaceController::class, 'show'])
+                ->middleware('permission:addon.view')
+                ->name('addons.show');
+            Route::post('/addons/{saasAddon:code}/activate', [AddonMarketplaceController::class, 'activate'])
+                ->middleware('permission:addon.view')
+                ->name('addons.activate');
+            Route::post('/addons/{saasAddon:code}/pay', [AddonMarketplaceController::class, 'pay'])
+                ->middleware('permission:addon.view')
+                ->name('addons.pay');
+
             Route::get('/integrations', [IntegrationController::class, 'index'])
                 ->name('integrations.index');
             Route::get('/integrations/satusehat', [IntegrationController::class, 'satusehat'])
@@ -596,7 +619,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 ->middleware('permission:integration.view')
                 ->name('integrations.claims.download');
 
-            Route::prefix('whatsapp')->name('whatsapp.')->group(function () {
+            Route::prefix('whatsapp')->name('whatsapp.')->middleware('addon:whatsapp')->group(function () {
                 Route::get('/', [WhatsAppDashboardController::class, 'index'])
                     ->middleware('permission:whatsapp.view')
                     ->name('dashboard');
@@ -747,6 +770,18 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
 
             Route::get('payment-gateway', [PaymentGatewayController::class, 'index'])->middleware('permission:payment_gateway.view')->name('payment-gateway.index');
             Route::put('payment-gateway', [PaymentGatewayController::class, 'update'])->middleware('permission:payment_gateway.manage')->name('payment-gateway.update');
+
+            Route::get('addons', [SaasAddonController::class, 'index'])->middleware('permission:addon.manage')->name('addons.index');
+            Route::post('addons', [SaasAddonController::class, 'store'])->middleware('permission:addon.manage')->name('addons.store');
+            Route::put('addons/{saasAddon}', [SaasAddonController::class, 'update'])->middleware('permission:addon.manage')->name('addons.update');
+            Route::post('addons/{saasAddon}/status', [SaasAddonController::class, 'toggleStatus'])->middleware('permission:addon.manage')->name('addons.status');
+
+            Route::get('addon-subscriptions', [SaasAddonSubscriptionController::class, 'index'])->middleware('permission:addon.manage')->name('addon-subscriptions.index');
+            Route::post('addon-subscriptions/ensure', [SaasAddonSubscriptionController::class, 'ensure'])->middleware('permission:addon.manage')->name('addon-subscriptions.ensure');
+            Route::post('addon-subscriptions/{saasAddonSubscription}/activate', [SaasAddonSubscriptionController::class, 'activate'])->middleware('permission:addon.manage')->name('addon-subscriptions.activate');
+            Route::post('addon-subscriptions/{saasAddonSubscription}/suspend', [SaasAddonSubscriptionController::class, 'suspend'])->middleware('permission:addon.manage')->name('addon-subscriptions.suspend');
+            Route::post('addon-subscriptions/{saasAddonSubscription}/revoke', [SaasAddonSubscriptionController::class, 'revoke'])->middleware('permission:addon.manage')->name('addon-subscriptions.revoke');
+            Route::put('addon-subscriptions/{saasAddonSubscription}/extend', [SaasAddonSubscriptionController::class, 'extend'])->middleware('permission:addon.manage')->name('addon-subscriptions.extend');
         });
 
         require __DIR__.'/modules.php';

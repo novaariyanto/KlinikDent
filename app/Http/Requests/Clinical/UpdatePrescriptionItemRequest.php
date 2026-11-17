@@ -40,6 +40,7 @@ class UpdatePrescriptionItemRequest extends FormRequest
         $item = $this->route('prescriptionItem');
         $compound = $item?->isCompound() ?? false;
         $interactive = $this->input('_form') === 'prescription-update';
+        $editorRow = $this->input('_form') === 'rx-editor-row';
         $tenantId = $this->actorTenantId();
 
         return [
@@ -48,9 +49,25 @@ class UpdatePrescriptionItemRequest extends FormRequest
             'duration' => [Rule::requiredIf($interactive), 'nullable', 'string', 'max:160'],
             'course' => ['nullable', 'string', 'max:100'],
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
-            'medication_type' => [Rule::excludeIf(! $compound), 'required', Rule::enum(MedicationTypeCode::class)],
+            'signa_p' => ['nullable', 'string', 'max:20'],
+            'signa_s' => ['nullable', 'string', 'max:20'],
+            'signa_sr' => ['nullable', 'string', 'max:20'],
+            'signa_m' => ['nullable', 'string', 'max:20'],
+            'waktu' => ['nullable', 'string', 'max:100'],
+            'jho' => ['nullable', 'integer', 'min:1', 'max:365'],
+            'unit' => ['nullable', 'string', 'max:30'],
+            'notes' => ['nullable', 'string', 'max:1000'],
+            'unit_price' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
+            'medicine_id' => [
+                Rule::excludeIf($compound),
+                Rule::requiredIf($editorRow && ! $compound),
+                'nullable',
+                'integer',
+                Rule::exists('medicines', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
+            ],
+            'medication_type' => [Rule::excludeIf(! $compound || $editorRow), 'required', Rule::enum(MedicationTypeCode::class)],
             'composition_confirmed' => [Rule::excludeIf(! $compound || ! $interactive), 'accepted'],
-            'ingredients' => [Rule::excludeIf(! $compound), 'required', 'array', 'min:1'],
+            'ingredients' => [Rule::excludeIf(! $compound || $editorRow), 'required', 'array', 'min:1'],
             'ingredients.*.name' => ['required_with:ingredients', 'string', 'max:120'],
             'ingredients.*.medicine_id' => [
                 'nullable',
@@ -83,6 +100,10 @@ class UpdatePrescriptionItemRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($this->input('_form') === 'rx-editor-row') {
+                return;
+            }
+
             /** @var PrescriptionItem|null $item */
             $item = $this->route('prescriptionItem');
             if (! $item?->isCompound()) {
@@ -116,12 +137,19 @@ class UpdatePrescriptionItemRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $nullable = ['signa_p', 'signa_s', 'signa_sr', 'signa_m', 'waktu', 'unit', 'notes', 'course'];
+        $merge = [
+            'jho' => filled($this->input('jho')) ? (int) $this->input('jho') : null,
+            'unit_price' => filled($this->input('unit_price')) ? $this->input('unit_price') : null,
+        ];
+        foreach ($nullable as $field) {
+            $merge[$field] = filled($this->input($field)) ? trim((string) $this->input($field)) : null;
+        }
+
         /** @var PrescriptionItem|null $item */
         $item = $this->route('prescriptionItem');
-        if (! $item?->isCompound()) {
-            $this->merge([
-                'course' => filled($this->input('course')) ? trim((string) $this->input('course')) : null,
-            ]);
+        if (! $item?->isCompound() || $this->input('_form') === 'rx-editor-row') {
+            $this->merge($merge);
 
             return;
         }
@@ -143,9 +171,7 @@ class UpdatePrescriptionItemRequest extends FormRequest
             ->values()
             ->all();
 
-        $this->merge([
-            'ingredients' => $ingredients,
-            'course' => filled($this->input('course')) ? trim((string) $this->input('course')) : null,
-        ]);
+        $merge['ingredients'] = $ingredients;
+        $this->merge($merge);
     }
 }

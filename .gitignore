@@ -25,3 +25,5 @@ yarn-error.log
 /.zed
 /storage/app/backups/*
 /storage/app/icd_source/*.json
+
+.worktrees/

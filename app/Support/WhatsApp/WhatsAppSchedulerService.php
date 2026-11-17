@@ -2,15 +2,18 @@
 
 namespace App\Support\WhatsApp;
 
+use App\Enums\AddonCode;
 use App\Enums\InvoiceStatus;
 use App\Enums\VisitStatus;
 use App\Enums\WhatsAppEvent;
 use App\Models\Invoice;
 use App\Models\Patient;
+use App\Models\Tenant;
 use App\Models\Visit;
 use App\Models\WhatsAppAutomationRule;
 use App\Models\WhatsAppPromotion;
 use App\Models\WhatsAppSetting;
+use App\Support\Saas\AddonGate;
 use Illuminate\Support\Carbon;
 
 class WhatsAppSchedulerService
@@ -45,7 +48,13 @@ class WhatsAppSchedulerService
             return 0;
         }
 
-        $tenantIds = $settings->keys()->all();
+        $tenantIds = $this->eligibleTenantIds($settings->keys()->all());
+
+        if ($tenantIds === []) {
+            return 0;
+        }
+
+        $settings = $settings->only($tenantIds);
 
         $rules = WhatsAppAutomationRule::query()
             ->withoutGlobalScopes()
@@ -106,13 +115,16 @@ class WhatsAppSchedulerService
         $count = 0;
         $yesterday = now()->subDay()->toDateString();
 
-        $tenantIds = WhatsAppAutomationRule::query()
-            ->withoutGlobalScopes()
-            ->where('event_key', WhatsAppEvent::AppointmentMissed->value)
-            ->where('is_enabled', true)
-            ->pluck('tenant_id');
+        $tenantIds = $this->eligibleTenantIds(
+            WhatsAppAutomationRule::query()
+                ->withoutGlobalScopes()
+                ->where('event_key', WhatsAppEvent::AppointmentMissed->value)
+                ->where('is_enabled', true)
+                ->pluck('tenant_id')
+                ->all()
+        );
 
-        if ($tenantIds->isEmpty()) {
+        if ($tenantIds === []) {
             return 0;
         }
 
@@ -138,17 +150,20 @@ class WhatsAppSchedulerService
         $count = 0;
         $today = now()->toDateString();
 
-        $tenantIds = WhatsAppAutomationRule::query()
-            ->withoutGlobalScopes()
-            ->whereIn('event_key', [
-                WhatsAppEvent::ControlReminder->value,
-                WhatsAppEvent::FollowupReminder->value,
-            ])
-            ->where('is_enabled', true)
-            ->pluck('tenant_id')
-            ->unique();
+        $tenantIds = $this->eligibleTenantIds(
+            WhatsAppAutomationRule::query()
+                ->withoutGlobalScopes()
+                ->whereIn('event_key', [
+                    WhatsAppEvent::ControlReminder->value,
+                    WhatsAppEvent::FollowupReminder->value,
+                ])
+                ->where('is_enabled', true)
+                ->pluck('tenant_id')
+                ->unique()
+                ->all()
+        );
 
-        if ($tenantIds->isEmpty()) {
+        if ($tenantIds === []) {
             return 0;
         }
 
@@ -182,13 +197,16 @@ class WhatsAppSchedulerService
     public function dispatchPaymentReminders(): int
     {
         $count = 0;
-        $tenantIds = WhatsAppAutomationRule::query()
-            ->withoutGlobalScopes()
-            ->where('event_key', WhatsAppEvent::PaymentReminder->value)
-            ->where('is_enabled', true)
-            ->pluck('tenant_id');
+        $tenantIds = $this->eligibleTenantIds(
+            WhatsAppAutomationRule::query()
+                ->withoutGlobalScopes()
+                ->where('event_key', WhatsAppEvent::PaymentReminder->value)
+                ->where('is_enabled', true)
+                ->pluck('tenant_id')
+                ->all()
+        );
 
-        if ($tenantIds->isEmpty()) {
+        if ($tenantIds === []) {
             return 0;
         }
 
@@ -221,13 +239,16 @@ class WhatsAppSchedulerService
     public function dispatchBirthdayPromotions(): int
     {
         $count = 0;
-        $tenantIds = WhatsAppAutomationRule::query()
-            ->withoutGlobalScopes()
-            ->where('event_key', WhatsAppEvent::BirthdayPromotion->value)
-            ->where('is_enabled', true)
-            ->pluck('tenant_id');
+        $tenantIds = $this->eligibleTenantIds(
+            WhatsAppAutomationRule::query()
+                ->withoutGlobalScopes()
+                ->where('event_key', WhatsAppEvent::BirthdayPromotion->value)
+                ->where('is_enabled', true)
+                ->pluck('tenant_id')
+                ->all()
+        );
 
-        if ($tenantIds->isEmpty()) {
+        if ($tenantIds === []) {
             return 0;
         }
 
@@ -268,6 +289,12 @@ class WhatsAppSchedulerService
             ->get();
 
         foreach ($promotions as $promotion) {
+            $tenant = Tenant::query()->find($promotion->tenant_id);
+
+            if (! $tenant || ! AddonGate::isActive($tenant, AddonCode::WhatsApp)) {
+                continue;
+            }
+
             $count += $this->sendPromotion($promotion);
             $promotion->update(['dispatched_at' => now()]);
         }
@@ -307,5 +334,23 @@ class WhatsAppSchedulerService
         }
 
         return $now->format('H:i') >= $sendTime;
+    }
+
+    /**
+     * @param  list<int|string>  $tenantIds
+     * @return list<int>
+     */
+    protected function eligibleTenantIds(array $tenantIds): array
+    {
+        return collect($tenantIds)
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->filter(function (int $tenantId) {
+                $tenant = Tenant::query()->find($tenantId);
+
+                return $tenant && AddonGate::isActive($tenant, AddonCode::WhatsApp);
+            })
+            ->values()
+            ->all();
     }
 }

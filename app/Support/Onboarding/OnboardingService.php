@@ -2,6 +2,7 @@
 
 namespace App\Support\Onboarding;
 
+use App\Enums\AddonCode;
 use App\Enums\IntegrationProvider;
 use App\Enums\OnboardingStatus;
 use App\Enums\OnboardingTemplate;
@@ -14,6 +15,7 @@ use App\Models\Doctor;
 use App\Models\Medicine;
 use App\Models\Payer;
 use App\Models\Procedure;
+use App\Models\SaasAddon;
 use App\Models\Service;
 use App\Models\Tariff;
 use App\Models\Tenant;
@@ -21,8 +23,11 @@ use App\Models\TenantIntegration;
 use App\Models\User;
 use App\Support\ClinicSettings;
 use App\Support\Doctors\DoctorService;
+use App\Support\Saas\AddonGate;
+use App\Support\Saas\AddonService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
@@ -66,6 +71,8 @@ class OnboardingService
         if (! in_array(RoleName::Owner->value, $roles, true)) {
             $roles[] = RoleName::Owner->value;
         }
+
+        $roles = $this->ensureNurseWithClinicOps($roles);
 
         foreach ($roles as $role) {
             if ($role === RoleName::SuperAdminSaas->value || ! RoleName::isSystem($role)) {
@@ -223,6 +230,7 @@ class OnboardingService
                     $roles,
                     fn (string $role) => $role !== RoleName::SuperAdminSaas->value && in_array($role, RoleName::tenantValues(), true)
                 ));
+                $roles = $this->ensureNurseWithClinicOps($roles);
 
                 if ($roles === []) {
                     throw ValidationException::withMessages([
@@ -284,22 +292,11 @@ class OnboardingService
                         continue;
                     }
 
-                    Medicine::query()->updateOrCreate(
-                        ['tenant_id' => $tenant->id, 'name' => $item['name']],
-                        [
-                            'kfa_code' => filled($item['kfa_code'] ?? null) ? $item['kfa_code'] : null,
-                            'strength_value' => ($item['strength_value'] ?? '') === '' || ($item['strength_value'] ?? null) === null
-                                ? null
-                                : $item['strength_value'],
-                            'strength_unit' => filled($item['strength_unit'] ?? null) ? $item['strength_unit'] : null,
-                            'unit' => filled($item['unit'] ?? null) ? $item['unit'] : null,
-                            'category' => filled($item['category'] ?? null) ? $item['category'] : null,
-                            'base_price' => $item['base_price'] ?? 0,
-                            'margin_type' => filled($item['margin_type'] ?? null) ? $item['margin_type'] : 'fixed',
-                            'margin_value' => $item['margin_value'] ?? 0,
-                            'is_active' => array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true,
-                        ]
-                    );
+                    $this->upsertMedicine($tenant->id, $item, [
+                        'margin_type' => filled($item['margin_type'] ?? null) ? $item['margin_type'] : 'fixed',
+                        'margin_value' => Medicine::normalizeDecimalInput($item['margin_value'] ?? null) ?? 0,
+                        'is_active' => array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true,
+                    ]);
                 }
             }
 
@@ -309,18 +306,10 @@ class OnboardingService
                         continue;
                     }
 
-                    Medicine::query()->updateOrCreate(
-                        ['tenant_id' => $tenant->id, 'name' => $item['name']],
-                        [
-                            'kfa_code' => filled($item['kfa_code'] ?? null) ? $item['kfa_code'] : null,
-                            'strength_value' => filled($item['strength_value'] ?? null) ? $item['strength_value'] : null,
-                            'strength_unit' => filled($item['strength_unit'] ?? null) ? $item['strength_unit'] : null,
-                            'unit' => $item['unit'] ?? 'tablet',
-                            'category' => filled($item['category'] ?? null) ? $item['category'] : null,
-                            'base_price' => $item['base_price'] ?? 0,
-                            'is_active' => true,
-                        ]
-                    );
+                    $this->upsertMedicine($tenant->id, $item, [
+                        'unit' => $item['unit'] ?? 'tablet',
+                        'is_active' => true,
+                    ]);
                 }
             }
 
@@ -338,7 +327,7 @@ class OnboardingService
     {
         $tenant = $this->tenantOf($actor);
 
-        DB::transaction(function () use ($tenant, $data) {
+        DB::transaction(function () use ($tenant, $actor, $data) {
             if (($data['satusehat_action'] ?? 'skip') === 'configure') {
                 $this->saveIntegration(
                     $tenant,
@@ -366,6 +355,10 @@ class OnboardingService
                     ], fn ($value) => $value !== null && $value !== ''),
                     ['secret_key', 'user_key'],
                 );
+            }
+
+            if (($data['whatsapp_action'] ?? 'skip') === 'activate') {
+                $this->activateWhatsAppAddonDuringOnboarding($tenant, $actor);
             }
 
             $tenant->update([
@@ -466,7 +459,37 @@ class OnboardingService
             'medicines' => Medicine::query()->where('tenant_id', $tenant->id)->count(),
             'satusehat' => $satusehat->isConfigured(),
             'bpjs' => $bpjs->isConfigured(),
+            'whatsapp_addon' => AddonGate::isActive($tenant, AddonCode::WhatsApp),
         ];
+    }
+
+    /**
+     * Aktivasi Add-on WhatsApp dari onboarding hanya jika katalog gratis/trial.
+     * Add-on berbayar tetap lewat Marketplace setelah setup.
+     */
+    protected function activateWhatsAppAddonDuringOnboarding(Tenant $tenant, User $actor): void
+    {
+        if (! Schema::hasTable('saas_addons')) {
+            return;
+        }
+
+        $addon = SaasAddon::query()
+            ->where('code', AddonCode::WhatsApp->value)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $addon) {
+            return;
+        }
+
+        $trial = (int) $addon->trial_days > 0;
+        if (! $addon->isFree() && ! $trial) {
+            return;
+        }
+
+        $addons = app(AddonService::class);
+        $subscription = $addons->ensureSubscription($tenant, $addon);
+        $addons->activate($subscription, $actor, $trial);
     }
 
     protected function seedServiceTemplate(Tenant $tenant): void
@@ -523,6 +546,46 @@ class OnboardingService
         $settings->save();
     }
 
+    /**
+     * Upsert obat by name; jika KFA sudah dipakai nama lain, KFA dikosongkan agar unik per tenant.
+     *
+     * @param  array<string, mixed>  $item
+     * @param  array<string, mixed>  $extra
+     */
+    protected function upsertMedicine(int $tenantId, array $item, array $extra = []): void
+    {
+        $name = trim((string) $item['name']);
+        $kfa = filled($item['kfa_code'] ?? null)
+            ? preg_replace('/\s+/', '', (string) $item['kfa_code'])
+            : null;
+
+        if ($kfa !== null && $kfa !== '') {
+            $kfaTaken = Medicine::query()
+                ->where('tenant_id', $tenantId)
+                ->where('kfa_code', $kfa)
+                ->where('name', '!=', $name)
+                ->exists();
+
+            if ($kfaTaken) {
+                $kfa = null;
+            }
+        } else {
+            $kfa = null;
+        }
+
+        Medicine::query()->updateOrCreate(
+            ['tenant_id' => $tenantId, 'name' => $name],
+            array_merge([
+                'kfa_code' => $kfa,
+                'strength_value' => Medicine::normalizeDecimalInput($item['strength_value'] ?? null),
+                'strength_unit' => filled($item['strength_unit'] ?? null) ? $item['strength_unit'] : null,
+                'unit' => filled($item['unit'] ?? null) ? $item['unit'] : null,
+                'category' => filled($item['category'] ?? null) ? $item['category'] : null,
+                'base_price' => Medicine::normalizeDecimalInput($item['base_price'] ?? null) ?? 0,
+            ], $extra)
+        );
+    }
+
     protected function tenantOf(User $actor): Tenant
     {
         $tenant = $actor->tenant;
@@ -556,5 +619,21 @@ class OnboardingService
         if ($path && Storage::disk('public')->exists($path)) {
             Storage::disk('public')->delete($path);
         }
+    }
+
+    /**
+     * Admin operasional (operator) otomatis mendapat role perawat.
+     *
+     * @param  list<string>  $roles
+     * @return list<string>
+     */
+    protected function ensureNurseWithClinicOps(array $roles): array
+    {
+        if (in_array(RoleName::ClinicOps->value, $roles, true)
+            && ! in_array(RoleName::Nurse->value, $roles, true)) {
+            $roles[] = RoleName::Nurse->value;
+        }
+
+        return array_values(array_unique($roles));
     }
 }

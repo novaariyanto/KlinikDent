@@ -54,6 +54,7 @@ final class PermissionCatalog
             'platform.setting.manage',
             'payment_gateway.view',
             'payment_gateway.manage',
+            'addon.manage',
         ];
     }
 
@@ -83,6 +84,7 @@ final class PermissionCatalog
             'plan.view',
             'plan.subscribe',
             'plan.pay',
+            'addon.view',
         ];
     }
 
@@ -280,6 +282,7 @@ final class PermissionCatalog
             'plan.view',
             'plan.subscribe',
             'plan.pay',
+            'addon.view',
         ])));
     }
 

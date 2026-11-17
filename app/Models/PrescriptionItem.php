@@ -26,6 +26,15 @@ class PrescriptionItem extends Model
         'duration',
         'course',
         'quantity',
+        'signa_p',
+        'signa_s',
+        'signa_sr',
+        'signa_m',
+        'waktu',
+        'jho',
+        'unit',
+        'notes',
+        'unit_price',
     ];
 
     /**
@@ -39,7 +48,30 @@ class PrescriptionItem extends Model
             'medication_type' => MedicationTypeCode::class,
             'medicine_id' => 'integer',
             'quantity' => 'integer',
+            'jho' => 'integer',
+            'unit_price' => 'decimal:2',
         ];
+    }
+
+    public function signaLine(): string
+    {
+        $parts = [
+            $this->signa_p ?? '',
+            $this->signa_s ?? '',
+            $this->signa_sr ?? '',
+            $this->signa_m ?? '',
+        ];
+
+        if (collect($parts)->filter(fn ($v) => $v !== '' && $v !== null)->isEmpty()) {
+            return '';
+        }
+
+        return implode(' - ', array_map(fn ($v) => $v === '' || $v === null ? '0' : (string) $v, $parts));
+    }
+
+    public function subtotal(): float
+    {
+        return (float) $this->quantity * (float) ($this->unit_price ?? 0);
     }
 
     /**

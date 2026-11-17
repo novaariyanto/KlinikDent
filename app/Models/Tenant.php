@@ -95,6 +95,14 @@ class Tenant extends Model
         return $this->hasMany(SaasInvoice::class);
     }
 
+    /**
+     * @return HasMany<SaasAddonSubscription, $this>
+     */
+    public function addonSubscriptions(): HasMany
+    {
+        return $this->hasMany(SaasAddonSubscription::class);
+    }
+
     public function currentSubscription(): ?SaasSubscription
     {
         return $this->subscriptions()

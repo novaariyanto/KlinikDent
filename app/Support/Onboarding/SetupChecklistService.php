@@ -2,6 +2,7 @@
 
 namespace App\Support\Onboarding;
 
+use App\Enums\AddonCode;
 use App\Enums\IntegrationProvider;
 use App\Enums\RoleName;
 use App\Models\Doctor;
@@ -11,6 +12,8 @@ use App\Models\Tenant;
 use App\Models\TenantIntegration;
 use App\Models\User;
 use App\Support\ClinicSettings;
+use App\Support\Saas\AddonGate;
+use Illuminate\Support\Facades\Route;
 
 class SetupChecklistService
 {
@@ -83,6 +86,13 @@ class SetupChecklistService
                 'label' => 'Integrasi BPJS',
                 'done' => $bpjs->isConfigured(),
                 'href' => route('integrations.bpjs'),
+                'optional' => true,
+            ],
+            [
+                'key' => 'whatsapp_addon',
+                'label' => 'Add-on WhatsApp',
+                'done' => AddonGate::isActive($tenant, AddonCode::WhatsApp),
+                'href' => Route::has('addons.index') ? route('addons.index') : route('dashboard'),
                 'optional' => true,
             ],
         ];

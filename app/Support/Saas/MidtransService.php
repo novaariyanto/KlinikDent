@@ -3,6 +3,7 @@
 namespace App\Support\Saas;
 
 use App\Enums\SaasInvoiceStatus;
+use App\Models\SaasAddonInvoice;
 use App\Models\SaasInvoice;
 use App\Models\User;
 use Illuminate\Http\Client\Response;
@@ -10,7 +11,10 @@ use Illuminate\Support\Facades\Http;
 
 class MidtransService
 {
-    public function __construct(protected SubscriptionService $subscriptions) {}
+    public function __construct(
+        protected SubscriptionService $subscriptions,
+        protected AddonBillingService $addonBilling,
+    ) {}
 
     public function isReady(): bool
     {
@@ -47,41 +51,65 @@ class MidtransService
             ],
         ];
 
-        $response = Http::withBasicAuth(PaymentGatewaySettings::serverKey(), '')
-            ->acceptJson()
-            ->timeout(20)
-            ->post(PaymentGatewaySettings::snapBaseUrl().'/snap/v1/transactions', $payload);
+        return $this->requestSnapToken($invoice, $payload, $orderId);
+    }
 
-        if (! $response->successful() || ! $response->json('token')) {
-            throw new MidtransException($this->errorMessage($response, 'Gagal membuat transaksi Midtrans.'));
+    public function createAddonSnapToken(SaasAddonInvoice $invoice, User $user): string
+    {
+        if (! $this->isReady()) {
+            throw new MidtransException('Payment gateway Midtrans belum dikonfigurasi.');
         }
 
-        $invoice->update([
-            'payment_channel' => 'midtrans',
-            'midtrans_order_id' => $orderId,
-            'midtrans_snap_token' => $response->json('token'),
-            'midtrans_status' => 'pending',
-            'payment_payload' => $payload,
-        ]);
+        $invoice->loadMissing('addonSubscription.addon');
 
-        return (string) $response->json('token');
+        $orderId = $invoice->number.'-'.now()->format('His');
+        $amount = (int) round((float) $invoice->amount);
+        $addonName = $invoice->addonSubscription?->addon?->name ?? 'Add-on';
+
+        $payload = [
+            'transaction_details' => [
+                'order_id' => $orderId,
+                'gross_amount' => $amount,
+            ],
+            'item_details' => [[
+                'id' => 'addon-'.($invoice->addonSubscription?->addon_id ?? $invoice->id),
+                'price' => $amount,
+                'quantity' => 1,
+                'name' => mb_substr($addonName, 0, 50),
+            ]],
+            'customer_details' => [
+                'first_name' => mb_substr($user->name, 0, 50),
+                'email' => $user->email,
+            ],
+            'callbacks' => [
+                'finish' => route('addons.invoices.finish'),
+            ],
+        ];
+
+        return $this->requestSnapToken($invoice, $payload, $orderId);
     }
 
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function handleNotification(array $payload): ?SaasInvoice
+    public function handleNotification(array $payload): SaasInvoice|SaasAddonInvoice|null
     {
         $this->assertValidSignature($payload);
 
         $orderId = (string) ($payload['order_id'] ?? '');
         $invoice = $this->findInvoice($orderId);
 
-        if (! $invoice) {
-            return null;
+        if ($invoice) {
+            return $this->applyStatus($invoice, $payload);
         }
 
-        return $this->applyStatus($invoice, $payload);
+        $addonInvoice = $this->findAddonInvoice($orderId);
+
+        if ($addonInvoice) {
+            return $this->applyAddonStatus($addonInvoice, $payload);
+        }
+
+        return null;
     }
 
     public function syncByOrderId(string $orderId, ?int $tenantId = null): ?SaasInvoice
@@ -114,6 +142,36 @@ class MidtransService
         return $this->applyStatus($invoice, $payload);
     }
 
+    public function syncAddonByOrderId(string $orderId, ?int $tenantId = null): ?SaasAddonInvoice
+    {
+        if ($orderId === '' || ! $this->isReady()) {
+            return null;
+        }
+
+        $invoice = $this->findAddonInvoice($orderId);
+
+        if (! $invoice || ($tenantId && (int) $invoice->tenant_id !== $tenantId)) {
+            return null;
+        }
+
+        $response = Http::withBasicAuth(PaymentGatewaySettings::serverKey(), '')
+            ->acceptJson()
+            ->timeout(20)
+            ->get(PaymentGatewaySettings::apiBaseUrl().'/v2/'.$orderId.'/status');
+
+        if (! $response->successful()) {
+            return $invoice;
+        }
+
+        $payload = $response->json() ?? [];
+
+        if (! $this->signatureMatches($payload)) {
+            return $invoice;
+        }
+
+        return $this->applyAddonStatus($invoice, $payload);
+    }
+
     /**
      * @param  array<string, mixed>  $payload
      */
@@ -134,6 +192,36 @@ class MidtransService
 
         if ($paid && $invoice->status !== SaasInvoiceStatus::Paid) {
             return $this->subscriptions->markPaid($invoice->fresh(), [
+                'channel' => 'midtrans',
+                'transaction_id' => $payload['transaction_id'] ?? null,
+                'status' => $status,
+                'payload' => $payload,
+            ]);
+        }
+
+        return $invoice->fresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function applyAddonStatus(SaasAddonInvoice $invoice, array $payload): SaasAddonInvoice
+    {
+        $status = (string) ($payload['transaction_status'] ?? '');
+        $fraud = (string) ($payload['fraud_status'] ?? 'accept');
+
+        $invoice->update([
+            'payment_channel' => 'midtrans',
+            'midtrans_order_id' => (string) ($payload['order_id'] ?? $invoice->midtrans_order_id),
+            'midtrans_transaction_id' => $payload['transaction_id'] ?? $invoice->midtrans_transaction_id,
+            'midtrans_status' => $status !== '' ? $status : $invoice->midtrans_status,
+            'payment_payload' => $payload,
+        ]);
+
+        $paid = $status === 'settlement' || ($status === 'capture' && $fraud !== 'challenge');
+
+        if ($paid && $invoice->status !== SaasInvoiceStatus::Paid) {
+            return $this->addonBilling->markPaid($invoice->fresh(), [
                 'channel' => 'midtrans',
                 'transaction_id' => $payload['transaction_id'] ?? null,
                 'status' => $status,
@@ -179,6 +267,31 @@ class MidtransService
         return hash('sha512', ($payload['order_id'] ?? '').($payload['status_code'] ?? '').($payload['gross_amount'] ?? '').$serverKey);
     }
 
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    protected function requestSnapToken(SaasInvoice|SaasAddonInvoice $invoice, array $payload, string $orderId): string
+    {
+        $response = Http::withBasicAuth(PaymentGatewaySettings::serverKey(), '')
+            ->acceptJson()
+            ->timeout(20)
+            ->post(PaymentGatewaySettings::snapBaseUrl().'/snap/v1/transactions', $payload);
+
+        if (! $response->successful() || ! $response->json('token')) {
+            throw new MidtransException($this->errorMessage($response, 'Gagal membuat transaksi Midtrans.'));
+        }
+
+        $invoice->update([
+            'payment_channel' => 'midtrans',
+            'midtrans_order_id' => $orderId,
+            'midtrans_snap_token' => $response->json('token'),
+            'midtrans_status' => 'pending',
+            'payment_payload' => $payload,
+        ]);
+
+        return (string) $response->json('token');
+    }
+
     protected function findInvoice(string $orderId): ?SaasInvoice
     {
         if ($orderId === '') {
@@ -186,6 +299,20 @@ class MidtransService
         }
 
         return SaasInvoice::query()
+            ->where(function ($query) use ($orderId) {
+                $query->where('midtrans_order_id', $orderId)
+                    ->orWhere('number', $orderId);
+            })
+            ->first();
+    }
+
+    protected function findAddonInvoice(string $orderId): ?SaasAddonInvoice
+    {
+        if ($orderId === '') {
+            return null;
+        }
+
+        return SaasAddonInvoice::query()
             ->where(function ($query) use ($orderId) {
                 $query->where('midtrans_order_id', $orderId)
                     ->orWhere('number', $orderId);

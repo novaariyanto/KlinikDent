@@ -8,7 +8,6 @@
         'odontogram' => 'clinical.care.partials.odontogram',
         'tindakan' => 'clinical.care.partials.plan-procedures',
         'resep' => 'clinical.care.partials.plan-prescriptions',
-        'rujukan' => 'clinical.care.partials.plan-referrals',
         'ringkasan' => 'clinical.care.partials.discharge',
     ];
 @endphp
@@ -213,6 +212,184 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        .vital-example::placeholder,
+        .soap-vital-grid input::placeholder,
+        .vital-grid input::placeholder,
+        .vital-inline input::placeholder {
+            color: #a7b1be;
+            opacity: 0.55;
+            font-weight: 400;
+        }
+
+        .soap-icd__secondary {
+            margin-top: 0.5rem;
+            display: grid;
+            gap: 0.4rem;
+        }
+
+        .soap-icd__row {
+            display: flex;
+            gap: 0.4rem;
+            align-items: center;
+        }
+
+        .soap-icd__row .select2-container {
+            flex: 1 1 auto;
+        }
+
+        .soap-icd__label {
+            display: block;
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-bottom: 0.2rem;
+        }
+
+        #resep.care-section { margin-bottom: 0; }
+        .rx-editor {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+        .rx-toolbar-mini {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .rx-editor-table-wrap {
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            overflow: visible;
+            background: #fff;
+        }
+        .rx-editor-table { font-size: 0.78rem; margin: 0; }
+        .rx-editor-table th {
+            white-space: nowrap;
+            background: #f1f5f9;
+            color: #455a64;
+            font-weight: 600;
+            vertical-align: middle;
+            padding: 0.35rem 0.4rem;
+        }
+        .rx-editor-table td { vertical-align: middle; padding: 0.3rem 0.35rem; }
+        .rx-editor-table .form-control-sm,
+        .rx-editor-table .form-select-sm {
+            min-height: 1.7rem;
+            padding-top: 0.15rem;
+            padding-bottom: 0.15rem;
+            font-size: 0.78rem;
+        }
+        .rx-signa { display: grid; grid-template-columns: repeat(4, 2.15rem); gap: 0.15rem; }
+        .rx-signa input { text-align: center; padding-left: 0.15rem; padding-right: 0.15rem; }
+        .rx-sig {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.2rem;
+            margin-bottom: 0.25rem;
+        }
+        .rx-sig .btn {
+            padding: 0.05rem 0.35rem;
+            font-size: 0.68rem;
+            line-height: 1.2;
+            color: #455a64;
+        }
+        .rx-sig-field {
+            position: relative;
+            padding-right: 1.35rem;
+        }
+        .rx-sig-tip {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 3;
+            display: none;
+        }
+        .rx-row--active .rx-sig-tip,
+        .rx-sig-field:focus-within .rx-sig-tip,
+        .rx-sig-field.is-sig-open .rx-sig-tip { display: block; }
+        .rx-sig-tip__toggle {
+            width: 1.2rem;
+            height: 1.2rem;
+            padding: 0;
+            line-height: 1;
+            font-size: 0.75rem;
+            color: #00897b;
+            border-color: #b2dfdb !important;
+            background: #e0f2f1 !important;
+        }
+        .rx-sig-field.is-sig-open .rx-sig-tip__toggle,
+        .rx-sig-tip__toggle[aria-expanded="true"] {
+            color: #004d40;
+            border-color: #26a69a !important;
+            background: #b2dfdb !important;
+        }
+        .rx-sig-tip__toggle .bx { font-size: 0.85rem; vertical-align: middle; }
+        .rx-sig--tip {
+            margin-bottom: 0;
+            max-height: 9rem;
+            overflow: auto;
+        }
+        .rx-sig-popover {
+            --bs-popover-max-width: 16rem;
+            z-index: 1085;
+        }
+        .rx-sig-popover .popover-body {
+            padding: 0.45rem;
+        }
+        .rx-sig-popover .rx-sig {
+            margin-bottom: 0;
+        }
+        .rx-row--compound { background: #f8fafc; }
+        .rx-row--active { outline: 1px solid #80cbc4; background: #e0f2f1; }
+        .rx-row--draft.rx-row--active { background: #fff3cd; }
+        .rx-editor-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0;
+        }
+        .rx-editor-footer {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.25rem 0;
+            border-top: 1px solid #eceff1;
+            background: #fff;
+        }
+        .rx-estimate { color: #455a64; font-size: 0.9rem; }
+        .rx-estimate strong { color: #00695c; font-size: 1rem; }
+        .rx-draft-ingredients { display: grid; gap: 0.25rem; }
+        .rx-draft-ingredient {
+            display: grid;
+            grid-template-columns: minmax(7rem, 1.3fr) minmax(5rem, 1fr) 3.5rem 1.6rem;
+            gap: 0.2rem;
+            align-items: start;
+        }
+        .rx-editor-table .select2-container {
+            width: 100% !important;
+            min-width: 9rem;
+        }
+        .rx-editor-table .select2-container .select2-selection--single {
+            min-height: 1.7rem;
+            height: auto;
+            border-color: #ced4da;
+        }
+        .rx-editor-table .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 1.5;
+            padding-left: 0.4rem;
+            font-size: 0.78rem;
+            color: #455a64;
+        }
+        .rx-editor-table .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 1.6rem;
+        }
+        .rx-row--draft { background: #fff8e1; }
     </style>
 @endpush
 
@@ -844,22 +1021,26 @@
         initIcdSelects(row);
         var select = row.querySelector('[data-icd-select]');
         var root = document.getElementById('soap-icd');
+        var removeBtn = row.querySelector('[data-icd-secondary-remove]');
         if (!select || !root || !$) return;
 
         var saving = false;
 
         function save(data) {
             var description = (data && data.description) || '';
-            if (!description || saving) return;
+            var code = (data && (data.code || data.id)) || '';
+            if (!description || String(code).indexOf('id:') === 0 || saving) return;
             saving = true;
             setStatus('Menyimpan…');
             var body = new FormData();
             body.append('_token', token);
-            body.append('code', (data && (data.code || data.id)) || '');
+            body.append('code', code);
             body.append('description', description);
             body.append('kind', 'clinical');
             body.append('rank', 'secondary');
-            fetch(root.dataset.store, {
+            var updateUrl = select.getAttribute('data-update');
+            if (updateUrl) body.append('_method', 'PUT');
+            fetch(updateUrl || root.dataset.store, {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': token,
@@ -870,9 +1051,12 @@
             }).then(function (res) {
                 return res.json().catch(function () { return {}; }).then(function (payload) {
                     if (!res.ok) throw new Error(validationMessage(payload));
-                    return payload;
+                    return payload || {};
                 });
-            }).then(function () {
+            }).then(function (payload) {
+                if (payload.update_url) select.setAttribute('data-update', payload.update_url);
+                if (payload.destroy_url) select.setAttribute('data-destroy', payload.destroy_url);
+                if (removeBtn) removeBtn.hidden = false;
                 saving = false;
                 setStatus('✓ Tersimpan');
             }).catch(function (error) {
@@ -883,6 +1067,69 @@
 
         $(select).on('select2:select', function (e) {
             save((e.params && e.params.data) || {});
+        });
+
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function () {
+                if (saving) return;
+                var destroyUrl = select.getAttribute('data-destroy');
+                var list = row.parentElement;
+                function removeRow() {
+                    if (list && list.querySelectorAll('[data-soap-icd-row]').length <= 1) {
+                        $(select).val(null).trigger('change');
+                        select.removeAttribute('data-update');
+                        select.removeAttribute('data-destroy');
+                        removeBtn.hidden = true;
+                        return;
+                    }
+                    row.remove();
+                }
+                if (!destroyUrl) {
+                    removeRow();
+                    return;
+                }
+                saving = true;
+                setStatus('Menyimpan…');
+                var body = new FormData();
+                body.append('_token', token);
+                body.append('_method', 'DELETE');
+                fetch(destroyUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': token,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: body
+                }).then(function (res) {
+                    return res.json().catch(function () { return {}; }).then(function (payload) {
+                        if (!res.ok) throw new Error(validationMessage(payload));
+                    });
+                }).then(function () {
+                    saving = false;
+                    removeRow();
+                    setStatus('✓ Tersimpan');
+                }).catch(function (error) {
+                    saving = false;
+                    setStatus(error && error.message ? error.message : 'Gagal menyimpan', true);
+                });
+            });
+        }
+    }
+
+    function bindSecondaryAdd() {
+        var root = document.getElementById('soap-icd');
+        var addBtn = document.querySelector('[data-icd-secondary-add]');
+        var list = document.querySelector('[data-icd-secondary-list]');
+        var tpl = document.getElementById('soap-icd-secondary-template');
+        if (!root || !addBtn || !list || !tpl) return;
+        addBtn.addEventListener('click', function () {
+            var wrap = document.createElement('div');
+            wrap.innerHTML = tpl.innerHTML.trim();
+            var row = wrap.firstElementChild;
+            if (!row) return;
+            list.appendChild(row);
+            bindSoapIcd(row);
         });
     }
 
@@ -930,7 +1177,7 @@
             body.append('code', code);
             body.append('description', description);
             body.append('kind', 'clinical');
-            body.append('rank', 'secondary');
+            body.append('rank', select.getAttribute('data-rank') || 'primary');
             body.append('single', '1');
             var updateUrl = select.getAttribute('data-update');
             if (updateUrl) body.append('_method', 'PUT');
@@ -1001,6 +1248,7 @@
             initIcd9Selects(workspace);
             document.querySelectorAll('[data-soap-icd-row]').forEach(bindSoapIcd);
             document.querySelectorAll('[data-icd-one]').forEach(bindOneIcd);
+            bindSecondaryAdd();
         }
 
         document.querySelectorAll('.care-modal').forEach(function (modal) {

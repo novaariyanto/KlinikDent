@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Patient;
 
+use App\Enums\BloodType;
 use App\Enums\Citizenship;
 use App\Enums\Gender;
 use App\Enums\MaritalStatus;
@@ -38,6 +39,7 @@ class StorePatientRequest extends FormRequest
             ],
             'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
+            'blood_type' => ['nullable', Rule::enum(BloodType::class)],
             'birth_place' => ['nullable', 'string', 'max:100'],
             'marital_status' => ['nullable', Rule::enum(MaritalStatus::class)],
             'citizenship' => ['nullable', Rule::enum(Citizenship::class)],
@@ -71,7 +73,7 @@ class StorePatientRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $nullable = [
-            'nik', 'default_payer_id', 'birth_place', 'marital_status', 'family_card_number',
+            'nik', 'default_payer_id', 'blood_type', 'birth_place', 'marital_status', 'family_card_number',
             'address', 'address_city', 'address_postal_code',
             'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
         ];

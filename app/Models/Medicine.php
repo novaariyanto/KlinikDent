@@ -132,6 +132,8 @@ class Medicine extends Model
 
             if ($medicine->strength_value === '' || $medicine->strength_value === null) {
                 $medicine->strength_value = null;
+            } elseif (is_string($medicine->strength_value)) {
+                $medicine->strength_value = self::normalizeDecimalInput($medicine->strength_value);
             }
 
             if ($medicine->unit === '') {
@@ -264,6 +266,42 @@ class Medicine extends Model
         }
 
         return self::UNITS[$this->unit] ?? (string) $this->unit;
+    }
+
+    /**
+     * Normalisasi input kekuatan/harga berpemisah ribuan (mis. "1,000.000").
+     */
+    public static function normalizeDecimalInput(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (float) $value;
+        }
+
+        $raw = trim(str_replace([' ', "\u{00A0}"], '', (string) $value));
+        if ($raw === '') {
+            return null;
+        }
+
+        if (str_contains($raw, ',') && str_contains($raw, '.')) {
+            if (strrpos($raw, ',') > strrpos($raw, '.')) {
+                $raw = str_replace('.', '', $raw);
+                $raw = str_replace(',', '.', $raw);
+            } else {
+                $raw = str_replace(',', '', $raw);
+            }
+        } elseif (str_contains($raw, ',')) {
+            if (preg_match('/^\d{1,3}(,\d{3})+$/', $raw)) {
+                $raw = str_replace(',', '', $raw);
+            } else {
+                $raw = str_replace(',', '.', $raw);
+            }
+        }
+
+        return is_numeric($raw) ? (float) $raw : null;
     }
 
     /**

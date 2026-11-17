@@ -19,6 +19,7 @@ use App\Http\Requests\Clinical\UpdateExaminationRequest;
 use App\Http\Requests\Clinical\UpdateFollowUpReviewRequest;
 use App\Http\Requests\Clinical\UpdateMedicalRecordRequest;
 use App\Http\Requests\Clinical\UpdatePrescriptionItemRequest;
+use App\Http\Requests\Clinical\UpdatePrescriptionMetaRequest;
 use App\Http\Requests\Clinical\UpdateProcedureRecordRequest;
 use App\Http\Requests\Clinical\UpdateSystemicHistoryRequest;
 use App\Http\Requests\Clinical\UpdateToothRequest;
@@ -414,9 +415,11 @@ class CareController extends Controller
 
     public function storePrescriptionItem(StorePrescriptionItemRequest $request, Visit $visit): RedirectResponse|JsonResponse
     {
-        $this->care->storePrescriptionItem($visit, $request->user(), $request->validated());
+        $item = $this->care->storePrescriptionItem($visit, $request->user(), $request->validated());
+        $payload = $this->prescriptionAjaxPayload($visit);
+        $payload['item_id'] = $item->id;
 
-        return $this->respondCare($visit, 'resep', 'Obat ditambahkan ke resep draft.', null, $this->prescriptionAjaxPayload($visit));
+        return $this->respondCare($visit, 'resep', 'Obat ditambahkan ke resep draft.', null, $payload);
     }
 
     public function updatePrescriptionItem(UpdatePrescriptionItemRequest $request, Visit $visit, PrescriptionItem $prescriptionItem): RedirectResponse|JsonResponse
@@ -436,6 +439,13 @@ class CareController extends Controller
         return $this->respondCare($visit, 'resep', 'Item resep dihapus.', null, $this->prescriptionAjaxPayload($visit));
     }
 
+    public function updatePrescriptionMeta(UpdatePrescriptionMetaRequest $request, Visit $visit, Prescription $prescription): RedirectResponse|JsonResponse
+    {
+        $this->care->updatePrescriptionMeta($visit, $prescription, $request->validated());
+
+        return $this->respondCare($visit, 'resep', 'Pengaturan resep disimpan.', null, $this->prescriptionAjaxPayload($visit));
+    }
+
     public function sendPrescription(Visit $visit, Prescription $prescription): RedirectResponse|JsonResponse
     {
         $this->authorize('view', $visit);
@@ -448,14 +458,14 @@ class CareController extends Controller
     {
         $this->care->storeReferral($visit, $request->validated());
 
-        return $this->respondCare($visit, 'rujukan', 'Rujukan ditambahkan.');
+        return $this->respondCare($visit, 'ringkasan', 'Rujukan ditambahkan.');
     }
 
     public function updateReferral(StoreReferralRequest $request, Visit $visit, Referral $referral): RedirectResponse|JsonResponse
     {
         $this->care->updateReferral($visit, $referral, $request->validated());
 
-        return $this->respondCare($visit, 'rujukan', 'Rujukan diperbarui.');
+        return $this->respondCare($visit, 'ringkasan', 'Rujukan diperbarui.');
     }
 
     public function destroyReferral(Visit $visit, Referral $referral): RedirectResponse|JsonResponse
@@ -464,7 +474,7 @@ class CareController extends Controller
         abort_unless(request()->user()?->can('referral.manage'), 403);
         $this->care->destroyReferral($visit, $referral);
 
-        return $this->respondCare($visit, 'rujukan', 'Rujukan dihapus.');
+        return $this->respondCare($visit, 'ringkasan', 'Rujukan dihapus.');
     }
 
     public function printReferral(Visit $visit, Referral $referral): Response
@@ -860,7 +870,7 @@ class CareController extends Controller
             default => $section,
         };
 
-        if (in_array($section, ['soap', 'rujukan', 'ringkasan'], true)) {
+        if (in_array($section, ['soap', 'ringkasan'], true)) {
             $progress = CareProgress::for($visit, $visit->medicalRecord()->first(), collect());
             $done = (bool) ($progress[$section] ?? false);
         }
@@ -950,6 +960,10 @@ class CareController extends Controller
             'record' => $record,
             'writable' => $writable,
             'medicines' => Medicine::query()->active()->orderBy('name')->get(),
+            'prescriptionTemplates' => \App\Models\PrescriptionTemplate::query()
+                ->with(['author:id,name', 'items.medicine:id,name,unit', 'items.ingredients'])
+                ->orderBy('name')
+                ->get(),
         ])->render();
     }
 

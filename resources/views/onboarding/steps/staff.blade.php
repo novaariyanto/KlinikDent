@@ -26,5 +26,14 @@ document.getElementById('add-staff')?.addEventListener('click', () => {
     const tpl = document.getElementById('staff-template').innerHTML.replaceAll('__i__', String(list.children.length));
     list.insertAdjacentHTML('beforeend', tpl);
 });
+
+document.getElementById('staff-list')?.addEventListener('change', (event) => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || input.type !== 'checkbox') return;
+    if (input.value !== @json(\App\Enums\RoleName::ClinicOps->value) || !input.checked) return;
+    const row = input.closest('.staff-row');
+    const nurse = row?.querySelector('input[type="checkbox"][value="' + @json(\App\Enums\RoleName::Nurse->value) + '"]');
+    if (nurse) nurse.checked = true;
+});
 </script>
 @endpush

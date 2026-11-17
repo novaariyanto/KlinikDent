@@ -6,6 +6,7 @@ use App\Enums\AssessmentKind;
 use App\Enums\AssessmentStatus;
 use App\Enums\BillingStatus;
 use App\Enums\ClinicalDocumentType;
+use App\Enums\DiagnosisRank;
 use App\Enums\LabOrderStatus;
 use App\Enums\PrescriptionStatus;
 use App\Enums\QueueStatus;
@@ -190,7 +191,28 @@ class ClinicalCareService
             ?? $visit->prescriptions()->create([
                 'doctor_id' => $user->id,
                 'status' => PrescriptionStatus::Draft,
+                'prescription_kind' => 'biasa',
+                'pharmacy_depot' => config('pharmacy.depots.0'),
             ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updatePrescriptionMeta(Visit $visit, Prescription $prescription, array $data): Prescription
+    {
+        abort_unless((int) $prescription->visit_id === (int) $visit->id, 404);
+        abort_unless($prescription->isDraft(), 403);
+
+        $before = activity_snapshot($prescription);
+        $prescription->update([
+            'pharmacy_depot' => $data['pharmacy_depot'] ?? null,
+            'prescription_kind' => $data['prescription_kind'] ?? 'biasa',
+            'iter' => $data['iter'] ?? null,
+        ]);
+        activity_audit('updated', $prescription, $before, 'Updated prescription meta', 'prescriptions');
+
+        return $prescription->fresh() ?? $prescription;
     }
 
     /**
@@ -461,9 +483,7 @@ class ClinicalCareService
     public function storeDiagnosis(Visit $visit, array $data, bool $single): Diagnosis
     {
         $diagnosis = $visit->diagnoses()->create($data);
-        if ($single) {
-            $visit->diagnoses()->where('id', '!=', $diagnosis->id)->delete();
-        }
+        $this->replaceSameRankIfSingle($visit, $diagnosis, $single);
 
         activity_log('created', $diagnosis, $data, 'Added diagnosis', 'diagnoses');
 
@@ -479,13 +499,28 @@ class ClinicalCareService
 
         $before = activity_snapshot($diagnosis);
         $diagnosis->update($data);
-        if ($single) {
-            $visit->diagnoses()->where('id', '!=', $diagnosis->id)->delete();
-        }
+        $this->replaceSameRankIfSingle($visit, $diagnosis, $single);
 
         activity_audit('updated', $diagnosis, $before, 'Updated diagnosis', 'diagnoses');
 
         return $diagnosis;
+    }
+
+    /**
+     * single=true hanya mengganti diagnosis dengan rank yang sama (utama tetap 1; sekunder tidak dihapus massal).
+     */
+    protected function replaceSameRankIfSingle(Visit $visit, Diagnosis $diagnosis, bool $single): void
+    {
+        if (! $single) {
+            return;
+        }
+
+        $rank = $diagnosis->rank?->value ?? DiagnosisRank::Primary->value;
+
+        $visit->diagnoses()
+            ->where('id', '!=', $diagnosis->id)
+            ->where('rank', $rank)
+            ->delete();
     }
 
     public function destroyDiagnosis(Visit $visit, Diagnosis $diagnosis): void
@@ -639,7 +674,7 @@ class ClinicalCareService
     {
         $logged = $data;
         $ingredients = $data['ingredients'] ?? null;
-        unset($data['ingredients'], $data['composition_confirmed']);
+        unset($data['ingredients'], $data['composition_confirmed'], $data['_form'], $data['_item']);
         $prescriptionItem->update($data);
 
         if ($prescriptionItem->isCompound() && is_array($ingredients)) {

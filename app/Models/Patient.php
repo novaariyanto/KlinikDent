@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\BloodType;
 use App\Enums\BpjsMembershipStatus;
 use App\Enums\Citizenship;
 use App\Enums\Gender;
@@ -31,6 +32,7 @@ class Patient extends Model
         'satusehat_id',
         'dob',
         'gender',
+        'blood_type',
         'birth_place',
         'marital_status',
         'citizenship',
@@ -63,6 +65,7 @@ class Patient extends Model
             'default_payer_id' => 'integer',
             'dob' => 'date',
             'gender' => Gender::class,
+            'blood_type' => BloodType::class,
             'marital_status' => MaritalStatus::class,
             'citizenship' => Citizenship::class,
             'marketing_consent' => 'boolean',
@@ -198,6 +201,17 @@ class Patient extends Model
         $age = $this->age();
 
         return $age === null ? '-' : $age.' th';
+    }
+
+    public function ageDetailLabel(): string
+    {
+        if (! $this->dob) {
+            return '-';
+        }
+
+        $diff = $this->dob->diff(now());
+
+        return $diff->y.' Tahun '.$diff->m.' Bulan '.$diff->d.' Hari';
     }
 
     /**

@@ -21,6 +21,7 @@
     <div class="patient-banner__meta">
         <div><span>NIK</span>{{ $patient?->nik ?: '-' }}</div>
         <div><span>Jenis kelamin</span>{{ $patient?->gender?->label() ?: '-' }}</div>
+        <div><span>Gol. darah</span>{{ $patient?->blood_type?->label() ?: '-' }}</div>
         <div><span>Umur</span>{{ $patient?->ageLabel() }}</div>
         <div><span>Kunjungan</span>{{ $visit->visit_date?->format('d M Y') }}{{ $visitTime ? ' · '.$visitTime->format('H:i') : '' }}</div>
         <div><span>Dokter</span>{{ $visit->doctor?->name ?: '-' }}</div>

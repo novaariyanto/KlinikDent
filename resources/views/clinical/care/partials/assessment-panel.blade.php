@@ -55,7 +55,6 @@
         <a class="btn btn-sm btn-light" href="{{ route('care.show', ['visit' => $visit, 'tab' => 'odontogram']) }}" data-care-section="odontogram">Odontogram</a>
         <a class="btn btn-sm btn-light" href="{{ route('care.show', ['visit' => $visit, 'tab' => 'tindakan']) }}" data-care-section="tindakan">Tindakan</a>
         <a class="btn btn-sm btn-light" href="{{ route('care.show', ['visit' => $visit, 'tab' => 'resep']) }}" data-care-section="resep">Resep</a>
-        <a class="btn btn-sm btn-light" href="{{ route('care.show', ['visit' => $visit, 'tab' => 'rujukan']) }}" data-care-section="rujukan">Rujukan</a>
     </div>
 
     @if ($historyVisits->count() > 1)

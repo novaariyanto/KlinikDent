@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Onboarding;
 
+use App\Enums\AddonCode;
 use App\Enums\OnboardingTemplate;
 use App\Enums\RoleName;
 use App\Http\Controllers\Controller;
@@ -14,12 +15,14 @@ use App\Http\Requests\Onboarding\SaveProfileRequest;
 use App\Http\Requests\Onboarding\SaveServicesRequest;
 use App\Http\Requests\Onboarding\SaveStaffRequest;
 use App\Http\Requests\Onboarding\SelectTemplateRequest;
+use App\Models\SaasAddon;
 use App\Models\User;
 use App\Support\ClinicSettings;
 use App\Support\Onboarding\OnboardingCatalog;
 use App\Support\Onboarding\OnboardingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -37,6 +40,14 @@ class OnboardingController extends Controller
         $selectedRoles = $tenant->onboarding_selected_roles ?? [];
         $template = $tenant->onboarding_template ?? OnboardingTemplate::Small;
 
+        $whatsappAddon = null;
+        if ($step === 'integrations' && Schema::hasTable('saas_addons')) {
+            $whatsappAddon = SaasAddon::query()
+                ->where('code', AddonCode::WhatsApp->value)
+                ->where('is_active', true)
+                ->first();
+        }
+
         return view('onboarding.show', [
             'tenant' => $tenant,
             'step' => $step,
@@ -52,6 +63,7 @@ class OnboardingController extends Controller
             'summary' => $step === 'review' ? $onboarding->summary($tenant) : null,
             'hasCustomLogo' => ClinicSettings::hasCustomLogo((int) $tenant->id),
             'logoUrl' => ClinicSettings::logoUrl('dark', (int) $tenant->id),
+            'whatsappAddon' => $whatsappAddon,
         ]);
     }
 

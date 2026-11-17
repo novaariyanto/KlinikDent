@@ -26,6 +26,7 @@
                         <tr><th>Tanggal Lahir</th><td>{{ $patient->dob?->format('d M Y') ?: '-' }}</td></tr>
                         <tr><th>Tempat Lahir</th><td>{{ $patient->birth_place ?: '-' }}</td></tr>
                         <tr><th>Jenis Kelamin</th><td>{{ $patient->gender?->label() ?: '-' }}</td></tr>
+                        <tr><th>Golongan Darah</th><td>{{ $patient->blood_type?->label() ?: '-' }}</td></tr>
                         <tr><th>Status Perkawinan</th><td>{{ $patient->marital_status?->label() ?: '-' }}</td></tr>
                         <tr><th>Kewarganegaraan</th><td>{{ $patient->citizenship?->label() ?: '-' }}</td></tr>
                         <tr><th>No. KK</th><td>{{ $patient->family_card_number ?: '-' }}</td></tr>

@@ -1,12 +1,19 @@
+@php
+    $whatsappAddon = $whatsappAddon ?? null;
+    $whatsappCanActivateNow = $whatsappAddon
+        && ($whatsappAddon->isFree() || (int) $whatsappAddon->trial_days > 0);
+@endphp
+
 <div class="mb-4">
-    <h3 class="mb-1">Integrasi <span class="badge bg-soft-primary text-primary">Opsional</span></h3>
-    <p class="text-muted mb-0">SATUSEHAT dan BPJS tidak wajib. Lewati saja jika belum diperlukan — bisa diatur nanti lewat menu Integrasi.</p>
+    <h3 class="mb-1">Integrasi & Add-on <span class="badge bg-soft-primary text-primary">Opsional</span></h3>
+    <p class="text-muted mb-0">SATUSEHAT, BPJS, dan WhatsApp tidak wajib. Modul WhatsApp hanya muncul setelah Add-on diaktifkan.</p>
 </div>
 
 <form method="POST" action="{{ route('onboarding.step', 'integrations') }}">
     @csrf
     <input type="hidden" name="satusehat_action" value="skip">
     <input type="hidden" name="bpjs_action" value="skip">
+    <input type="hidden" name="whatsapp_action" value="skip">
     <div class="row g-3">
         <div class="col-md-6">
             <x-card title="SATUSEHAT">
@@ -45,6 +52,40 @@
                     <x-input name="bpjs[user_key]" type="password" label="User Key" />
                     <x-input name="bpjs[base_url]" label="Base URL" :value="old('bpjs.base_url')" />
                 </div>
+            </x-card>
+        </div>
+        <div class="col-md-12">
+            <x-card title="WhatsApp Integration (Add-on)">
+                <p class="text-muted small mb-3">
+                    Pengingat jadwal, promosi, dan otomasi WhatsApp. Menu WhatsApp hanya tampil setelah Add-on aktif.
+                    @if ($whatsappAddon && ! $whatsappAddon->isFree())
+                        Harga: <strong>Rp {{ number_format((float) $whatsappAddon->price, 0, ',', '.') }}</strong>
+                        / {{ $whatsappAddon->interval->label() }}.
+                    @endif
+                </p>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="radio" name="whatsapp_action" id="wa-skip" value="skip" @checked(old('whatsapp_action', 'skip') === 'skip')>
+                    <label class="form-check-label" for="wa-skip">Lewati dulu (menu WhatsApp tetap tersembunyi)</label>
+                </div>
+                @if ($whatsappCanActivateNow)
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="whatsapp_action" id="wa-activate" value="activate" @checked(old('whatsapp_action') === 'activate')>
+                        <label class="form-check-label" for="wa-activate">
+                            Aktifkan Add-on sekarang
+                            @if ((int) ($whatsappAddon?->trial_days ?? 0) > 0 && ! $whatsappAddon?->isFree())
+                                (trial {{ $whatsappAddon->trial_days }} hari)
+                            @else
+                                (gratis)
+                            @endif
+                        </label>
+                    </div>
+                @else
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="radio" name="whatsapp_action" id="wa-later" value="later" @checked(old('whatsapp_action') === 'later')>
+                        <label class="form-check-label" for="wa-later">Nanti lewat Add-ons / Marketplace (berbayar)</label>
+                    </div>
+                    <p class="text-muted small mb-0">Setelah setup selesai, Owner dapat mengaktifkan Add-on WhatsApp dari menu <strong>Add-ons → Marketplace</strong>.</p>
+                @endif
             </x-card>
         </div>
     </div>

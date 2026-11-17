@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Registration;
 
+use App\Enums\BloodType;
 use App\Enums\Citizenship;
 use App\Enums\Gender;
 use App\Enums\MaritalStatus;
@@ -303,6 +304,7 @@ class PatientController extends Controller
             'payers' => Payer::query()->orderBy('name')->get(),
             'branches' => Branch::query()->orderBy('name')->get(),
             'genders' => Gender::options(),
+            'bloodTypes' => BloodType::options(),
             'maritalStatuses' => MaritalStatus::options(),
             'citizenships' => Citizenship::options(),
             'provinces' => $this->wilayah->provinces(),

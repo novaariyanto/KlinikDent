@@ -29,20 +29,20 @@
             <p>{{ $complaintValue ?: '—' }}</p>
         @endcan
 
-        @unless ($embedded)
-            @can('anamnesis.manage')
-                @if ($writable)
-                    <form action="{{ route('care.anamnesis.update', $visit) }}" method="POST" data-autosave>
-                        @csrf
-                        @method('PUT')
-                        <div class="soap-field">
-                            <textarea name="anamnesis" id="anamnesis" rows="3" class="form-control" placeholder="{{ $followUp ? 'Keluhan, respons tindakan, dan kepatuhan' : 'Riwayat keluhan, opsional' }}">{{ $anamnesisValue }}</textarea>
-                        </div>
-                    </form>
-                @endif
-            @elsecan('anamnesis.view')
-                <p class="text-muted mb-0">{{ $anamnesisValue }}</p>
-            @endcan
-        @endunless
+        @can('anamnesis.manage')
+            @if ($writable)
+                <form action="{{ route('care.anamnesis.update', $visit) }}" method="POST" data-autosave class="{{ $embedded ? 'mt-2' : '' }}">
+                    @csrf
+                    @method('PUT')
+                    <div class="soap-field">
+                        <textarea name="anamnesis" id="anamnesis" rows="{{ $embedded ? 2 : 3 }}" class="form-control" placeholder="{{ $followUp ? 'cth: keluhan berkurang, patuh obat' : 'cth: riwayat keluhan sejak 3 hari' }}">{{ $anamnesisValue }}</textarea>
+                    </div>
+                </form>
+            @elseif ($anamnesisValue !== '')
+                <p class="text-muted mb-0 mt-2">{{ $anamnesisValue }}</p>
+            @endif
+        @elsecan('anamnesis.view')
+            <p class="text-muted mb-0 {{ $embedded ? 'mt-2' : '' }}">{{ $anamnesisValue ?: '—' }}</p>
+        @endcan
     </div>
 </section>

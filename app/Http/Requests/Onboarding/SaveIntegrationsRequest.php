@@ -20,6 +20,7 @@ class SaveIntegrationsRequest extends FormRequest
         return [
             'satusehat_action' => ['nullable', Rule::in(['skip', 'configure'])],
             'bpjs_action' => ['nullable', Rule::in(['skip', 'configure'])],
+            'whatsapp_action' => ['nullable', Rule::in(['skip', 'activate', 'later'])],
             'satusehat.client_id' => [Rule::requiredIf($configureSatuSehat), 'nullable', 'string', 'max:255'],
             'satusehat.client_secret' => ['nullable', 'string', 'max:255'],
             'satusehat.organization_id' => ['nullable', 'string', 'max:255'],
@@ -37,6 +38,7 @@ class SaveIntegrationsRequest extends FormRequest
         $this->merge([
             'satusehat_action' => $this->input('satusehat_action') ?: 'skip',
             'bpjs_action' => $this->input('bpjs_action') ?: 'skip',
+            'whatsapp_action' => $this->input('whatsapp_action') ?: 'skip',
         ]);
     }
 }

@@ -37,6 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'tenant.scope' => EnsureTenantScope::class,
             'tenant.active' => EnsureTenantSubscriptionActive::class,
+            'addon' => \App\Http\Middleware\EnsureAddonActive::class,
             'route.permission' => EnforceRoutePermission::class,
             'record.mutable' => \App\Http\Middleware\EnsureMedicalRecordMutable::class,
             'onboarding.owner' => EnsureOwnerOnboarding::class,

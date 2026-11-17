@@ -55,6 +55,9 @@ final class MenuCatalog
             'medical-letters.index',
             'subscription.index',
             'subscription.invoices',
+            'addons.index',
+            'saas.addons.index',
+            'saas.addon-subscriptions.index',
             'integrations.index',
             'integrations.satusehat',
             'integrations.bpjs',
@@ -235,6 +238,10 @@ final class MenuCatalog
                 self::item('saas.subscriptions', 'Langganan', 'bx bx-calendar', 'saas.subscriptions.index', 'subscription.view', 'Langganan tenant.'),
                 self::item('saas.invoices', 'Invoice', 'bx bx-receipt', 'saas.invoices.index', 'invoice.view', 'Invoice langganan platform.'),
             ]),
+            self::item('saas.addons', 'Add-ons', 'bx bx-puzzle', null, 'addon.manage', 'Katalog dan aktivasi Add-on.', [
+                self::item('saas.addons.catalog', 'Katalog', 'bx bx-list-ul', 'saas.addons.index', 'addon.manage', 'Master Add-on.'),
+                self::item('saas.addons.subscriptions', 'Aktivasi Tenant', 'bx bx-check-shield', 'saas.addon-subscriptions.index', 'addon.manage', 'Status Add-on per klinik.'),
+            ]),
             self::item('saas.system', 'System', 'bx bx-server', null, 'system.view', 'Konfigurasi sistem platform.', [
                 self::item('saas.system.master', 'Master Global', 'bx bx-data', 'menus.index', 'menus.view', 'Master data dan navigasi global.'),
                 self::item('saas.system.integrations', 'Integrasi', 'bx bx-plug', 'saas.system.integrations', 'saas.integration.view', 'Integrasi tingkat platform.'),
@@ -303,6 +310,9 @@ final class MenuCatalog
             self::heading('owner.group.subscription', 'Langganan', [
                 self::item('owner.subscription', 'Paket Langganan', 'bx bx-package', 'subscription.index', 'plan.view', 'Paket langganan klinik yang sedang digunakan.'),
                 self::item('owner.subscription.invoices', 'Tagihan Paket', 'bx bx-receipt', 'subscription.invoices', 'plan.view', 'Tagihan dan pembayaran paket langganan.'),
+            ]),
+            self::heading('owner.group.addons', 'Add-ons', [
+                self::item('owner.addons', 'Marketplace', 'bx bx-store', 'addons.index', 'addon.view', 'Aktifkan Add-on klinik.'),
             ]),
             self::heading('owner.group.integrations', 'Integrasi', [
                 self::item('owner.satusehat', 'SATUSEHAT', 'bx bx-cloud', 'integrations.satusehat', 'satusehat.view', 'Modul SATUSEHAT klinik ini.'),

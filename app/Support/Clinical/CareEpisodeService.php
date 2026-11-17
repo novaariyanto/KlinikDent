@@ -57,20 +57,104 @@ class CareEpisodeService
             $episode = $this->attach($visit);
             CareEpisode::withoutGlobalScopes()->whereKey($episode->id)->lockForUpdate()->first();
 
-            if ($record->assessment_kind instanceof AssessmentKind) {
-                return $record;
+            if (! $record->assessment_kind instanceof AssessmentKind) {
+                $hasInitial = $this->initialQuery($episode->id)
+                    ->where('medical_records.id', '!=', $record->id)
+                    ->exists();
+
+                $record->assessment_kind = $hasInitial ? AssessmentKind::FollowUp : AssessmentKind::Initial;
+                $record->assessment_status ??= AssessmentStatus::Draft;
+                $record->save();
             }
 
-            $hasInitial = $this->initialQuery($episode->id)
-                ->where('medical_records.id', '!=', $record->id)
-                ->exists();
-
-            $record->assessment_kind = $hasInitial ? AssessmentKind::FollowUp : AssessmentKind::Initial;
-            $record->assessment_status ??= AssessmentStatus::Draft;
-            $record->save();
+            if ($record->assessment_kind === AssessmentKind::FollowUp) {
+                $this->seedAllergyFromBaselineIfEmpty((int) $episode->id, $record);
+            }
 
             return $record;
         });
+    }
+
+    /**
+     * Salin kunci alergi dari asesmen awal ke FollowUp jika belum terisi.
+     */
+    protected function seedAllergyFromBaselineIfEmpty(int $episodeId, MedicalRecord $record): void
+    {
+        $current = is_array($record->systemic_history) ? $record->systemic_history : [];
+
+        if (! $this->allergyHistoryIsEmpty($current)) {
+            return;
+        }
+
+        $baseline = $this->initialQuery($episodeId)
+            ->where('medical_records.id', '!=', $record->id)
+            ->orderBy('medical_records.id')
+            ->first();
+
+        if (! $baseline) {
+            return;
+        }
+
+        $source = is_array($baseline->systemic_history) ? $baseline->systemic_history : [];
+
+        if ($this->allergyHistoryIsEmpty($source)) {
+            return;
+        }
+
+        $keys = [
+            'allergy_status',
+            'allergy_detail',
+            'allergy_category',
+            'allergy_type',
+            'allergy_clinical_status',
+            'allergy_severity',
+            'allergy_reaction',
+            'allergy_note',
+            'drug_allergy',
+            'material_allergy',
+        ];
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $source)) {
+                $current[$key] = $source[$key];
+            }
+        }
+
+        $conditions = array_values(array_filter(
+            (array) ($current['conditions'] ?? []),
+            fn ($item) => is_string($item) && $item !== '' && $item !== 'allergy',
+        ));
+
+        if (in_array('allergy', (array) ($source['conditions'] ?? []), true)
+            || (string) ($source['allergy_status'] ?? '') === 'present') {
+            $conditions[] = 'allergy';
+            $current['none'] = false;
+        }
+
+        $current['conditions'] = $conditions;
+
+        $record->systemic_history = $current;
+        $record->save();
+    }
+
+    /**
+     * @param  array<string, mixed>  $history
+     */
+    protected function allergyHistoryIsEmpty(array $history): bool
+    {
+        $status = (string) ($history['allergy_status'] ?? '');
+
+        if ($status !== '' && $status !== 'not_asked') {
+            return false;
+        }
+
+        foreach (['allergy_detail', 'drug_allergy', 'material_allergy', 'allergy_reaction', 'allergy_note'] as $key) {
+            if (filled($history[$key] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function assertFollowUpAllowed(Visit $visit): void

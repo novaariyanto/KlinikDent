@@ -23,6 +23,7 @@ class DatabaseSeeder extends Seeder
             WhatsAppTemplateSeeder::class,
             FinanceSeeder::class,
             SaasSeeder::class,
+            SaasAddonSeeder::class,
         ]);
 
         Setting::setValue('app_name', config('app.name'));
