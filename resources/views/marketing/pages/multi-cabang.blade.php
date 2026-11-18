@@ -31,6 +31,8 @@
             </div>
         </div>
         <div class="prose">
+            <h2>Jawaban singkat</h2>
+            <p>{{ $page['lede'] }}</p>
             <h2>Satu sistem, beberapa lokasi</h2>
             <p>Klinik dengan satu lokasi tetap memakai cabang utama. Ketika lokasi bertambah, owner menambah cabang tanpa membuat sistem terpisah. Pengguna dapat dibatasi pada cabang tertentu. Data antar tenant klinik tetap terisolasi.</p>
             <h2>Yang tersedia saat ini</h2>

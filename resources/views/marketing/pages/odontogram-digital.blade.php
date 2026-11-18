@@ -20,6 +20,8 @@
 <section class="section">
     <div class="wrap feature-hero">
         <div class="prose">
+            <h2>Jawaban singkat</h2>
+            <p>{{ $page['lede'] }}</p>
             <h2>Cara membuat dan mengisi odontogram</h2>
             <p>Odontogram mencatat kondisi gigi pada kunjungan pasien. Di {{ $appName }}, odontogram memakai penomoran FDI dan dapat menandai kondisi per gigi maupun permukaan. Perubahan tersimpan sebagai riwayat, sehingga dokter tidak perlu mengingat kondisi dari kunjungan sebelumnya.</p>
             <h2>Simbol dan kondisi</h2>

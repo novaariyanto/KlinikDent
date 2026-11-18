@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Cms;
 
 use App\Enums\CmsPostStatus;
+use App\Support\Cms\EditorialGuard;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreCmsPostRequest extends FormRequest
 {
@@ -48,5 +50,28 @@ class StoreCmsPostRequest extends FormRequest
             'auto_redirect' => ['nullable', 'boolean'],
             'faq_json' => ['nullable', 'string'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $status = (string) $this->input('status', '');
+            $publishing = in_array($status, [
+                CmsPostStatus::Published->value,
+                CmsPostStatus::Scheduled->value,
+            ], true);
+
+            if (! $publishing) {
+                return;
+            }
+
+            $hit = EditorialGuard::findIn((string) $this->input('body', ''));
+            if ($hit !== null) {
+                $validator->errors()->add(
+                    'body',
+                    'Artikel tidak dapat dipublikasikan karena masih berisi teks editorial: “'.$hit.'”.'
+                );
+            }
+        });
     }
 }

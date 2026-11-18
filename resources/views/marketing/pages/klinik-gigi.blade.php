@@ -19,6 +19,8 @@
 
 <section class="section">
     <div class="wrap prose">
+        <h2>Jawaban singkat</h2>
+        <p>{{ $page['lede'] }}</p>
         <h2>Cara mengelola klinik gigi dalam satu alur</h2>
         <p>Aplikasi klinik gigi yang berguna adalah yang mengikuti pekerjaan harian: pendaftaran, antrean, pemeriksaan, odontogram, tindakan, resep, billing, lalu laporan. {{ $appName }} merangkai proses itu sebagai sistem manajemen klinik gigi, bukan kumpulan modul yang tidak saling terhubung.</p>
         <h2>Yang tercatat setiap hari</h2>

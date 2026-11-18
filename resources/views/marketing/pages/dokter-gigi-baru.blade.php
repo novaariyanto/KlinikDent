@@ -22,6 +22,8 @@
 
 <section class="section">
     <div class="wrap prose">
+        <h2>Jawaban singkat</h2>
+        <p>{{ $page['lede'] }}</p>
         <h2>Mulai sederhana</h2>
         <p>Buat klinik, isi profil, dan mulai mencatat pasien pertama. Setelah daftar, {{ $appName }} menampilkan langkah onboarding: cabang utama, dokter, staf, layanan, dan tarif. Yang wajib hanya profil klinik, cabang, dan akun owner. Sisanya dapat dilanjutkan kemudian.</p>
         <h2>Rekam medis lebih terstruktur</h2>

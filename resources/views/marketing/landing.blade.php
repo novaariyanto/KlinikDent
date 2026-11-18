@@ -1,8 +1,8 @@
 @extends('marketing.layout')
 
-@section('title', 'Software Klinik Gigi & Odontogram Digital | KlinikDent')
-@section('og_title', 'Software Klinik Gigi & Odontogram Digital | KlinikDent')
-@section('description', 'KlinikDent adalah aplikasi manajemen klinik gigi dengan rekam medis elektronik, odontogram digital, pendaftaran pasien, billing, dan multi-cabang. Coba gratis.')
+@section('title', 'Software Klinik Gigi & Odontogram Digital - KlinikDent')
+@section('og_title', 'Software Klinik Gigi & Odontogram Digital - KlinikDent')
+@section('description', 'KlinikDent adalah software manajemen klinik gigi dengan rekam medis elektronik, odontogram digital FDI, SOAP, resep, kasir, dan laporan operasional.')
 @section('canonical', url('/'))
 
 @push('head')

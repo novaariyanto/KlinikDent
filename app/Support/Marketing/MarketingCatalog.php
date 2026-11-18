@@ -122,31 +122,31 @@ final class MarketingCatalog
                 'title' => 'Odontogram Digital untuk Rekam Medis Gigi',
                 'description' => 'Pelajari cara mencatat odontogram digital, penomoran FDI, kondisi gigi, dan kaitannya dengan rekam medis kunjungan pasien.',
                 'h1' => 'Odontogram Digital yang Menjadi Bagian dari Rekam Medis.',
-                'lede' => 'Catat kondisi gigi secara terstruktur, lalu buka kembali riwayatnya saat pasien datang untuk kunjungan berikutnya.',
+                'lede' => 'Odontogram digital adalah pencatatan kondisi gigi dalam diagram elektronik. Di KlinikDent, odontogram memakai penomoran FDI dan tersimpan sebagai bagian rekam medis kunjungan — bukan file gambar terpisah.',
             ],
             'rekam-medis-gigi' => [
                 'title' => 'Rekam Medis Gigi yang Terhubung dengan Kunjungan',
                 'description' => 'Cara membuat rekam medis pasien gigi: kunjungan, pemeriksaan SOAP, odontogram, diagnosis, tindakan, dan riwayat perawatan.',
                 'h1' => 'Rekam Medis Gigi yang Mengikuti Setiap Kunjungan Pasien.',
-                'lede' => 'Data pasien, pemeriksaan, odontogram, dan tindakan tersimpan dalam satu alur — bukan file terpisah.',
+                'lede' => 'Rekam medis elektronik dokter gigi menghubungkan data pasien, pemeriksaan SOAP, odontogram, diagnosis, tindakan, dan riwayat perawatan dalam satu alur kunjungan.',
             ],
             'dokter-gigi-baru' => [
                 'title' => 'Software Klinik Gigi untuk Dokter yang Baru Membuka Praktik',
                 'description' => 'Mulai klinik gigi pertama dengan sistem yang sudah siap: pasien, rekam medis, odontogram, billing, tanpa spreadsheet yang semakin rumit.',
                 'h1' => 'Baru Lulus dan Mau Membuka Klinik Gigi?',
-                'lede' => 'Jangan mulai dengan spreadsheet yang akan semakin rumit ketika pasien mulai bertambah.',
+                'lede' => 'Ya — dokter gigi praktik mandiri dapat memakai KlinikDent sejak pasien pertama: pendaftaran, rekam medis, odontogram, dan billing tanpa spreadsheet yang semakin rumit.',
             ],
             'klinik-gigi' => [
                 'title' => 'Software dan Sistem Manajemen Klinik Gigi',
                 'description' => 'Kelola klinik gigi dengan satu sistem: pendaftaran, rekam medis, odontogram, tindakan, billing, farmasi, dan laporan operasional.',
                 'h1' => 'Sistem Manajemen Klinik Gigi untuk Operasional Harian.',
-                'lede' => 'Dari pasien datang sampai pembayaran, alur klinik gigi tercatat dalam satu tempat yang dirancang untuk dokter dan tim klinik.',
+                'lede' => 'Software klinik gigi menata operasional harian — dari pasien datang, pemeriksaan, tindakan, hingga pembayaran — dalam satu sistem yang dipakai dokter dan tim klinik.',
             ],
             'multi-cabang' => [
                 'title' => 'Kelola Klinik Gigi Multi-Cabang',
                 'description' => 'Struktur cabang, peran pengguna, isolasi data, dan laporan untuk klinik gigi yang sedang berkembang ke beberapa lokasi.',
                 'h1' => 'Ketika Klinik Anda Berkembang, Sistemnya Harus Ikut Berkembang.',
-                'lede' => 'Kelola operasional klinik dengan struktur data dan workflow yang siap mendukung pertumbuhan.',
+                'lede' => 'KlinikDent mendukung lebih dari satu cabang dengan pemisahan data operasional, peran pengguna, dan laporan yang dapat difilter per lokasi sesuai paket.',
             ],
             default => null,
         };
@@ -185,6 +185,18 @@ final class MarketingCatalog
             [
                 'q' => 'Apakah tersedia demo?',
                 'a' => 'Ya. Isi formulir demo di halaman ini. Tim akan menghubungi Anda melalui email atau WhatsApp. Anda juga dapat mendaftar langsung dan mencoba alur setup klinik.',
+            ],
+            [
+                'q' => 'Berapa harga '.$appName.'?',
+                'a' => 'Harga mengikuti paket langganan yang aktif di halaman harga. Paket Trial biasanya gratis dengan masa uji terbatas; paket berbayar (misalnya Pro) ditagih sesuai interval yang tertera tanpa menyertakan klaim diskon yang tidak dipublikasikan.',
+            ],
+            [
+                'q' => 'Apakah '.$appName.' menyediakan trial?',
+                'a' => 'Ya, melalui paket Trial yang ditampilkan di bagian harga. Paket berbayar hanya menyertakan masa trial jika memang dikonfigurasi demikian pada paket tersebut.',
+            ],
+            [
+                'q' => 'Bagaimana keamanan data pasien di '.$appName.'?',
+                'a' => 'Halaman operasional memerlukan login dan izin peran. Data pasien tidak dipublikasikan di situs marketing, sitemap, atau schema. Kebijakan privasi menjelaskan data akun dan formulir demo yang diproses.',
             ],
             [
                 'q' => $appName.' terintegrasi SATUSEHAT dan BPJS?',

@@ -20,9 +20,9 @@ final class SeoMeta
 
         $fallback = [
             'site_name' => (string) config('app.name', 'KlinikDent'),
-            'site_description' => 'KlinikDent adalah aplikasi manajemen klinik gigi dengan rekam medis elektronik, odontogram digital, pendaftaran pasien, billing, dan multi-cabang.',
-            'default_seo_title' => 'Software Klinik Gigi & Odontogram Digital | KlinikDent',
-            'default_meta_description' => 'KlinikDent adalah aplikasi manajemen klinik gigi dengan rekam medis elektronik, odontogram digital, pendaftaran pasien, billing, dan multi-cabang. Coba gratis.',
+            'site_description' => 'KlinikDent adalah software manajemen klinik gigi dengan rekam medis elektronik, odontogram digital FDI, SOAP, resep, kasir, dan laporan operasional.',
+            'default_seo_title' => 'Software Klinik Gigi & Odontogram Digital - KlinikDent',
+            'default_meta_description' => 'KlinikDent adalah software manajemen klinik gigi dengan rekam medis elektronik, odontogram digital FDI, SOAP, resep, kasir, dan laporan operasional.',
             'default_og_image' => '/marketing/og.png',
             'canonical_base' => rtrim((string) config('app.url'), '/'),
             'google_verification' => 'PP4J4lbbjulpthQ-xaoENPnr8gXhbiwua-qNLg7NVCs',

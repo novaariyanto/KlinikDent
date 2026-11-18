@@ -50,6 +50,14 @@ class LandingController extends Controller
         return $this->hub('rekam-medis-gigi', 'marketing.pages.rekam-medis-gigi', $provisioning);
     }
 
+    public function tentang(ClinicProvisioningService $provisioning): View
+    {
+        return view('marketing.pages.tentang-klinikdent', [
+            ...$this->marketingData($provisioning),
+            'canonical' => url('/tentang-klinikdent'),
+        ]);
+    }
+
     public function privacy(): View
     {
         return view('marketing.privacy');
@@ -107,6 +115,7 @@ class LandingController extends Controller
             '',
             '## Halaman utama',
             '- Beranda: '.url('/'),
+            '- Tentang KlinikDent: '.url('/tentang-klinikdent'),
             '- Odontogram digital: '.url('/odontogram-digital'),
             '- Rekam medis gigi: '.url('/rekam-medis-gigi'),
             '- Klinik & multi-cabang: '.url('/klinik-gigi'),

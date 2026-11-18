@@ -2,6 +2,7 @@
 
 namespace App\Support\Cms;
 
+use App\Enums\CmsPostStatus;
 use App\Models\CmsPost;
 
 final class SeoAnalyzer
@@ -59,6 +60,22 @@ final class SeoAnalyzer
 
         if (! filled($post->slug)) {
             $issues[] = ['level' => 'error', 'message' => 'Slug wajib diisi.'];
+        }
+
+        $forbidden = EditorialGuard::findIn((string) $post->body);
+        if ($forbidden !== null) {
+            $issues[] = [
+                'level' => 'error',
+                'message' => 'Teks editorial terlarang masih ada di body (“'.$forbidden.'”). Hapus sebelum publish.',
+            ];
+        }
+
+        $status = $post->status;
+        if (
+            $forbidden === null
+            && in_array($status, [CmsPostStatus::Published, CmsPostStatus::Scheduled], true)
+        ) {
+            $issues[] = ['level' => 'ok', 'message' => 'Tidak ada frasa editorial terlarang pada body.'];
         }
 
         return $issues;

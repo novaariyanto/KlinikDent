@@ -9,6 +9,7 @@
             <h3>Produk</h3>
             <ul>
                 <li><a href="{{ route('home') }}#fitur">Fitur</a></li>
+                <li><a href="{{ route('marketing.tentang') }}">Tentang KlinikDent</a></li>
                 <li><a href="{{ route('marketing.dokter-baru') }}">Untuk dokter gigi baru</a></li>
                 <li><a href="{{ route('marketing.klinik') }}">Sistem klinik gigi</a></li>
                 <li><a href="{{ route('marketing.multi-cabang') }}">Multi-cabang</a></li>

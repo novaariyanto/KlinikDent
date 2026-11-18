@@ -100,6 +100,7 @@ Route::get('/klinik-gigi', [LandingController::class, 'klinik'])->name('marketin
 Route::get('/multi-cabang', [LandingController::class, 'multiCabang'])->name('marketing.multi-cabang');
 Route::get('/odontogram-digital', [LandingController::class, 'odontogram'])->name('marketing.odontogram');
 Route::get('/rekam-medis-gigi', [LandingController::class, 'rekamMedis'])->name('marketing.rekam-medis');
+Route::get('/tentang-klinikdent', [LandingController::class, 'tentang'])->name('marketing.tentang');
 Route::get('/privacy', [LandingController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LandingController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', [LandingController::class, 'sitemap'])->name('sitemap');

@@ -23,6 +23,7 @@
                 <li><a href="{{ route('marketing.dokter-baru') }}">Untuk Dokter Baru</a></li>
                 <li><a href="{{ route('marketing.klinik') }}">Klinik &amp; Multi-Cabang</a></li>
                 <li><a href="{{ route('blog.index') }}">Blog</a></li>
+                <li><a href="{{ route('marketing.tentang') }}">Tentang</a></li>
                 <li><a href="{{ $home }}#harga">Harga</a></li>
             </ul>
             <div class="nav-cta">

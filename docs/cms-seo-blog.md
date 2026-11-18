@@ -16,6 +16,10 @@ Modul blog/CMS platform untuk situs marketing `klinikdent.id` (tanpa `tenant_id`
 
 | Path | Nama |
 |------|------|
+| `/` | `home` |
+| `/tentang-klinikdent` | `marketing.tentang` |
+| `/odontogram-digital` | `marketing.odontogram` |
+| `/rekam-medis-gigi` | `marketing.rekam-medis` |
 | `/blog` | `blog.index` |
 | `/blog/{slug}` | `blog.show` |
 | `/blog/kategori/{slug}` | `blog.category` |
@@ -24,8 +28,15 @@ Modul blog/CMS platform untuk situs marketing `klinikdent.id` (tanpa `tenant_id`
 | `/blog/cari` | `blog.search` |
 | `/blog/rss.xml` | `blog.rss` |
 | `/llms.txt` | `llms` |
-| `/sitemap.xml` | `sitemap` (termasuk artikel published) |
+| `/sitemap.xml` | `sitemap` (termasuk artikel published + tentang) |
 | `/robots.txt` | `robots` |
+
+## Gelombang C (2026-11-18)
+
+- Artikel seed ditulis ulang (tanpa placeholder editorial); publish diblokir jika body mengandung frasa terlarang (`EditorialGuard`).
+- Halaman entitas `/tentang-klinikdent`.
+- Evaluasi rubrik: `docs/seo-geo-evaluation-2026-11-18.md`
+- Spec/plan: `docs/superpowers/specs/2026-11-18-seo-geo-optimization-design.md`, `docs/superpowers/plans/2026-11-18-seo-geo-optimization.md`
 
 ## Routes admin (`/cms/*`)
 

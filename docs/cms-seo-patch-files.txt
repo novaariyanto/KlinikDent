@@ -4,14 +4,17 @@ PATCH file list — SEO / GEO / Blog KlinikDent
 Migration & seeders
 - database/migrations/2026_11_18_100000_create_cms_and_seo_tables.php
 - database/seeders/CmsContentSeeder.php
+- database/seeders/Concerns/CmsArticleBodies.php
 - docs/sql/2026-11-18-cms-seo-tables.sql
 
 Support
 - app/Support/Marketing/SeoMeta.php
 - app/Support/Marketing/SitemapBuilder.php
+- app/Support/Marketing/MarketingCatalog.php
 - app/Support/Cms/HtmlSanitizer.php
 - app/Support/Cms/PostService.php
 - app/Support/Cms/SeoAnalyzer.php
+- app/Support/Cms/EditorialGuard.php
 - app/Support/Access/PermissionCatalog.php (cms.*, seo.manage)
 - app/Support/Access/MenuCatalog.php (SEO & Content menu)
 
@@ -38,10 +41,16 @@ Views
 - resources/views/marketing/landing.blade.php
 - resources/views/marketing/sitemap.blade.php
 - resources/views/marketing/partials/header.blade.php, footer.blade.php, hub-schema.blade.php
-- resources/views/marketing/pages/*.blade.php (hub schema include)
+- resources/views/marketing/pages/*.blade.php (hub + tentang-klinikdent)
 - resources/views/marketing/blog/*
 - resources/views/cms/**
 
 Docs
 - docs/cms-seo-blog.md
 - docs/cms-seo-patch-files.txt
+- docs/seo-geo-evaluation-2026-11-18.md
+- docs/superpowers/specs/2026-11-18-seo-geo-optimization-design.md
+- docs/superpowers/plans/2026-11-18-seo-geo-optimization.md
+
+ZIP patch (manual, tanpa .env / storage / vendor):
+  git archive -o klinikdent-seo-geo-patch.zip HEAD -- $(cat docs/cms-seo-patch-files.txt | findstr /R "^-" )

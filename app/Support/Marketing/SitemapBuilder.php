@@ -16,6 +16,7 @@ final class SitemapBuilder
     {
         $urls = [
             ['loc' => route('home'), 'priority' => '1.0', 'changefreq' => 'weekly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('marketing.tentang'), 'priority' => '0.9', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
             ['loc' => route('marketing.dokter-baru'), 'priority' => '0.8', 'changefreq' => 'monthly'],
             ['loc' => route('marketing.klinik'), 'priority' => '0.8', 'changefreq' => 'monthly'],
             ['loc' => route('marketing.multi-cabang'), 'priority' => '0.7', 'changefreq' => 'monthly'],

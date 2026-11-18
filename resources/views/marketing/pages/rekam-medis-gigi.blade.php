@@ -19,6 +19,8 @@
 
 <section class="section">
     <div class="wrap prose">
+        <h2>Jawaban singkat</h2>
+        <p>{{ $page['lede'] }}</p>
         <h2>Cara membuat rekam medis pasien gigi</h2>
         <p>Rekam medis dokter gigi dimulai dari data pasien dan kunjungan. Pada pemeriksaan, dokter mencatat keluhan, anamnesis, temuan objektif, diagnosis, serta rencana instruksi. Odontogram masuk ke kunjungan yang sama.</p>
         <h2>Cara mencatat pemeriksaan gigi</h2>
