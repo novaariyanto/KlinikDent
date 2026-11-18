@@ -46,7 +46,7 @@
             @endforelse
         </div>
 
-        <div style="margin-top:1.5rem">{{ $posts->links() }}</div>
+        {{ $posts->links('marketing.pagination') }}
     </div>
 </section>
 @endsection

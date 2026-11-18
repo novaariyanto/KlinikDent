@@ -14,6 +14,6 @@
             <p>Belum ada artikel pada kategori ini.</p>
         @endforelse
     </div>
-    {{ $posts->links() }}
+    {{ $posts->links('marketing.pagination') }}
 </div></section>
 @endsection

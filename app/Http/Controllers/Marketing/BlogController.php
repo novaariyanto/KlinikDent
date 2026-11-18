@@ -73,7 +73,8 @@ class BlogController extends Controller
             ->where('category_id', $category->id)
             ->with(['author', 'featuredMedia'])
             ->orderByDesc('published_at')
-            ->paginate(9);
+            ->paginate(9)
+            ->withQueryString();
 
         return view('marketing.blog.category', [
             ...$this->base($provisioning),
@@ -89,7 +90,8 @@ class BlogController extends Controller
             ->published()
             ->with(['category', 'author', 'featuredMedia'])
             ->orderByDesc('published_at')
-            ->paginate(9);
+            ->paginate(9)
+            ->withQueryString();
 
         return view('marketing.blog.tag', [
             ...$this->base($provisioning),
@@ -106,7 +108,8 @@ class BlogController extends Controller
             ->where('author_id', $author->id)
             ->with(['category', 'featuredMedia'])
             ->orderByDesc('published_at')
-            ->paginate(9);
+            ->paginate(9)
+            ->withQueryString();
 
         return view('marketing.blog.author', [
             ...$this->base($provisioning),

@@ -14,6 +14,6 @@
             <p>Belum ada artikel.</p>
         @endforelse
     </div>
-    {{ $posts->links() }}
+    {{ $posts->links('marketing.pagination') }}
 </div></section>
 @endsection

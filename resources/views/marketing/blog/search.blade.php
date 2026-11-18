@@ -21,6 +21,6 @@
             <p>Tidak ada hasil untuk “{{ $q }}”.</p>
         @endforelse
     </div>
-    {{ $posts->links() }}
+    {{ $posts->links('marketing.pagination') }}
 </div></section>
 @endsection
