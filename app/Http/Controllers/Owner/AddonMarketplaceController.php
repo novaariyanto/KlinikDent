@@ -20,9 +20,11 @@ use Illuminate\View\View;
 
 class AddonMarketplaceController extends Controller
 {
-    public function index(): View
+    public function index(AddonService $addonService): View
     {
         abort_unless(auth()->user()?->can('addon.view'), 403);
+
+        $addonService->ensureWhatsAppCatalog();
 
         $tenant = $this->tenant();
         $addons = SaasAddon::query()

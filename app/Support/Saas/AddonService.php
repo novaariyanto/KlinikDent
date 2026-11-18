@@ -14,6 +14,30 @@ use Illuminate\Support\Facades\DB;
 
 class AddonService
 {
+    /**
+     * Pastikan katalog Add-on WhatsApp ada (hanya buat jika belum ada).
+     */
+    public function ensureWhatsAppCatalog(): SaasAddon
+    {
+        return SaasAddon::query()->firstOrCreate(
+            ['code' => AddonCode::WhatsApp->value],
+            [
+                'name' => 'WhatsApp Integration',
+                'description' => 'Pengingat jadwal, promosi, dan otomasi WhatsApp untuk klinik.',
+                'benefits' => [
+                    'Pengingat kunjungan otomatis',
+                    'Promosi ke pasien consent',
+                    'Template & riwayat pesan',
+                ],
+                'price' => 0,
+                'interval' => AddonBillingInterval::Monthly,
+                'trial_days' => 0,
+                'terms' => 'Dengan mengaktifkan, klinik menyetujui ketentuan penggunaan WhatsApp Integration.',
+                'is_active' => true,
+            ]
+        );
+    }
+
     public function ensureSubscription(Tenant $tenant, SaasAddon $addon): SaasAddonSubscription
     {
         return SaasAddonSubscription::query()->firstOrCreate(
@@ -133,23 +157,7 @@ class AddonService
 
     public function migrateFromWhatsAppSettings(): int
     {
-        $addon = SaasAddon::query()->firstOrCreate(
-            ['code' => AddonCode::WhatsApp->value],
-            [
-                'name' => 'WhatsApp Integration',
-                'description' => 'Pengingat jadwal, promosi, dan otomasi WhatsApp untuk klinik.',
-                'benefits' => [
-                    'Pengingat kunjungan otomatis',
-                    'Promosi ke pasien consent',
-                    'Template & riwayat pesan',
-                ],
-                'price' => 0,
-                'interval' => AddonBillingInterval::Monthly,
-                'trial_days' => 0,
-                'terms' => 'Dengan mengaktifkan, klinik menyetujui ketentuan penggunaan WhatsApp Integration.',
-                'is_active' => true,
-            ]
-        );
+        $addon = $this->ensureWhatsAppCatalog();
 
         $tenantIds = WhatsAppSetting::query()
             ->withoutGlobalScopes()

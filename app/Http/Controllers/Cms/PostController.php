@@ -12,32 +12,124 @@ use App\Models\CmsPostRevision;
 use App\Models\CmsTag;
 use App\Support\Cms\PostService;
 use App\Support\Cms\SeoAnalyzer;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Yajra\DataTables\Facades\DataTables;
 
 class PostController extends Controller
 {
     public function __construct(private readonly PostService $posts) {}
 
-    public function index(Request $request): View
+    public function index(): View
     {
         $this->authorize('viewAny', CmsPost::class);
 
-        $items = CmsPost::query()
-            ->with(['category', 'author'])
-            ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
-            ->when($request->filled('q'), function ($q) use ($request) {
-                $term = '%'.$request->string('q').'%';
-                $q->where(fn ($inner) => $inner->where('title', 'like', $term)->orWhere('slug', 'like', $term));
-            })
-            ->orderByDesc('updated_at')
-            ->paginate(20)
-            ->withQueryString();
+        $columns = [
+            ['data' => 'checkbox', 'name' => 'checkbox', 'title' => '', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '40px'],
+            ['data' => 'DT_RowIndex', 'name' => 'DT_RowIndex', 'title' => 'No', 'orderable' => false, 'searchable' => false, 'className' => 'text-center', 'width' => '50px'],
+            ['data' => 'title', 'name' => 'title', 'title' => 'Judul'],
+            ['data' => 'status_badge', 'name' => 'status', 'title' => 'Status', 'className' => 'text-center'],
+            ['data' => 'category_name', 'name' => 'category.name', 'title' => 'Kategori'],
+            ['data' => 'published_at', 'name' => 'published_at', 'title' => 'Publish'],
+            ['data' => 'updated_at', 'name' => 'updated_at', 'title' => 'Diubah'],
+            ['data' => 'action', 'name' => 'action', 'title' => 'Aksi', 'orderable' => false, 'searchable' => false, 'className' => 'text-center text-nowrap', 'width' => '140px'],
+        ];
 
         return view('cms.posts.index', [
-            'posts' => $items,
+            'columns' => $columns,
             'statuses' => CmsPostStatus::cases(),
+        ]);
+    }
+
+    public function data(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', CmsPost::class);
+
+        $query = CmsPost::query()->with(['category', 'author']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        return DataTables::eloquent($query)
+            ->addIndexColumn()
+            ->addColumn('checkbox', function (CmsPost $post) {
+                return '<input type="checkbox" class="form-check-input cms-post-check" value="'.$post->id.'" aria-label="Pilih artikel">';
+            })
+            ->editColumn('title', function (CmsPost $post) {
+                $title = e($post->title);
+                $slug = e($post->slug);
+
+                return '<a href="'.route('cms.posts.edit', $post).'">'.$title.'</a>'
+                    .'<div class="small text-muted">/blog/'.$slug.'</div>';
+            })
+            ->addColumn('status_badge', function (CmsPost $post) {
+                $label = e($post->status?->label() ?? (string) $post->status);
+                $class = match ($post->status) {
+                    CmsPostStatus::Published => 'bg-success',
+                    CmsPostStatus::Scheduled => 'bg-info',
+                    CmsPostStatus::Archived => 'bg-secondary',
+                    CmsPostStatus::Private => 'bg-dark',
+                    default => 'bg-warning text-dark',
+                };
+
+                return '<span class="badge '.$class.'">'.$label.'</span>';
+            })
+            ->addColumn('category_name', fn (CmsPost $post) => e($post->category?->name ?: '—'))
+            ->editColumn('published_at', fn (CmsPost $post) => $post->published_at?->format('d M Y H:i') ?: '—')
+            ->editColumn('updated_at', fn (CmsPost $post) => $post->updated_at?->format('d M Y H:i') ?: '—')
+            ->addColumn('action', fn (CmsPost $post) => view('cms.posts.partials.actions', compact('post'))->render())
+            ->filterColumn('category.name', function ($query, $keyword) {
+                $query->whereHas('category', fn ($q) => $q->where('name', 'like', '%'.$keyword.'%'));
+            })
+            ->rawColumns(['checkbox', 'title', 'status_badge', 'action'])
+            ->toJson();
+    }
+
+    public function bulkStatus(Request $request): JsonResponse
+    {
+        $this->authorize('create', CmsPost::class);
+
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:cms_posts,id'],
+            'status' => ['required', 'string'],
+        ]);
+
+        $status = CmsPostStatus::tryFrom($data['status']);
+        if (! $status) {
+            return response()->json(['message' => 'Status tidak valid.'], 422);
+        }
+
+        $posts = CmsPost::query()->whereIn('id', $data['ids'])->get();
+        $updated = 0;
+
+        foreach ($posts as $post) {
+            $payload = ['status' => $status->value];
+            if ($status === CmsPostStatus::Published && ! $post->published_at) {
+                $payload['published_at'] = now();
+            }
+            if ($status === CmsPostStatus::Scheduled && $post->scheduled_at && ! $post->published_at) {
+                $payload['published_at'] = $post->scheduled_at;
+            }
+            $post->update($payload);
+            $updated++;
+        }
+
+        activity_log(
+            'updated',
+            null,
+            ['ids' => $data['ids'], 'status' => $status->value, 'count' => $updated],
+            'Ubah status massal '.$updated.' artikel CMS menjadi '.$status->label().'.',
+            'cms'
+        );
+
+        return response()->json([
+            'ok' => true,
+            'message' => $updated.' artikel diubah menjadi '.$status->label().'.',
+            'updated' => $updated,
         ]);
     }
 

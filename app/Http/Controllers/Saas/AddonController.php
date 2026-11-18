@@ -7,23 +7,26 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Saas\StoreSaasAddonRequest;
 use App\Http\Requests\Saas\UpdateSaasAddonRequest;
 use App\Models\SaasAddon;
+use App\Support\Saas\AddonService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class AddonController extends Controller
 {
-    public function index(): View
+    public function index(AddonService $addons): View
     {
         abort_unless(auth()->user()?->can('addon.manage'), 403);
 
-        $addons = SaasAddon::query()
+        $addons->ensureWhatsAppCatalog();
+
+        $catalog = SaasAddon::query()
             ->withCount('subscriptions')
             ->orderBy('name')
             ->get();
 
         return view('saas.addons.index', [
-            'addons' => $addons,
+            'addons' => $catalog,
             'intervalOptions' => self::intervalOptions(),
         ]);
     }

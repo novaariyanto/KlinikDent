@@ -805,6 +805,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
         Route::middleware('permission:cms.view')->prefix('cms')->name('cms.')->group(function () {
             Route::get('/', [CmsDashboardController::class, 'index'])->name('dashboard');
             Route::get('posts', [CmsPostController::class, 'index'])->name('posts.index');
+            Route::get('posts/data', [CmsPostController::class, 'data'])->name('posts.data');
+            Route::post('posts/bulk-status', [CmsPostController::class, 'bulkStatus'])->middleware('permission:cms.manage')->name('posts.bulk-status');
             Route::get('posts/create', [CmsPostController::class, 'create'])->middleware('permission:cms.manage')->name('posts.create');
             Route::post('posts', [CmsPostController::class, 'store'])->middleware('permission:cms.manage')->name('posts.store');
             Route::get('posts/{post}/edit', [CmsPostController::class, 'edit'])->name('posts.edit');
