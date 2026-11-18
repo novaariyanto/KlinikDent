@@ -42,14 +42,7 @@
         <meta name="msvalidate.01" content="{{ $bingVerify }}">
     @endif
     <link rel="preload" href="{{ asset('fonts/inter-latin-600.woff2') }}" as="font" type="font/woff2" crossorigin>
-    @php
-        $cssPath = public_path('css/marketing.min.css');
-        $cssContent = file_exists($cssPath) ? file_get_contents($cssPath) : '';
-    @endphp
-    <style>{!! $cssContent !!}</style>
-    @if(!$cssContent)
-        <link rel="stylesheet" href="{{ asset('css/marketing.min.css') }}">
-    @endif
+    <link rel="stylesheet" href="{{ asset('css/marketing.min.css') }}">
     @stack('head')
     @if ($gtm)
         <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','{{ $gtm }}');</script>
