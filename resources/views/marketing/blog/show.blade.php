@@ -9,36 +9,48 @@
 @section('robots', $post->robots ?: 'index,follow')
 
 @push('head')
-<script type="application/ld+json">
-{!! json_encode([
-    '@context' => 'https://schema.org',
-    '@graph' => array_values(array_filter([
-        [
-            '@type' => 'BlogPosting',
-            'headline' => $post->title,
-            'description' => $post->metaDescriptionResolved(),
-            'datePublished' => optional($post->published_at)?->toAtomString(),
-            'dateModified' => optional($post->updated_at)?->toAtomString(),
-            'mainEntityOfPage' => $post->canonicalResolved(),
-            'author' => $post->author ? [
-                '@type' => 'Person',
-                'name' => $post->author->name,
-                'url' => route('blog.author', $post->author->slug),
-            ] : null,
-            'publisher' => [
-                '@type' => 'Organization',
-                'name' => $appName,
-                'logo' => ['@type' => 'ImageObject', 'url' => url($appLogo)],
-            ],
-            'image' => $post->featuredMedia?->url(),
-            'keywords' => collect([$post->primary_keyword])->merge($post->secondary_keywords ?? [])->filter()->values()->all(),
+@php
+    $blogPosting = [
+        '@type' => 'BlogPosting',
+        'headline' => $post->title,
+        'description' => $post->metaDescriptionResolved(),
+        'mainEntityOfPage' => $post->canonicalResolved(),
+        'publisher' => [
+            '@type' => 'Organization',
+            'name' => $appName,
+            'logo' => ['@type' => 'ImageObject', 'url' => url($appLogo)],
         ],
+        'keywords' => collect([$post->primary_keyword])->merge($post->secondary_keywords ?? [])->filter()->values()->all(),
+    ];
+    if ($post->published_at) {
+        $blogPosting['datePublished'] = $post->published_at->toAtomString();
+    }
+    if ($post->updated_at) {
+        $blogPosting['dateModified'] = $post->updated_at->toAtomString();
+    }
+    if ($post->author) {
+        $blogPosting['author'] = [
+            '@type' => 'Person',
+            'name' => $post->author->name,
+            'url' => route('blog.author', $post->author->slug),
+        ];
+    }
+    if ($post->featuredMedia?->url()) {
+        $blogPosting['image'] = $post->featuredMedia->url();
+    } elseif ($post->og_image_path) {
+        $blogPosting['image'] = url($post->og_image_path);
+    }
+
+    $blogGraph = [
+        $blogPosting,
         \App\Support\Marketing\SeoMeta::breadcrumbList([
             ['name' => 'Beranda', 'item' => url('/')],
             ['name' => 'Blog', 'item' => route('blog.index')],
             ['name' => $post->title, 'item' => $post->canonicalResolved()],
         ]),
-        ! empty($post->faq) ? [
+    ];
+    if (! empty($post->faq)) {
+        $blogGraph[] = [
             '@type' => 'FAQPage',
             'mainEntity' => collect($post->faq)->map(fn ($item) => [
                 '@type' => 'Question',
@@ -48,8 +60,13 @@
                     'text' => $item['a'] ?? '',
                 ],
             ])->values()->all(),
-        ] : null,
-    ])),
+        ];
+    }
+@endphp
+<script type="application/ld+json">
+{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@graph' => $blogGraph,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) !!}
 </script>
 @endpush
@@ -76,7 +93,15 @@
                 </p>
             @endif
             @if ($post->featuredMedia)
-                <img src="{{ $post->featuredMedia->url() }}" alt="{{ $post->featuredMedia->alt ?: $post->title }}" loading="eager" style="width:100%;border-radius:.75rem;margin:1rem 0">
+                <img
+                    class="article-hero-img"
+                    src="{{ $post->featuredMedia->url() }}"
+                    alt="{{ $post->featuredMedia->alt ?: $post->title }}"
+                    width="1200"
+                    height="675"
+                    loading="eager"
+                    decoding="async"
+                >
             @endif
             @if ($post->excerpt)
                 <p class="lede">{{ $post->excerpt }}</p>
@@ -101,25 +126,25 @@
                 </p>
             @endif
 
-            <div style="margin-top:1.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
+            <div class="share-row">
                 <a class="btn btn--ghost" href="https://wa.me/?text={{ urlencode($post->title.' '.$post->canonicalResolved()) }}" target="_blank" rel="noopener">Bagikan WhatsApp</a>
                 <a class="btn btn--ghost" href="https://www.linkedin.com/sharing/share-offsite/?url={{ urlencode($post->canonicalResolved()) }}" target="_blank" rel="noopener">Bagikan LinkedIn</a>
             </div>
         </article>
 
-        <aside>
+        <aside class="article-aside">
             @if (! empty($toc))
-                <div class="card" style="position:sticky;top:5rem;margin-bottom:1rem">
-                    <h2 style="font-size:1rem">Daftar isi</h2>
-                    <ul>
+                <div class="card toc-card">
+                    <h2 class="aside-title">Daftar isi</h2>
+                    <ul class="toc-list">
                         @foreach ($toc as $item)
-                            <li style="{{ ($item['level'] ?? 2) > 2 ? 'margin-left:0.75rem' : '' }}"><a href="#{{ $item['id'] }}">{{ $item['text'] }}</a></li>
+                            <li class="{{ ($item['level'] ?? 2) > 2 ? 'toc-list--nested' : '' }}"><a href="#{{ $item['id'] }}">{{ $item['text'] }}</a></li>
                         @endforeach
                     </ul>
                 </div>
             @endif
             <div class="card">
-                <h2 style="font-size:1.05rem">{{ $post->cta_label ?: 'Kelola Klinik Gigi Lebih Mudah dengan KlinikDent' }}</h2>
+                <h2 class="aside-title">{{ $post->cta_label ?: 'Kelola Klinik Gigi Lebih Mudah dengan KlinikDent' }}</h2>
                 <p>Rekam medis, odontogram digital, dan operasional klinik dalam satu sistem.</p>
                 <a class="btn btn--primary" href="{{ $post->cta_url ?: route('register') }}" data-track="blog_cta" data-post-id="{{ $post->id }}">Coba KlinikDent Gratis</a>
             </div>
@@ -133,13 +158,17 @@
         <h2 class="section-title">Artikel terkait</h2>
         <div class="cards">
             @foreach ($related as $item)
-                <article class="card">
-                    <h3>{{ $item->title }}</h3>
-                    <a href="{{ route('blog.show', $item->slug) }}">Baca</a>
+                <article class="card blog-card">
+                    <div class="blog-card__body">
+                        <h3>{{ $item->title }}</h3>
+                        <a href="{{ route('blog.show', $item->slug) }}">Baca</a>
+                    </div>
                 </article>
             @endforeach
         </div>
     </div>
 </section>
 @endif
+
+@include('marketing.partials.cta-band')
 @endsection

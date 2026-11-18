@@ -4,46 +4,56 @@ Skor adalah **rubrik audit internal**, bukan skor Google resmi atau jaminan rank
 
 ## Rubrik (0–100)
 
-| Dimensi | Bobot | Sebelum (estimasi) | Sesudah (estimasi setelah gelombang C lokal) | Catatan |
-|---------|-------|--------------------|-----------------------------------------------|---------|
-| Meta & canonical publik | 15 | 12 | 14 | Title/desc homepage diselaraskan; OG/Twitter existing |
-| Sitemap/robots/indexing | 15 | 11 | 14 | Tentang + published only; prod perlu re-seed |
-| Konten unik & tanpa placeholder | 20 | 8 | 18 | 10 artikel ditulis ulang; guard publish |
-| Internal linking & hub | 10 | 6 | 9 | Artikel ↔ hub ↔ tentang |
-| Schema / entity GEO | 15 | 8 | 13 | AboutPage + FAQ diperluas; Offer hati-hati |
-| Answer-first & FAQ | 10 | 5 | 9 | Hub + FAQ harga/trial/keamanan |
-| Performa CWV | 10 | 6 | 6 | Belum diukur Lighthouse — tidak diklaim naik |
-| Pengukuran (GSC/GA) | 5 | 2 | 3 | Hook `seo_settings` ada; perlu isi ID di admin |
-| **Total SEO kesiapan** | **100** | **~65** | **~86** | Target ≥90 butuh GSC+CWV terukur + deploy konten |
-| **Total GEO kesiapan** | **100** | **~42** | **~78** | Target ≥85 butuh tentang live + kutipan AI observasi |
+| Dimensi | Bobot | Sebelum (estimasi) | Sesudah gelombang C | Sesudah redesign + SEO/GEO | Catatan |
+|---------|-------|--------------------|---------------------|----------------------------|---------|
+| Meta & canonical publik | 15 | 12 | 14 | 14 | Title/desc/OG tetap factual |
+| Sitemap/robots/indexing | 15 | 11 | 14 | 14 | lastmod hub/statis; published-only posts |
+| Konten unik & tanpa placeholder | 20 | 8 | 18 | 18 | EditorialGuard tetap |
+| Internal linking & hub | 10 | 6 | 9 | 10 | Footer multi-kolom + CTA band |
+| Schema / entity GEO | 15 | 8 | 13 | 15 | Offer/AggregateOffer + HowTo; tanpa rating |
+| Answer-first & FAQ | 10 | 5 | 9 | 9 | Hub lede + FAQ katalog |
+| Performa CWV | 10 | 6 | 6 | 7 | Lazy trust/blog images; CSS inline — belum diukur Lighthouse |
+| Pengukuran (GSC/GA) | 5 | 2 | 3 | 3 | Hook `seo_settings`; isi ID di admin |
+| **Total SEO kesiapan** | **100** | **~65** | **~86** | **~90** | Deploy + GSC/CWV tetap residual |
+| **Total GEO kesiapan** | **100** | **~42** | **~78** | **~84** | llms.txt diperkaya; observasi AI manual residual |
 
 ## Sudah diperbaiki (kode lokal)
 
+### Gelombang C
 - EditorialGuard + validasi publish
 - Body 10 artikel tanpa placeholder
 - `/tentang-klinikdent` + nav/footer/sitemap/llms.txt
 - FAQ & answer-first hub
-- Meta homepage copy target
+
+### Redesign marketing + SEO/GEO
+- UI beranda/hub/blog ala eHealth (warna KlinikDent)
+- Trust hanya PSE / SatuSehat / HKI (tanpa metrik/testimoni fiktif)
+- Schema Offer dari paket + HowTo 4 langkah
+- Organization `sameAs` hanya jika `social_profiles` terisi di SEO settings
+- BlogPosting tanpa field null kosong; lazy-load kartu blog
+- Docs & checklist smoke diperbarui
 
 ## Belum / residual
 
-- Deploy + `CmsContentSeeder` di production (artikel live masih placeholder sampai di-seed/update)
-- Pengukuran Lighthouse/CWV nyata
-- Pengisian GA4/GTM/Bing di `/cms` SEO settings
+- Deploy production + seed konten bila masih placeholder di live
+- Pengukuran Lighthouse/CWV nyata (jangan klaim skor tanpa ukur)
+- Pengisian GA4/GTM/Bing di CMS SEO settings
 - Observasi penyebutan AI (manual, berkala)
-- Screenshot produk asli tambahan (opsional, data dummy only)
+- Aset foto/screenshot produk asli (opsional, data dummy only)
+- Social proof klinik nyata bila nanti tersedia (jangan fiktif)
 
 ## Checklist pascadeploy
 
 1. `php artisan migrate` (jika belum)
-2. `php artisan db:seed --class=CmsContentSeeder`
-3. Smoke: `/`, `/tentang-klinikdent`, `/blog/apa-itu-odontogram-digital`, `/sitemap.xml`, `/robots.txt`, `/llms.txt`
-4. Pastikan body artikel tidak mengandung “Draft ini belum dipublikasikan”
-5. Submit sitemap di Google Search Console
-6. Regresi login/register/dashboard
+2. `php artisan db:seed --class=CmsContentSeeder` (jika artikel live masih placeholder)
+3. Smoke: `/`, `/tentang-klinikdent`, `/odontogram-digital`, `/blog`, `/sitemap.xml`, `/robots.txt`, `/llms.txt`
+4. View-source `/`: pastikan JSON-LD ada HowTo + Offer/AggregateOffer tanpa AggregateRating
+5. Pastikan body artikel tidak mengandung “Draft ini belum dipublikasikan”
+6. Submit sitemap di Google Search Console
+7. Regresi login/register/dashboard
 
 ## Rollback
 
-- Revert commit/patch file marketing & seeder
+- Revert commit/patch file marketing & CSS min
 - Atau set artikel bermasalah ke `draft` di CMS
-- Redirect 301 hanya jika URL diganti (gelombang ini mempertahankan slug)
+- Redirect 301 hanya jika URL diganti (slug dipertahankan)

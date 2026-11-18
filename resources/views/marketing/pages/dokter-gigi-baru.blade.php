@@ -8,7 +8,7 @@
 @include('marketing.partials.hub-schema')
 
 @section('content')
-<section class="hero hero--page">
+<section class="hero hero--page hero--splash">
     <div class="wrap">
         <p class="eyebrow">Untuk dokter gigi baru</p>
         <h1>{{ $page['h1'] }}</h1>
@@ -44,10 +44,8 @@
     </div>
 </section>
 
-<section class="section section--navy final">
-    <div class="wrap">
-        <h2 class="section-title">Mulai dengan sistem yang sudah siap digunakan.</h2>
-        @include('marketing.partials.cta-pair', ['primary' => 'Mulai Klinik Anda'])
-    </div>
-</section>
+@include('marketing.partials.cta-band', [
+    'title' => 'Mulai dengan sistem yang sudah siap digunakan.',
+    'lede' => 'Daftar, siapkan klinik, dan catat pasien pertama tanpa spreadsheet yang semakin rumit.',
+])
 @endsection
