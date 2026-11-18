@@ -110,6 +110,7 @@ class CareEpisodeService
             'allergy_severity',
             'allergy_reaction',
             'allergy_note',
+            'allergies',
             'drug_allergy',
             'material_allergy',
         ];
@@ -154,7 +155,7 @@ class CareEpisodeService
             }
         }
 
-        return true;
+        return AllergyHistory::items($history) === [];
     }
 
     public function assertFollowUpAllowed(Visit $visit): void

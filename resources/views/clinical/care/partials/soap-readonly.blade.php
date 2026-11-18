@@ -90,7 +90,7 @@
                 </td>
             </tr>
             <tr class="soap-row soap-row--catatan">
-                <th class="soap-sheet__label">Catatan Khusus</th>
+                <th class="soap-sheet__label">Catatan</th>
                 <td class="soap-sheet__value">
                     <span class="soap-sheet__colon">:</span>
                     <div class="soap-sheet__fill">{!! nl2br(e($notes !== '' ? $notes : '—')) !!}</div>

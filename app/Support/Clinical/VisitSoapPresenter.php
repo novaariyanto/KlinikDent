@@ -203,7 +203,7 @@ final class VisitSoapPresenter
 
         $carePlan = collect([
             filled($plan['goal'] ?? null) ? 'Tujuan: '.$plan['goal'] : null,
-            filled($plan['prognosis'] ?? null) ? 'Prognosis: '.$plan['prognosis'] : null,
+            filled($plan['prognosis'] ?? null) ? 'Prognosa: '.$plan['prognosis'] : null,
             filled($plan['status'] ?? null) ? 'Status rencana: '.($statuses[$plan['status']] ?? $plan['status']) : null,
         ])->filter()->implode("\n");
 

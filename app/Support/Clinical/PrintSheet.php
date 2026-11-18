@@ -287,7 +287,13 @@ final class PrintSheet
 
     public function specialNotes(): string
     {
-        return $this->text($this->visit->medicalRecord?->clinical_notes);
+        $record = $this->visit->medicalRecord;
+        $notes = trim((string) ($record?->care_notes ?? ''));
+        if ($notes === '') {
+            $notes = trim((string) ($record?->clinical_notes ?? ''));
+        }
+
+        return $this->text($notes !== '' ? $notes : null);
     }
 
     public function therapy(): string

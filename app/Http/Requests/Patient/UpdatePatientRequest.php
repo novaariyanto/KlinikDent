@@ -4,8 +4,10 @@ namespace App\Http\Requests\Patient;
 
 use App\Enums\BloodType;
 use App\Enums\Citizenship;
+use App\Enums\EducationLevel;
 use App\Enums\Gender;
 use App\Enums\MaritalStatus;
+use App\Enums\Religion;
 use App\Http\Requests\Concerns\NormalizesWilayahCodes;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\Patient;
@@ -50,6 +52,9 @@ class UpdatePatientRequest extends FormRequest
             'marital_status' => ['nullable', Rule::enum(MaritalStatus::class)],
             'citizenship' => ['nullable', Rule::enum(Citizenship::class)],
             'family_card_number' => ['nullable', 'digits:16'],
+            'education' => ['nullable', Rule::enum(EducationLevel::class)],
+            'religion' => ['nullable', Rule::enum(Religion::class)],
+            'occupation' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:30'],
             'marketing_consent' => ['sometimes', 'boolean'],
             'address' => ['nullable', 'string', 'max:1000'],
@@ -74,6 +79,7 @@ class UpdatePatientRequest extends FormRequest
     {
         $nullable = [
             'nik', 'default_payer_id', 'blood_type', 'birth_place', 'marital_status', 'family_card_number',
+            'education', 'religion', 'occupation',
             'address', 'address_city', 'address_postal_code',
             'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
         ];

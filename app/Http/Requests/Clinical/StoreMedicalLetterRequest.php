@@ -99,6 +99,10 @@ class StoreMedicalLetterRequest extends FormRequest
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            if ($this->input('type') !== MedicalLetterType::Radiograph->value) {
+                return;
+            }
+
             foreach ($this->input('diagnoses', []) as $index => $row) {
                 if (! is_array($row)) {
                     continue;

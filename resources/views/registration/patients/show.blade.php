@@ -30,6 +30,9 @@
                         <tr><th>Status Perkawinan</th><td>{{ $patient->marital_status?->label() ?: '-' }}</td></tr>
                         <tr><th>Kewarganegaraan</th><td>{{ $patient->citizenship?->label() ?: '-' }}</td></tr>
                         <tr><th>No. KK</th><td>{{ $patient->family_card_number ?: '-' }}</td></tr>
+                        <tr><th>Pendidikan Terakhir</th><td>{{ $patient->education?->label() ?: '-' }}</td></tr>
+                        <tr><th>Agama</th><td>{{ $patient->religion?->label() ?: '-' }}</td></tr>
+                        <tr><th>Pekerjaan</th><td>{{ $patient->occupation ?: '-' }}</td></tr>
                         <tr><th>Telepon</th><td>{{ $patient->phone ?: '-' }}</td></tr>
                         <tr><th>Alamat</th><td>{{ $patient->address ?: '-' }}</td></tr>
                         <tr><th>Kota</th><td>{{ $patient->address_city ?: ($wilayahLabels['city'] ?? '-') }}{{ $patient->address_postal_code ? ' '.$patient->address_postal_code : '' }}</td></tr>

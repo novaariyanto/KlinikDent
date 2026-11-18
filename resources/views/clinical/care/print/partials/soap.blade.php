@@ -76,7 +76,7 @@
             <td>{{ $sheet->carePlan() }}</td>
         </tr>
         <tr>
-            <th class="label">Catatan Khusus</th>
+            <th class="label">Catatan</th>
             <td>{!! nl2br(e($sheet->specialNotes())) !!}</td>
         </tr>
         <tr>

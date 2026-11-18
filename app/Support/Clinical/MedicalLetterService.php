@@ -234,7 +234,9 @@ class MedicalLetterService
         abort_unless($patient, 422, 'Kunjungan tidak memiliki pasien.');
 
         $type = MedicalLetterType::from((string) $data['type']);
-        $diagnosisRows = $this->diagnosisSnapshots($visit, $data);
+        $diagnosisRows = $type === MedicalLetterType::Radiograph
+            ? $this->diagnosisSnapshots($visit, $data)
+            : [];
         $body = trim((string) ($data['body'] ?? ''));
 
         if ($body === '') {
@@ -350,7 +352,9 @@ class MedicalLetterService
      */
     public function diagnosisTextFor(Visit $visit, array $data): string
     {
-        if (array_key_exists('diagnoses', $data)) {
+        $type = MedicalLetterType::tryFrom((string) ($data['type'] ?? ''));
+
+        if ($type === MedicalLetterType::Radiograph && array_key_exists('diagnoses', $data)) {
             $lines = collect($this->diagnosisSnapshots($visit, $data))->pluck('line')->filter();
 
             return $lines->isEmpty() ? 'tidak dicantumkan' : $lines->implode('; ');
@@ -405,6 +409,11 @@ class MedicalLetterService
      */
     public function persistDiagnoses(Visit $visit, User $actor, array $data): void
     {
+        $type = MedicalLetterType::tryFrom((string) ($data['type'] ?? ''));
+        if ($type !== MedicalLetterType::Radiograph) {
+            return;
+        }
+
         if (! array_key_exists('diagnoses', $data) || ! $actor->can('diagnosis.manage')) {
             return;
         }

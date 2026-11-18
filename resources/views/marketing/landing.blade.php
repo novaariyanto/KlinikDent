@@ -90,6 +90,81 @@
     </div>
 </section>
 
+<section class="band on-sky-wash" aria-label="Kesiapan dan ringkasan produk">
+    <div class="wrap">
+        <p class="trust-label">Terdaftar &amp; terintegrasi</p>
+        <div class="regs">
+            @php
+                $trustLogos = [
+                    [
+                        'href' => 'https://pse.komdigi.go.id/',
+                        'aria' => 'Cek pendaftaran PSE di situs resmi Komdigi',
+                        'alt' => 'Logo PSE Lingkup Privat — Komdigi, Klinikdent terdaftar sebagai PSE',
+                        'base' => 'pse',
+                        'width' => 222,
+                        'height' => 104,
+                        'title' => 'PSE',
+                        'caption' => '005314.01/DJAI.PSE/01/2024',
+                        'fallback' => 'PSE',
+                    ],
+                    [
+                        'href' => 'https://satusehat.kemkes.go.id/platform/system-rme-list/684',
+                        'aria' => 'Lihat pendaftaran sistem RME di daftar SatuSehat',
+                        'alt' => 'Logo SatuSehat Kementerian Kesehatan RI — Klinikdent terdaftar di daftar sistem RME',
+                        'base' => 'satusehat',
+                        'width' => 156,
+                        'height' => 104,
+                        'title' => 'SatuSehat',
+                        'caption' => 'Terdaftar di daftar sistem RME',
+                        'fallback' => 'SatuSehat',
+                    ],
+                    [
+                        'href' => 'https://hakcipta.dgip.go.id/legal/c/MDAxMzY3MDA0',
+                        'aria' => 'Lihat catatan HKI di situs resmi DGIP',
+                        'alt' => 'Logo DJKI Direktorat Jenderal Kekayaan Intelektual — hak cipta Klinikdent',
+                        'base' => 'hki',
+                        'width' => 360,
+                        'height' => 97,
+                        'title' => 'HKI',
+                        'caption' => 'MDAxMzY3MDA0',
+                        'fallback' => 'HKI / DJKI',
+                    ],
+                ];
+            @endphp
+            @foreach ($trustLogos as $logo)
+                @php
+                    $webp = public_path('image/'.$logo['base'].'.webp');
+                    $png = public_path('image/'.$logo['base'].'.web.png');
+                    $hasWebp = is_file($webp);
+                    $hasPng = is_file($png);
+                @endphp
+                <figure class="reg">
+                    <a class="reg-logo" href="{{ $logo['href'] }}" target="_blank" rel="noopener noreferrer" aria-label="{{ $logo['aria'] }}">
+                        @if ($hasWebp || $hasPng)
+                            <picture>
+                                @if ($hasWebp)
+                                    <source type="image/webp" srcset="{{ asset('image/'.$logo['base'].'.webp') }}">
+                                @endif
+                                <img
+                                    src="{{ asset('image/'.$logo['base'].($hasPng ? '.web.png' : '.webp')) }}"
+                                    alt="{{ $logo['alt'] }}"
+                                    width="{{ $logo['width'] }}"
+                                    height="{{ $logo['height'] }}"
+                                    loading="lazy"
+                                    decoding="async"
+                                >
+                            </picture>
+                        @else
+                            <span class="reg-logo-fallback">{{ $logo['fallback'] }}</span>
+                        @endif
+                    </a>
+                    <figcaption><b>{{ $logo['title'] }}</b><span class="reg-num">{{ $logo['caption'] }}</span></figcaption>
+                </figure>
+            @endforeach
+        </div>
+    </div>
+</section>
+
 <section class="section section--tight" id="trust">
     <div class="wrap">
         <p class="trust-line">Dibangun khusus untuk alur kerja klinik gigi</p>

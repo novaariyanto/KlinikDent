@@ -644,9 +644,59 @@ body.care-mode .page-title-box {
     font-size: 0.95rem;
 }
 
+.soap-icd {
+    display: grid;
+    gap: 0.65rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.soap-icd__block {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.soap-icd__label {
+    display: block;
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #546e7a;
+}
+
+.soap-icd__row,
 .soap-icd__one {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-width: 0;
+}
+
+.soap-icd__control {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.soap-icd__control > .form-select,
+.soap-icd__control .select2-container {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+.soap-icd__action {
+    flex: 0 0 auto;
+    min-width: 2.5rem;
+}
+
+.soap-icd__add {
+    justify-self: start;
+    margin-top: 0.15rem;
+}
+
+.soap-icd__secondary {
+    display: grid;
     gap: 0.45rem;
 }
 
@@ -654,6 +704,17 @@ body.care-mode .page-title-box {
 .soap-icd__one > .form-select {
     flex: 1;
     min-width: 0;
+}
+
+.soap-row--icd10 .soap-sheet__fill {
+    width: 100%;
+}
+
+.soap-row--icd10 .select2-container .select2-selection--single .select2-selection__rendered {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-right: 1.5rem;
 }
 
 .soap-icd__saved {

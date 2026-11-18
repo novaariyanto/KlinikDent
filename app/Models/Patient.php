@@ -5,8 +5,10 @@ namespace App\Models;
 use App\Enums\BloodType;
 use App\Enums\BpjsMembershipStatus;
 use App\Enums\Citizenship;
+use App\Enums\EducationLevel;
 use App\Enums\Gender;
 use App\Enums\MaritalStatus;
+use App\Enums\Religion;
 use App\Models\Concerns\BelongsToTenant;
 use App\Support\Indonesia\WilayahService;
 use Database\Factories\PatientFactory;
@@ -37,6 +39,9 @@ class Patient extends Model
         'marital_status',
         'citizenship',
         'family_card_number',
+        'education',
+        'religion',
+        'occupation',
         'phone',
         'marketing_consent',
         'marketing_consent_at',
@@ -68,6 +73,8 @@ class Patient extends Model
             'blood_type' => BloodType::class,
             'marital_status' => MaritalStatus::class,
             'citizenship' => Citizenship::class,
+            'education' => EducationLevel::class,
+            'religion' => Religion::class,
             'marketing_consent' => 'boolean',
             'marketing_consent_at' => 'datetime',
             'bpjs_status' => BpjsMembershipStatus::class,

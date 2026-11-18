@@ -35,15 +35,67 @@
 
 <div id="new-patient-fields" class="@if($patient) d-none @endif">
     <h6 class="mb-3">Pasien Baru</h6>
+    <p class="text-muted small mb-3">Lengkapi demografi sesuai KTP / standar data SATUSEHAT. Desa/kelurahan, RT, dan RW wajib bila NIK belum ada di MPI.</p>
     <div class="row">
-        <div class="col-md-6"><x-input name="name" label="Nama" :value="$patient?->name" /></div>
+        <div class="col-md-6"><x-input name="name" label="Nama lengkap (sesuai KTP)" :value="$patient?->name" /></div>
         <div class="col-md-6">
             <x-input name="nik" id="nik" label="NIK" :value="$patient?->nik" maxlength="16" inputmode="numeric" autocomplete="off" />
             <div id="nik-wilayah-hint" class="form-text"></div>
         </div>
         <div class="col-md-4"><x-input name="dob" id="dob" type="date" label="Tanggal Lahir" :value="optional($patient?->dob)->format('Y-m-d')" /></div>
         <div class="col-md-4"><x-select name="gender" id="gender" label="Jenis Kelamin" :options="$genders ?? []" :selected="old('gender', $patient?->gender?->value)" /></div>
+        <div class="col-md-4">
+            <x-select
+                name="blood_type"
+                label="Golongan Darah"
+                :options="$bloodTypes ?? []"
+                :selected="old('blood_type', $patient?->blood_type?->value)"
+                placeholder="Pilih"
+            />
+        </div>
+        <div class="col-md-4"><x-input name="birth_place" label="Tempat Lahir" :value="$patient?->birth_place" /></div>
+        <div class="col-md-4">
+            <x-select
+                name="marital_status"
+                label="Status Perkawinan"
+                :options="$maritalStatuses ?? []"
+                :selected="old('marital_status', $patient?->marital_status?->value)"
+                placeholder="Pilih"
+            />
+        </div>
+        <div class="col-md-4">
+            <x-select
+                name="citizenship"
+                label="Kewarganegaraan"
+                :options="$citizenships ?? []"
+                :selected="old('citizenship', $patient?->citizenship?->value ?? 'WNI')"
+                placeholder=""
+            />
+        </div>
+        <div class="col-md-4"><x-input name="family_card_number" label="No. Kartu Keluarga" :value="$patient?->family_card_number" maxlength="16" /></div>
+        <div class="col-md-4">
+            <x-select
+                name="education"
+                label="Pendidikan Terakhir"
+                :options="$educationLevels ?? []"
+                :selected="old('education', $patient?->education?->value)"
+                placeholder="Pilih"
+            />
+        </div>
+        <div class="col-md-4">
+            <x-select
+                name="religion"
+                label="Agama"
+                :options="$religions ?? []"
+                :selected="old('religion', $patient?->religion?->value)"
+                placeholder="Pilih"
+            />
+        </div>
+        <div class="col-md-4"><x-input name="occupation" label="Pekerjaan" :value="$patient?->occupation" maxlength="100" /></div>
         <div class="col-md-4"><x-input name="phone" label="Telepon" :value="$patient?->phone" /></div>
+        <div class="col-12">
+            <h6 class="mt-2 mb-2">Alamat KTP (SATUSEHAT)</h6>
+        </div>
         <div class="col-md-12"><x-input name="address" label="Alamat (jalan / dusun)" :value="$patient?->address" /></div>
         <div class="col-md-6">
             <x-select

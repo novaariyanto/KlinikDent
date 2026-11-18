@@ -109,12 +109,33 @@ class DischargeSummary
             ->values();
 
         $instructionLabels = CareExamOptions::instructions();
-        $educationLine = collect($plan['items'] ?? [])
+        $planStatuses = CareExamOptions::carePlanStatuses();
+        $instructionItems = collect($plan['items'] ?? [])
             ->map(fn ($key) => $instructionLabels[$key] ?? (is_string($key) ? $key : null))
             ->filter()
+            ->values();
+        $educationLine = $instructionItems
             ->push($plan['extra'] ?? null)
             ->filter(fn ($value) => filled($value))
             ->implode('; ');
+
+        $carePlanLines = collect([
+            $instructionItems->isNotEmpty() ? 'Instruksi: '.$instructionItems->implode(', ') : null,
+            filled($plan['extra'] ?? null) ? 'Instruksi tambahan: '.$plan['extra'] : null,
+            filled($plan['goal'] ?? null) ? 'Tujuan: '.$plan['goal'] : null,
+            filled($plan['status'] ?? null) ? 'Status: '.($planStatuses[$plan['status']] ?? $plan['status']) : null,
+            $record?->control_date ? 'Tanggal kontrol: '.$record->control_date->format('d-m-Y') : null,
+        ])->filter(fn ($value) => filled($value))->values();
+
+        $careNotes = trim((string) ($record?->care_notes ?? ''));
+        if ($careNotes === '') {
+            $careNotes = trim((string) ($record?->clinical_notes ?? ''));
+        }
+
+        $prognosisText = trim((string) ($plan['prognosis'] ?? ''));
+        $prognosisLines = $prognosisText !== ''
+            ? preg_split("/\r\n|\n|\r/", $prognosisText)
+            : [];
 
         $followUp = collect();
         foreach ($visit->referrals as $referral) {
@@ -160,15 +181,16 @@ class DischargeSummary
                     'BHP' => [],
                     'Diet' => $lines([$plan['diet'] ?? null]),
                     'Edukasi' => $lines([$educationLine]),
+                    'Rencana Asuhan' => $lines($carePlanLines),
                 ],
                 'Kondisi Pulang' => [
                     'Keadaan Umum' => $lines([$vitals['general_condition'] ?? null]),
                     'Kesadaran' => $lines([$vitals['consciousness'] ?? null]),
-                    'Catatan Penting' => $lines(explode("\n", $sheet->specialNotes() !== '-' ? $sheet->specialNotes() : '')),
+                    'Catatan' => $lines($careNotes !== '' ? preg_split("/\r\n|\n|\r/", $careNotes) : []),
                 ],
                 'Rencana Pulang' => [
                     'Rencana Tindak Lanjut' => $lines($followUp),
-                    'Prognosa' => $lines([$plan['prognosis'] ?? null]),
+                    'Prognosa' => $lines($prognosisLines),
                     'Cara Keluar' => 'mode',
                 ],
             ],

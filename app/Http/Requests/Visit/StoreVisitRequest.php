@@ -2,7 +2,12 @@
 
 namespace App\Http\Requests\Visit;
 
+use App\Enums\BloodType;
+use App\Enums\Citizenship;
+use App\Enums\EducationLevel;
 use App\Enums\Gender;
+use App\Enums\MaritalStatus;
+use App\Enums\Religion;
 use App\Http\Requests\Concerns\NormalizesWilayahCodes;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\Visit;
@@ -59,6 +64,14 @@ class StoreVisitRequest extends FormRequest
             'nik' => ['nullable', 'digits:16'],
             'dob' => ['nullable', 'date', 'before:today'],
             'gender' => ['nullable', Rule::enum(Gender::class)],
+            'blood_type' => ['nullable', Rule::enum(BloodType::class)],
+            'birth_place' => ['nullable', 'string', 'max:100'],
+            'marital_status' => ['nullable', Rule::enum(MaritalStatus::class)],
+            'citizenship' => ['nullable', Rule::enum(Citizenship::class)],
+            'family_card_number' => ['nullable', 'digits:16'],
+            'education' => ['nullable', Rule::enum(EducationLevel::class)],
+            'religion' => ['nullable', Rule::enum(Religion::class)],
+            'occupation' => ['nullable', 'string', 'max:100'],
             'phone' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string', 'max:1000'],
             'address_city' => ['nullable', 'string', 'max:100'],
@@ -76,8 +89,9 @@ class StoreVisitRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $nullable = [
-            'patient_id', 'nik', 'doctor_id', 'room_id', 'gender', 'phone', 'address',
-            'address_city', 'address_postal_code',
+            'patient_id', 'nik', 'doctor_id', 'room_id', 'gender', 'blood_type', 'birth_place',
+            'marital_status', 'family_card_number', 'education', 'religion', 'occupation',
+            'phone', 'address', 'address_city', 'address_postal_code',
             'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
             'satusehat_id',
         ];
@@ -85,6 +99,9 @@ class StoreVisitRequest extends FormRequest
         $merge = [
             'visit_date' => $this->input('visit_date') ?: now()->toDateString(),
             'branch_id' => $this->input('branch_id') ?: $this->user()?->branch_id,
+            'citizenship' => $this->filled('patient_id')
+                ? ($this->filled('citizenship') ? $this->input('citizenship') : null)
+                : ($this->input('citizenship') ?: Citizenship::Wni->value),
         ];
 
         foreach ($nullable as $field) {

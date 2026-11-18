@@ -207,6 +207,10 @@
             gap: 0.45rem;
         }
 
+        .soap-plan .instruksi-grid {
+            grid-template-columns: 1fr;
+        }
+
         @media (max-width: 767.98px) {
             .instruksi-grid {
                 grid-template-columns: 1fr;
@@ -222,27 +226,124 @@
             font-weight: 400;
         }
 
-        .soap-icd__secondary {
-            margin-top: 0.5rem;
+        .soap-icd {
             display: grid;
-            gap: 0.4rem;
+            gap: 0.65rem 1rem;
+            width: 100%;
+            min-width: 0;
+            grid-template-columns: 1fr 1fr;
+            align-items: start;
         }
 
-        .soap-icd__row {
-            display: flex;
-            gap: 0.4rem;
+        @media (max-width: 991.98px) {
+            .soap-icd {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .soap-icd__block {
+            display: grid;
+            gap: 0.3rem;
+            min-width: 0;
+        }
+
+        .soap-icd__add {
+            width: 2.5rem;
+            min-width: 2.5rem;
+            height: 2.5rem;
+            padding: 0;
+            display: inline-flex;
             align-items: center;
+            justify-content: center;
+            line-height: 1;
         }
 
-        .soap-icd__row .select2-container {
+        .soap-icd__add .bx {
+            font-size: 1.15rem;
+        }
+
+        .soap-plan {
+            display: grid;
+            gap: 0.65rem 1rem;
+            width: 100%;
+            min-width: 0;
+            grid-template-columns: 1fr 1fr;
+            align-items: start;
+        }
+
+        @media (max-width: 991.98px) {
+            .soap-plan {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .soap-plan__block {
+            display: grid;
+            gap: 0.3rem;
+            min-width: 0;
+        }
+
+        .soap-plan__label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #546e7a;
+            margin-bottom: 0;
+        }
+
+        .soap-plan__fields {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .soap-plan__pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        @media (max-width: 575.98px) {
+            .soap-plan__pair {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .soap-icd__secondary {
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .soap-icd__row,
+        .soap-icd__one {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .soap-icd__control {
             flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .soap-icd__control .select2-container,
+        .soap-icd__row .select2-container {
+            width: 100% !important;
+            max-width: 100%;
         }
 
         .soap-icd__label {
             display: block;
-            font-size: 0.75rem;
-            color: #6c757d;
-            margin-bottom: 0.2rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: #546e7a;
+            margin-bottom: 0;
+        }
+
+        .soap-icd__action {
+            flex: 0 0 auto;
+            min-width: 2.5rem;
         }
 
         #resep.care-section { margin-bottom: 0; }
@@ -464,6 +565,9 @@
             if (form.hasAttribute('data-exam-form')) syncExamSummary(form);
             if (form.hasAttribute('data-plan-form')) syncPlanSummary(form);
             if (form.hasAttribute('data-allergy-form')) syncAllergySummary(form);
+            if (form.hasAttribute('data-systemic-form') || ((form.getAttribute('action') || '').indexOf('/systemic') !== -1)) {
+                syncSystemicSummary(form);
+            }
             if (form.id === 'assessment-evaluasi-form') syncPlanReview();
             return data;
         }).catch(function (error) {
@@ -527,32 +631,79 @@
         target.textContent = bits.length ? bits.join('; ') : '—';
     }
 
+    function allergyField(row, key) {
+        var input = row.querySelector('[data-allergy-field="' + key + '"]');
+        return input ? String(input.value || '').trim() : '';
+    }
+
+    function syncSystemicSummary(form) {
+        var target = document.querySelector('[data-systemic-summary]');
+        if (!target || !form) return;
+        var labels = @json($examOptions['systemic'] ?? []);
+        var bits = [];
+        form.querySelectorAll('[data-sys-conditions] input[type="checkbox"]:checked').forEach(function (box) {
+            if (box.value === 'allergy') return;
+            bits.push(labels[box.value] || box.value);
+        });
+        var medStatus = form.querySelector('[name="medication_status"]');
+        var medDetail = form.querySelector('[name="medication_detail"]');
+        if (medStatus && medStatus.value === 'present') {
+            bits.push('Obat rutin' + (medDetail && medDetail.value ? ': ' + medDetail.value.trim() : ''));
+        }
+        var blood = form.querySelector('[name="blood_type"]');
+        var rhesus = form.querySelector('[name="rhesus"]');
+        if (blood && blood.value) {
+            var rh = rhesus && rhesus.value === 'positive' ? '+' : (rhesus && rhesus.value === 'negative' ? '-' : '');
+            bits.push('Gol. darah ' + blood.value + rh);
+        }
+        target.textContent = bits.join(' · ');
+        target.hidden = bits.length === 0;
+    }
+
     function syncAllergySummary(form) {
         var target = document.querySelector('[data-allergy-summary]');
         if (!target || !form) return;
-        var status = fieldText(form, 'allergy_status');
-        var category = fieldText(form, 'allergy_category');
-        var detail = fieldText(form, 'allergy_detail');
-        var buckets = [
-            ['food', 'Alergi Makanan'],
-            ['environment', 'Alergi Udara'],
-            ['medication', 'Alergi Obat'],
-            ['biologic', 'Alergi lainnya']
-        ];
+        var statusField = form.querySelector('[name="allergy_status"]');
+        var status = statusField ? statusField.value : '';
+        var categoryLabels = (window.careAllergyLabels && window.careAllergyLabels.category) || {
+            food: 'Alergi Makanan',
+            environment: 'Alergi Udara',
+            medication: 'Alergi Obat',
+            biologic: 'Alergi lainnya'
+        };
         if (status === 'unknown') {
             target.textContent = 'Tidak diketahui';
+            target.classList.remove('text-muted');
             return;
         }
-        if (status !== 'none_confirmed' && status !== 'present') {
-            target.textContent = 'Belum ditanyakan';
+        if (status === 'none_confirmed') {
+            target.textContent = 'Tidak ada alergi';
+            target.classList.remove('text-muted');
             return;
         }
-        target.textContent = buckets.map(function (bucket) {
-            if (status === 'present' && category === bucket[0]) {
-                return bucket[1] + ' : Ada' + (detail ? ' — ' + detail : '');
+        if (status !== 'present') {
+            target.textContent = '—';
+            target.classList.add('text-muted');
+            return;
+        }
+        var bits = [];
+        form.querySelectorAll('[data-allergy-row]').forEach(function (row) {
+            var category = allergyField(row, 'category') || (row.querySelector('[data-allergy-category]') || {}).value || '';
+            var detail = allergyField(row, 'detail') || (row.querySelector('[data-allergy-detail]') || {}).value || '';
+            var reaction = allergyField(row, 'reaction');
+            if (!reaction) {
+                var reactionField = row.querySelector('[name*="[reaction]"]');
+                reaction = reactionField ? String(reactionField.value || '').trim() : '';
             }
-            return bucket[1] + ' : Tidak ada';
-        }).join(', ');
+            if (!category && !detail && !reaction) return;
+            var label = categoryLabels[category] || category || 'Alergi';
+            var parts = [];
+            if (detail) parts.push(detail);
+            if (reaction) parts.push('reaksi: ' + reaction);
+            bits.push(label + (parts.length ? ': ' + parts.join(' — ') : ''));
+        });
+        target.textContent = bits.length ? bits.join(' · ') : 'Ada alergi (detail belum diisi)';
+        target.classList.remove('text-muted');
     }
 
     function selectedLabel(select) {
@@ -566,7 +717,6 @@
         if (!target) return;
         var bits = [];
         var decision = selectedLabel(document.getElementById('plan_decision'));
-        var change = selectedLabel(document.getElementById('indicator-plan'));
         var decisionField = document.getElementById('plan_decision');
         if (decision && decision !== '—') bits.push('Keputusan: ' + decision + '.');
         if (decisionField && decisionField.value === 'control') {
@@ -576,7 +726,6 @@
                 bits.push('Tanggal kontrol: ' + (parts.length === 3 ? parts[2] + '-' + parts[1] + '-' + parts[0] : controlDate.value) + '.');
             }
         }
-        if (change && change !== '—') bits.push('Dibanding kunjungan lalu: ' + change + '.');
         target.hidden = bits.length === 0;
         target.textContent = bits.join(' ');
     }
@@ -625,26 +774,33 @@
     }
 
     document.querySelectorAll('[data-plan-form]').forEach(function (form) {
-        syncPlanSummary(form);
-        form.addEventListener('change', function () { syncPlanSummary(form); });
-        form.addEventListener('input', function () { syncPlanSummary(form); });
+        if (document.querySelector('[data-plan-summary]')) {
+            syncPlanSummary(form);
+            form.addEventListener('change', function () { syncPlanSummary(form); });
+            form.addEventListener('input', function () { syncPlanSummary(form); });
+        }
     });
-    var planModal = document.getElementById('soap-plan-modal');
-    if (planModal) {
-        planModal.addEventListener('hidden.bs.modal', function () {
-            var form = planModal.querySelector('[data-plan-form]');
-            if (form) syncPlanSummary(form);
-            syncPlanReview();
-        });
-    }
     function syncControlDate(clearWhenHidden) {
         var decision = document.getElementById('plan_decision');
         var wrap = document.querySelector('[data-control-date-wrap]');
         var input = document.getElementById('follow-up-control-date');
+        var letterBtn = document.querySelector('[data-control-letter-btn]');
         if (!decision || !wrap) return;
         var show = decision.value === 'control';
         wrap.hidden = !show;
         if (!show && clearWhenHidden && input) input.value = '';
+        if (letterBtn) {
+            var base = letterBtn.getAttribute('data-letter-base') || letterBtn.href;
+            try {
+                var url = new URL(base, window.location.origin);
+                if (show && input && input.value) {
+                    url.searchParams.set('control_date', input.value);
+                } else {
+                    url.searchParams.delete('control_date');
+                }
+                letterBtn.href = url.pathname + url.search;
+            } catch (e) {}
+        }
     }
 
     syncControlDate(false);
@@ -657,10 +813,16 @@
     }
     var controlDateInput = document.getElementById('follow-up-control-date');
     if (controlDateInput) {
-        controlDateInput.addEventListener('change', syncPlanReview);
-        controlDateInput.addEventListener('input', syncPlanReview);
+        controlDateInput.addEventListener('change', function () {
+            syncControlDate(false);
+            syncPlanReview();
+        });
+        controlDateInput.addEventListener('input', function () {
+            syncControlDate(false);
+            syncPlanReview();
+        });
     }
-    ['plan_decision', 'indicator-plan'].forEach(function (id) {
+    ['plan_decision'].forEach(function (id) {
         var field = document.getElementById(id);
         if (!field || id === 'plan_decision') return;
         field.addEventListener('change', syncPlanReview);
@@ -1080,9 +1242,11 @@
                         select.removeAttribute('data-update');
                         select.removeAttribute('data-destroy');
                         removeBtn.hidden = true;
+                        syncSecondaryAddButtons(list);
                         return;
                     }
                     row.remove();
+                    syncSecondaryAddButtons(list);
                 }
                 if (!destroyUrl) {
                     removeRow();
@@ -1117,20 +1281,34 @@
         }
     }
 
+    function syncSecondaryAddButtons(list) {
+        if (!list) return;
+        var rows = list.querySelectorAll('[data-soap-icd-row]');
+        rows.forEach(function (row, index) {
+            var addBtn = row.querySelector('[data-icd-secondary-add]');
+            if (addBtn) addBtn.hidden = index !== rows.length - 1;
+        });
+    }
+
     function bindSecondaryAdd() {
         var root = document.getElementById('soap-icd');
-        var addBtn = document.querySelector('[data-icd-secondary-add]');
         var list = document.querySelector('[data-icd-secondary-list]');
         var tpl = document.getElementById('soap-icd-secondary-template');
-        if (!root || !addBtn || !list || !tpl) return;
-        addBtn.addEventListener('click', function () {
+        if (!root || !list || !tpl || list.dataset.addBound === '1') return;
+        list.dataset.addBound = '1';
+        list.addEventListener('click', function (event) {
+            var addBtn = event.target.closest('[data-icd-secondary-add]');
+            if (!addBtn || !list.contains(addBtn)) return;
+            event.preventDefault();
             var wrap = document.createElement('div');
             wrap.innerHTML = tpl.innerHTML.trim();
             var row = wrap.firstElementChild;
             if (!row) return;
             list.appendChild(row);
             bindSoapIcd(row);
+            syncSecondaryAddButtons(list);
         });
+        syncSecondaryAddButtons(list);
     }
 
     function bindOneIcd(select) {
@@ -1193,7 +1371,7 @@
             }).then(function (payload) {
                 if (payload && payload.update_url) select.setAttribute('data-update', payload.update_url);
                 if (payload && payload.destroy_url) select.setAttribute('data-destroy', payload.destroy_url);
-                var resetButton = select.parentElement ? select.parentElement.querySelector('[data-icd-reset]') : null;
+                var resetButton = select.closest('.soap-icd__row') ? select.closest('.soap-icd__row').querySelector('[data-icd-reset]') : null;
                 if (resetButton) resetButton.hidden = false;
                 select.dataset.saving = '0';
                 setStatus('✓ Tersimpan');
@@ -1202,7 +1380,7 @@
                 setStatus(error && error.message ? error.message : 'Gagal menyimpan', true);
             });
         });
-        var resetButton = select.parentElement ? select.parentElement.querySelector('[data-icd-reset]') : null;
+        var resetButton = select.closest('.soap-icd__row') ? select.closest('.soap-icd__row').querySelector('[data-icd-reset]') : null;
         if (resetButton) {
             resetButton.addEventListener('click', function () {
                 if (select.dataset.saving === '1') return;

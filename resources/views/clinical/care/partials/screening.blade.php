@@ -34,7 +34,7 @@
     <div class="care-section__body">
         @if ($showSystemic)
         @if ($canEditSystemic)
-            <form action="{{ route('care.systemic.update', $visit) }}" method="POST" data-autosave data-allergy-form class="care-form">
+            <form action="{{ route('care.systemic.update', $visit) }}" method="POST" data-autosave class="care-form">
                 @csrf
                 @method('PUT')
                 <p class="text-danger small mb-2" data-sys-warning hidden></p>
@@ -66,73 +66,50 @@
                         <x-input name="other_detail" label="Keterangan kondisi lain" :value="$sys['other_detail'] ?? null" />
                     </div>
                 </div>
-                <div class="care-form__block">
-                    <div class="care-form__title">Alergi</div>
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <label class="form-label" for="allergy_status">Status</label>
-                            <select name="allergy_status" id="allergy_status" class="form-select">
-                                @foreach ($examOptions['allergy_statuses'] as $value => $label)
-                                    <option value="{{ $value }}" @selected(($sys['allergy_status'] ?? 'not_asked') === $value)>{{ $label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
+                @php
+                    $hideAllergyBlock = (bool) ($hideAllergyBlock ?? false);
+                    $screeningAllergyItems = \App\Support\Clinical\AllergyHistory::items($sys);
+                    $screeningAllergyPresent = ((string) ($sys['allergy_status'] ?? '')) === 'present' && $screeningAllergyItems !== [];
+                @endphp
+                @unless ($hideAllergyBlock)
+                    <div class="care-form__block">
+                        <div class="care-form__title">Alergi</div>
+                        <input type="hidden" id="allergy_status" value="{{ $sys['allergy_status'] ?? 'not_asked' }}" data-allergy-status-mirror>
+                        <p class="mb-0 text-muted small">{{ \App\Support\Clinical\AllergyHistory::summaryLine($sys) }} — ubah lewat tombol alergi di lembar SOAP.</p>
+                        @if ($screeningAllergyPresent)
+                            @php
+                                $screeningCats = $examOptions['allergy_categories'] ?? [];
+                                $screeningSevs = $examOptions['allergy_severities'] ?? [];
+                            @endphp
+                            <div class="table-responsive mt-2">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th style="width:2.5rem">No</th>
+                                            <th>Kategori</th>
+                                            <th>Zat pemicu</th>
+                                            <th>Reaksi</th>
+                                            <th>Keparahan</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach ($screeningAllergyItems as $index => $item)
+                                            <tr>
+                                                <td>{{ $index + 1 }}</td>
+                                                <td>{{ $screeningCats[$item['category']] ?? ($item['category'] ?: '—') }}</td>
+                                                <td>{{ $item['detail'] !== '' ? $item['detail'] : '—' }}</td>
+                                                <td>{{ $item['reaction'] !== '' ? $item['reaction'] : '—' }}</td>
+                                                <td>{{ $screeningSevs[$item['severity']] ?? ($item['severity'] ?: '—') }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
                     </div>
-                    <p class="care-form__hint">Belum ditanyakan tidak diartikan sebagai tidak ada alergi.</p>
-                    <div data-sys-panel="allergy" @unless ($allergyStatus === 'present' || in_array('allergy', $conditions, true)) hidden @endunless>
-                        @php
-                            $allergyCategory = $sys['allergy_category'] ?? '';
-                        @endphp
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <label class="form-label" for="allergy_category">Kategori</label>
-                                <select name="allergy_category" id="allergy_category" class="form-select">
-                                    <option value="">—</option>
-                                    @foreach ($examOptions['allergy_categories'] as $value => $label)
-                                        <option value="{{ $value }}" @selected($allergyCategory === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="allergy_type">Jenis</label>
-                                <select name="allergy_type" id="allergy_type" class="form-select">
-                                    <option value="">—</option>
-                                    @foreach ($examOptions['allergy_types'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(($sys['allergy_type'] ?? '') === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="allergy_clinical_status">Status klinis</label>
-                                <select name="allergy_clinical_status" id="allergy_clinical_status" class="form-select">
-                                    <option value="">—</option>
-                                    @foreach ($examOptions['allergy_clinical_statuses'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(($sys['allergy_clinical_status'] ?? '') === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label" for="allergy_severity">Tingkat keparahan reaksi</label>
-                                <select name="allergy_severity" id="allergy_severity" class="form-select">
-                                    <option value="">—</option>
-                                    @foreach ($examOptions['allergy_severities'] as $value => $label)
-                                        <option value="{{ $value }}" @selected(($sys['allergy_severity'] ?? '') === $value)>{{ $label }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <x-input name="allergy_detail" label="Zat atau bahan pemicu" :value="$sys['allergy_detail'] ?? null" />
-                            </div>
-                            <div class="col-md-6">
-                                <x-input name="allergy_reaction" label="Reaksi atau manifestasi" :value="$sys['allergy_reaction'] ?? null" />
-                            </div>
-                            <div class="col-12">
-                                <label class="form-label" for="allergy_note">Catatan klinis alergi</label>
-                                <textarea name="allergy_note" id="allergy_note" rows="2" class="form-control">{{ $sys['allergy_note'] ?? '' }}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                @else
+                    <input type="hidden" id="allergy_status" value="{{ $sys['allergy_status'] ?? 'not_asked' }}" data-allergy-status-mirror>
+                @endunless
                 <div class="care-form__block" data-sys-panel="medication" @unless (in_array('medication', $conditions, true) || ($medicationStatus !== '' && $medicationStatus !== 'not_asked')) hidden @endunless>
                     <div class="care-form__title">Obat rutin</div>
                     <div class="row g-2">
@@ -150,25 +127,8 @@
                     </div>
                 </div>
                 <div class="care-form__block">
-                    <div class="care-form__title">Darah dan kehamilan</div>
+                    <div class="care-form__title">Kehamilan</div>
                     <div class="row g-2">
-                        <div class="col-md-4">
-                            <label class="form-label" for="blood_type">Golongan darah</label>
-                            <select name="blood_type" id="blood_type" class="form-select">
-                                <option value="">—</option>
-                                @foreach (['A','B','AB','O'] as $abo)
-                                    <option value="{{ $abo }}" @selected(($sys['blood_type'] ?? '') === $abo)>{{ $abo }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="rhesus">Rhesus</label>
-                            <select name="rhesus" id="rhesus" class="form-select">
-                                <option value="">—</option>
-                                <option value="positive" @selected(($sys['rhesus'] ?? '') === 'positive')>Positif</option>
-                                <option value="negative" @selected(($sys['rhesus'] ?? '') === 'negative')>Negatif</option>
-                            </select>
-                        </div>
                         <div class="col-md-4">
                             <label class="form-label" for="pregnancy_status">Status kehamilan</label>
                             <select name="pregnancy_status" id="pregnancy_status" class="form-select">
@@ -218,16 +178,15 @@
                 @elseif ($medicationStatus === 'none_confirmed')
                     <p class="mb-1">Tidak memakai obat rutin.</p>
                 @endif
-                @if (filled($sys['blood_type'] ?? null) || filled($sys['rhesus'] ?? null) || filled($sys['pregnancy_status'] ?? null) || filled($sys['other_detail'] ?? null))
+                @if (filled($sys['pregnancy_status'] ?? null) || filled($sys['other_detail'] ?? null))
                     <p class="mb-0 text-muted">
-                        Golongan darah {{ $sys['blood_type'] ?: '-' }}{{ ($sys['rhesus'] ?? '') === 'positive' ? '+' : (($sys['rhesus'] ?? '') === 'negative' ? '-' : '') }}
                         @if (($sys['pregnancy_status'] ?? '') === 'pregnant')
-                            · Hamil
+                            Hamil
                         @elseif (($sys['pregnancy_status'] ?? '') === 'not_pregnant')
-                            · Tidak hamil
+                            Tidak hamil
                         @endif
                         @if (filled($sys['other_detail'] ?? null))
-                            · {{ $sys['other_detail'] }}
+                            {{ filled($sys['pregnancy_status'] ?? null) ? '· ' : '' }}{{ $sys['other_detail'] }}
                         @endif
                     </p>
                 @endif
@@ -331,11 +290,8 @@
             var panel = root.querySelector('[data-sys-panel="' + key + '"]');
             if (panel) panel.hidden = !(box && box.checked);
         });
-        var allergyPanel = root.querySelector('[data-sys-panel="allergy"]');
         var allergyBox = boxFor('allergy');
         if (allergyBox && allergyStatus && allergyStatus.value === 'present') allergyBox.checked = true;
-        var allergyOn = (allergyBox && allergyBox.checked) || (allergyStatus && allergyStatus.value === 'present');
-        if (allergyPanel) allergyPanel.hidden = !allergyOn;
         var medPanel = root.querySelector('[data-sys-panel="medication"]');
         var medBox = boxFor('medication');
         if (medBox && medStatus && medStatus.value === 'present') medBox.checked = true;

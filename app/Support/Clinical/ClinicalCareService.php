@@ -455,7 +455,8 @@ class ClinicalCareService
         $record = $this->ensureRecord($visit);
         app(MedicalRecordLock::class)->assertMutable($record);
 
-        $data = $this->normalizeSystemicHistory($data);
+        $existing = is_array($record->systemic_history) ? $record->systemic_history : [];
+        $data = $this->normalizeSystemicHistory(array_merge($existing, $data));
         [$sys, $dia] = $this->bloodPressureParts($data['blood_pressure_sys'] ?? null, $data['blood_pressure_dia'] ?? null, null);
         $data['blood_pressure_sys'] = $sys !== '' ? $sys : null;
         $data['blood_pressure_dia'] = $dia !== '' ? $dia : null;
@@ -1044,6 +1045,28 @@ class ClinicalCareService
 
         $data['allergy_status'] = $allergyStatus !== '' ? $allergyStatus : 'not_asked';
         $data['medication_status'] = $medicationStatus !== '' ? $medicationStatus : 'not_asked';
+
+        $allergies = AllergyHistory::items($data);
+        if ($allergyStatus !== 'present') {
+            $allergies = [];
+            $data['allergy_detail'] = null;
+            $data['allergy_category'] = null;
+            $data['allergy_type'] = null;
+            $data['allergy_clinical_status'] = null;
+            $data['allergy_severity'] = null;
+            $data['allergy_reaction'] = null;
+            $data['allergy_note'] = null;
+        } elseif ($allergies !== []) {
+            $first = $allergies[0];
+            $data['allergy_category'] = $first['category'] !== '' ? $first['category'] : null;
+            $data['allergy_type'] = $first['type'] !== '' ? $first['type'] : null;
+            $data['allergy_clinical_status'] = $first['clinical_status'] !== '' ? $first['clinical_status'] : null;
+            $data['allergy_severity'] = $first['severity'] !== '' ? $first['severity'] : null;
+            $data['allergy_detail'] = $first['detail'] !== '' ? $first['detail'] : null;
+            $data['allergy_reaction'] = $first['reaction'] !== '' ? $first['reaction'] : null;
+            $data['allergy_note'] = $first['note'] !== '' ? $first['note'] : null;
+        }
+        $data['allergies'] = $allergies;
 
         foreach (['family_history', 'dental_history', 'drug_allergy', 'material_allergy'] as $key) {
             $value = trim((string) ($data[$key] ?? ''));

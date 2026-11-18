@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers\Registration;
 
+use App\Enums\BloodType;
+use App\Enums\Citizenship;
+use App\Enums\EducationLevel;
 use App\Enums\Gender;
+use App\Enums\MaritalStatus;
 use App\Enums\QueueStatus;
+use App\Enums\Religion;
 use App\Enums\VisitStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Visit\StoreVisitRequest;
@@ -444,6 +449,11 @@ class VisitController extends Controller
                 ->orderBy('name')
                 ->get(),
             'genders' => Gender::options(),
+            'bloodTypes' => BloodType::options(),
+            'maritalStatuses' => MaritalStatus::options(),
+            'citizenships' => Citizenship::options(),
+            'educationLevels' => EducationLevel::options(),
+            'religions' => Religion::options(),
             'defaultBranchId' => $user?->branch_id,
             'provinces' => $this->wilayah->provinces(),
             'cities' => $this->wilayah->cities((string) $provinceCode),

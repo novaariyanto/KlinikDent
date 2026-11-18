@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Registration;
 
 use App\Enums\BloodType;
 use App\Enums\Citizenship;
+use App\Enums\EducationLevel;
 use App\Enums\Gender;
 use App\Enums\MaritalStatus;
+use App\Enums\Religion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Patient\StorePatientRequest;
 use App\Http\Requests\Patient\UpdatePatientRequest;
@@ -307,6 +309,8 @@ class PatientController extends Controller
             'bloodTypes' => BloodType::options(),
             'maritalStatuses' => MaritalStatus::options(),
             'citizenships' => Citizenship::options(),
+            'educationLevels' => EducationLevel::options(),
+            'religions' => Religion::options(),
             'provinces' => $this->wilayah->provinces(),
             'cities' => $this->wilayah->cities((string) $provinceCode),
             'districts' => $this->wilayah->districts((string) $cityCode),

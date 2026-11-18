@@ -52,6 +52,27 @@
         <x-input name="family_card_number" label="No. Kartu Keluarga" :value="$patient?->family_card_number" maxlength="16" />
     </div>
     <div class="col-md-4">
+        <x-select
+            name="education"
+            label="Pendidikan Terakhir"
+            :options="$educationLevels ?? []"
+            :selected="old('education', $patient?->education?->value)"
+            placeholder="Pilih"
+        />
+    </div>
+    <div class="col-md-4">
+        <x-select
+            name="religion"
+            label="Agama"
+            :options="$religions ?? []"
+            :selected="old('religion', $patient?->religion?->value)"
+            placeholder="Pilih"
+        />
+    </div>
+    <div class="col-md-4">
+        <x-input name="occupation" label="Pekerjaan" :value="$patient?->occupation" maxlength="100" />
+    </div>
+    <div class="col-md-4">
         <x-input name="phone" label="Telepon" :value="$patient?->phone" />
     </div>
     <div class="col-md-12">

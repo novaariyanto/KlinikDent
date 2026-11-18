@@ -77,42 +77,50 @@
         <div class="text-muted small mt-1">Perubahan diagnosis: {{ $indicatorLabel('diagnosis') }}</div>
     @endif
 @elseif ($evaluasiPart === 'rencana-ringkas')
-    <div class="text-muted small mt-1" data-plan-review @unless (filled($review['plan_decision'] ?? null) || $indicatorLabel('plan')) hidden @endunless>
+    <div class="text-muted small mt-1" data-plan-review @unless (filled($review['plan_decision'] ?? null)) hidden @endunless>
         @if (filled($review['plan_decision'] ?? null))Keputusan: {{ $planLabels[$review['plan_decision']] ?? $review['plan_decision'] }}. @endif
         @if (($review['plan_decision'] ?? null) === 'control' && $record?->control_date)Tanggal kontrol: {{ $record->control_date->format('d-m-Y') }}. @endif
-        @if ($indicatorLabel('plan'))Dibanding kunjungan lalu: {{ $indicatorLabel('plan') }}.@endif
     </div>
 @elseif ($evaluasiPart === 'rencana')
     @if ($canEditAssessment)
-        <div class="care-form__review">
-            <div class="care-form__title">Asesmen ulang</div>
-            <p class="care-form__hint">Keputusan untuk perawatan yang sudah berjalan.</p>
-            <div class="row g-2">
-                <div class="col-md-6">
-                    <label class="form-label" for="plan_decision">Keputusan kunjungan ini</label>
-                    <select name="plan_decision" id="plan_decision" class="form-select" form="assessment-evaluasi-form">
-                        <option value="">—</option>
-                        @foreach ($planLabels as $value => $label)
-                            <option value="{{ $value }}" @selected(old('plan_decision', $review['plan_decision'] ?? '') === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label" for="indicator-plan">Kondisi dibanding kunjungan lalu</label>
-                    <select name="indicators[plan]" id="indicator-plan" class="form-select" form="assessment-evaluasi-form">
-                        <option value="">—</option>
-                        @foreach (AssessmentChange::options() as $value => $optionLabel)
-                            <option value="{{ $value }}" @selected(($indicators['plan'] ?? '') === $value)>{{ $optionLabel }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="col-md-6" data-control-date-wrap @unless (old('plan_decision', $review['plan_decision'] ?? '') === 'control') hidden @endunless>
-                    <label class="form-label" for="follow-up-control-date">Tanggal kontrol</label>
-                    <input type="date" name="control_date" id="follow-up-control-date" class="form-control" form="assessment-evaluasi-form" value="{{ old('plan_decision', $review['plan_decision'] ?? '') === 'control' ? old('control_date', $record?->control_date?->format('Y-m-d')) : '' }}">
+        <div class="soap-plan" data-plan-follow-up>
+            <div class="soap-plan__block">
+                <span class="soap-plan__label">Keputusan kunjungan ini</span>
+                <select name="plan_decision" id="plan_decision" class="form-select" form="assessment-evaluasi-form">
+                    <option value="">—</option>
+                    @foreach ($planLabels as $value => $label)
+                        <option value="{{ $value }}" @selected(old('plan_decision', $review['plan_decision'] ?? '') === $value)>{{ $label }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="soap-plan__block" data-control-date-wrap @unless (old('plan_decision', $review['plan_decision'] ?? '') === 'control') hidden @endunless>
+                <span class="soap-plan__label">Tanggal kontrol</span>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input type="date" name="control_date" id="follow-up-control-date" class="form-control" style="max-width:12rem" form="assessment-evaluasi-form" value="{{ old('plan_decision', $review['plan_decision'] ?? '') === 'control' ? old('control_date', $record?->control_date?->format('Y-m-d')) : '' }}">
+                    @can('medical_record.update')
+                        @php
+                            $controlLetterUrl = route('care.letters.create', array_filter([
+                                'visit' => $visit,
+                                'type' => 'control',
+                                'control_date' => old('plan_decision', $review['plan_decision'] ?? '') === 'control'
+                                    ? (old('control_date', $record?->control_date?->format('Y-m-d')) ?: null)
+                                    : null,
+                            ]));
+                        @endphp
+                        <a
+                            href="{{ $controlLetterUrl }}"
+                            class="btn btn-sm btn-soft-primary"
+                            data-control-letter-btn
+                            data-letter-base="{{ route('care.letters.create', ['visit' => $visit, 'type' => 'control']) }}"
+                        >
+                            <i class="bx bx-file me-1"></i>Buat surat kontrol
+                        </a>
+                    @endcan
                 </div>
             </div>
         </div>
     @endif
+
 @elseif ($evaluasiPart === 'tindakan')
     @foreach ($context['previousProcedures'] ?? collect() as $procedure)
         @continue(str_contains(mb_strtolower((string) ($procedure->procedure?->name ?? '')), 'konsultasi'))

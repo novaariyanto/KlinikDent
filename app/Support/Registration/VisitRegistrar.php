@@ -268,7 +268,9 @@ class VisitRegistrar
         }
 
         $profileFields = [
-            'name', 'dob', 'gender', 'phone', 'address', 'address_city', 'address_postal_code',
+            'name', 'dob', 'gender', 'blood_type', 'birth_place', 'marital_status', 'citizenship',
+            'family_card_number', 'education', 'religion', 'occupation',
+            'phone', 'address', 'address_city', 'address_postal_code',
             'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
         ];
 
@@ -297,9 +299,10 @@ class VisitRegistrar
     protected function patientAttributes(array $data, array $base): array
     {
         $fields = [
-            'dob', 'gender', 'phone', 'address', 'address_city', 'address_postal_code',
+            'dob', 'gender', 'blood_type', 'phone', 'address', 'address_city', 'address_postal_code',
             'province_code', 'city_code', 'district_code', 'village_code', 'rt', 'rw',
             'birth_place', 'marital_status', 'citizenship', 'family_card_number',
+            'education', 'religion', 'occupation',
             'satusehat_id',
         ];
 

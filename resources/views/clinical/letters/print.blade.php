@@ -106,7 +106,7 @@
         {!! nl2br(e($letter->body)) !!}
     </div>
 
-    @if ($diagnoses !== [])
+    @if ($letter->type === \App\Enums\MedicalLetterType::Radiograph && $diagnoses !== [])
         <div class="section">
             <table class="section-head"><tr><td>Diagnosa sementara</td></tr></table>
             <table class="facts">

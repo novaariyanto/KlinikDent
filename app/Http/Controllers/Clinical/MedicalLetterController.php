@@ -253,6 +253,9 @@ class MedicalLetterController extends Controller
         if ($requestedType) {
             $defaults['type'] = $requestedType->value;
         }
+        if (request()->filled('control_date')) {
+            $defaults['control_date'] = request()->string('control_date')->toString();
+        }
         $suggestions = [];
 
         foreach (MedicalLetterType::cases() as $type) {

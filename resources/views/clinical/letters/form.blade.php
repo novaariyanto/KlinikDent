@@ -158,7 +158,7 @@
                         <x-input name="title" label="Judul surat" :value="old('title', $defaults['title'] ?? '')" />
                     </div>
 
-                    <div class="mt-3">
+                    <div class="mt-3" data-letter-panel="radiograph" data-letter-dx-panel>
                         <input type="hidden" name="diagnosis_scope" value="selected">
                         @php
                             $dxSource = old('diagnoses');
@@ -210,6 +210,7 @@
                             @endforelse
                         </div>
                         <script type="application/json" id="letter-dx-seed">@json($dxItems)</script>
+                        <p class="text-muted small mb-0 mt-1">Diagnosa sementara hanya dicantumkan pada surat pengantar rontgen.</p>
                     </div>
 
                     <div class="mt-3">
@@ -403,7 +404,11 @@
         var current = type ? type.value : '';
         document.querySelectorAll('[data-letter-panel]').forEach(function (panel) {
             var keys = panel.getAttribute('data-letter-panel').split(',');
-            panel.hidden = keys.indexOf(current) === -1;
+            var show = keys.indexOf(current) !== -1;
+            panel.hidden = !show;
+            panel.querySelectorAll('input, select, textarea').forEach(function (el) {
+                el.disabled = !show;
+            });
         });
         if (!dirty && body && suggestions[current]) {
             body.value = suggestions[current];
