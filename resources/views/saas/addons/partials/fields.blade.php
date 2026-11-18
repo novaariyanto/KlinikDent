@@ -3,6 +3,8 @@
     $addon = $addon ?? null;
     $field = fn (string $name, mixed $default = null) => old($name, $addon?->{$name} ?? $default);
     $invalid = fn (string $name) => $errors->has($name);
+    $intervalRaw = $field('interval', 'monthly');
+    $intervalValue = $intervalRaw instanceof \BackedEnum ? $intervalRaw->value : (string) $intervalRaw;
 @endphp
 
 <div class="row g-3">
@@ -40,7 +42,7 @@
         <label class="form-label">Interval</label>
         <select class="form-select" name="interval" required>
             @foreach ($intervalOptions as $value => $label)
-                <option value="{{ $value }}" @selected((string) $field('interval', 'monthly') === $value)>{{ $label }}</option>
+                <option value="{{ $value }}" @selected($intervalValue === $value)>{{ $label }}</option>
             @endforeach
         </select>
     </div>

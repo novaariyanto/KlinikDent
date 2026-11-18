@@ -36,7 +36,7 @@
                         <td>{{ $package->name }}</td>
                         <td>Rp {{ number_format((float) $package->price, 0, ',', '.') }}</td>
                         <td>{{ $package->interval->label() }}</td>
-                        <td>{{ $package->trial_days }} hari</td>
+                        <td>{{ (int) $package->trial_days > 0 ? $package->trial_days.' hari' : '—' }}</td>
                         <td>{{ $package->max_branches ?: 'Tidak dibatasi' }}</td>
                         <td>{{ $package->max_users ?: 'Tidak dibatasi' }}</td>
                         <td>

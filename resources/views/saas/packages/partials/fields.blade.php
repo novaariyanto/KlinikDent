@@ -65,7 +65,7 @@
     </div>
     <div class="col-md-2">
         <div class="mb-3">
-            <label class="form-label" for="{{ $formKey }}-trial">Hari trial <span class="text-danger">*</span></label>
+            <label class="form-label" for="{{ $formKey }}-trial">Hari trial</label>
             <input
                 class="form-control {{ $invalid('trial_days') ? 'is-invalid' : '' }}"
                 id="{{ $formKey }}-trial"
@@ -73,9 +73,9 @@
                 type="number"
                 min="0"
                 max="365"
-                value="{{ $field('trial_days', $package?->trial_days ?? 14) }}"
-                required
+                value="{{ $field('trial_days', $package?->trial_days ?? 0) }}"
             >
+            <div class="form-text">Isi 0 jika paket tanpa masa trial.</div>
             @if ($invalid('trial_days'))
                 <div class="invalid-feedback d-block">{{ $errors->first('trial_days') }}</div>
             @endif

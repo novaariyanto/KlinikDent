@@ -32,7 +32,7 @@ class SaasSeeder extends Seeder
                 'name' => 'Pro',
                 'price' => '350000.00',
                 'interval' => BillingInterval::Monthly,
-                'trial_days' => 14,
+                'trial_days' => 0,
                 'max_branches' => 5,
                 'max_users' => 25,
                 'is_active' => true,

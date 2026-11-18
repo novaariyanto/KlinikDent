@@ -60,7 +60,12 @@
                                 Rp {{ number_format((float) $package->price, 0, ',', '.') }}
                             @endif
                         </h3>
-                        <p class="text-muted">{{ $package->interval->label() }} · trial {{ $package->trial_days }} hari</p>
+                        <p class="text-muted">
+                            {{ $package->interval->label() }}
+                            @if ((int) $package->trial_days > 0)
+                                · trial {{ $package->trial_days }} hari
+                            @endif
+                        </p>
                         <ul class="list-unstyled text-muted mb-3">
                             <li>{{ $package->max_branches ? 'Maks. '.$package->max_branches.' cabang' : 'Cabang tidak dibatasi' }}</li>
                             <li>{{ $package->max_users ? 'Maks. '.$package->max_users.' pengguna' : 'Pengguna tidak dibatasi' }}</li>

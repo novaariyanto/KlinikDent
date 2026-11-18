@@ -25,7 +25,7 @@ class StoreSaasPackageRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:80', 'alpha_dash', 'unique:saas_packages,slug'],
             'price' => ['required', 'numeric', 'min:0'],
             'interval' => ['required', Rule::enum(BillingInterval::class)],
-            'trial_days' => ['required', 'integer', 'min:0', 'max:365'],
+            'trial_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'max_branches' => ['nullable', 'integer', 'min:1'],
             'max_users' => ['nullable', 'integer', 'min:1'],
             'is_active' => ['sometimes', 'boolean'],
@@ -37,6 +37,7 @@ class StoreSaasPackageRequest extends FormRequest
         $this->merge([
             'slug' => $this->filled('slug') ? Str::slug((string) $this->input('slug')) : Str::slug((string) $this->input('name')),
             'is_active' => $this->has('is_active') ? $this->boolean('is_active') : true,
+            'trial_days' => $this->filled('trial_days') ? $this->integer('trial_days') : 0,
             'max_branches' => $this->filled('max_branches') ? $this->integer('max_branches') : null,
             'max_users' => $this->filled('max_users') ? $this->integer('max_users') : null,
         ]);
