@@ -105,7 +105,7 @@
                         'height' => 104,
                         'title' => 'PSE (G-MEDIS)',
                         'caption' => '005314.01/DJAI.PSE/01/2024',
-                        'fallback' => 'PSE',
+                        'fallback' => 'PSE (G-MEDIS)',
                     ],
                     [
                         'href' => 'https://satusehat.kemkes.go.id/platform/system-rme-list/684',
