@@ -1,8 +1,8 @@
 @extends('marketing.layout')
 
-@section('title', $appName.' — Sistem Manajemen Klinik Gigi & Odontogram Digital')
-@section('og_title', $appName.' — Sistem Manajemen Klinik Gigi & Odontogram Digital')
-@section('description', 'Kelola pasien, rekam medis, odontogram, pemeriksaan, tindakan, billing, dan operasional klinik gigi dalam satu sistem.')
+@section('title', 'Software Klinik Gigi & Odontogram Digital | KlinikDent')
+@section('og_title', 'Software Klinik Gigi & Odontogram Digital | KlinikDent')
+@section('description', 'KlinikDent adalah aplikasi manajemen klinik gigi dengan rekam medis elektronik, odontogram digital, pendaftaran pasien, billing, dan multi-cabang. Coba gratis.')
 @section('canonical', url('/'))
 
 @push('head')
@@ -19,6 +19,19 @@
             'description' => 'Sistem manajemen klinik gigi dengan odontogram sebagai bagian dari rekam medis.',
         ],
         [
+            '@type' => 'WebSite',
+            '@id' => url('/').'#website',
+            'name' => $appName,
+            'url' => url('/'),
+            'publisher' => ['@id' => url('/').'#organization'],
+            'inLanguage' => 'id-ID',
+            'potentialAction' => [
+                '@type' => 'SearchAction',
+                'target' => url('/blog/cari').'?q={search_term_string}',
+                'query-input' => 'required name=search_term_string',
+            ],
+        ],
+        [
             '@type' => 'SoftwareApplication',
             'name' => $appName,
             'applicationCategory' => 'HealthApplication',
@@ -30,6 +43,9 @@
             'featureList' => $softwareFeatures,
             'publisher' => ['@id' => url('/').'#organization'],
         ],
+        \App\Support\Marketing\SeoMeta::breadcrumbList([
+            ['name' => 'Beranda', 'item' => url('/')],
+        ]),
         [
             '@type' => 'FAQPage',
             'mainEntity' => collect($faqs)->map(fn ($item) => [
@@ -50,9 +66,9 @@
 <section class="hero">
     <div class="wrap hero-grid">
         <div>
-            <p class="eyebrow">Sistem manajemen klinik gigi</p>
-            <h1>Bangun Klinik Gigi yang Rapi Sejak Pasien Pertama.</h1>
-            <p class="lede">Kelola pasien, rekam medis, odontogram, pemeriksaan, tindakan, resep, billing, dan operasional klinik dalam satu sistem yang dirancang khusus untuk klinik gigi.</p>
+            <p class="eyebrow">KlinikDent</p>
+            <h1>Software Klinik Gigi dengan Rekam Medis &amp; Odontogram Digital</h1>
+            <p class="lede">Kelola pasien, rekam medis elektronik, odontogram digital, pemeriksaan, tindakan, resep, billing, dan operasional klinik dalam satu sistem yang dirancang khusus untuk klinik gigi di Indonesia.</p>
             @include('marketing.partials.cta-pair', ['primaryTrack' => 'hero_cta_clicked', 'secondaryTrack' => 'demo_clicked'])
             <p class="micro">Tidak perlu membangun sistem sendiri. Mulai dari pasien pertama dan kembangkan bersama klinik Anda.</p>
         </div>
@@ -411,8 +427,20 @@
     <div class="wrap">
         <div class="section-head">
             <h2 class="section-title">Belajar Mengelola Klinik Gigi</h2>
-            <p class="section-lede">Artikel singkat tentang odontogram, rekam medis gigi, dan pengelolaan klinik.</p>
+            <p class="section-lede">Panduan produk dan artikel blog tentang odontogram, rekam medis gigi, dan digitalisasi klinik.</p>
         </div>
+        @if (($latestPosts ?? collect())->isNotEmpty())
+            <div class="cards" style="margin-bottom:1.5rem">
+                @foreach ($latestPosts as $post)
+                    <article class="card">
+                        <h3>{{ $post->title }}</h3>
+                        <p>{{ $post->excerpt ?: \Illuminate\Support\Str::limit(strip_tags((string) $post->body), 120) }}</p>
+                        <a href="{{ route('blog.show', $post->slug) }}">Baca artikel</a>
+                    </article>
+                @endforeach
+            </div>
+            <p style="margin-bottom:1.25rem"><a href="{{ route('blog.index') }}">Lihat semua artikel blog →</a></p>
+        @endif
         <div class="cards">
             @foreach ($hubs as $hub)
                 <article class="card">

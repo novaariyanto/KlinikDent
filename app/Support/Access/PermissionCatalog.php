@@ -55,6 +55,9 @@ final class PermissionCatalog
             'payment_gateway.view',
             'payment_gateway.manage',
             'addon.manage',
+            'cms.view',
+            'cms.manage',
+            'seo.manage',
         ];
     }
 

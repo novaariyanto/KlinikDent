@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use App\Models\Branch;
 use App\Models\CashAccount;
+use App\Models\CmsMedia;
+use App\Models\CmsPost;
+use App\Models\SeoRedirect;
 use App\Models\CashierShift;
 use App\Models\Diagnosis;
 use App\Models\DoctorFeeWaiverLog;
@@ -40,7 +43,10 @@ use App\Models\Visit;
 use App\Models\WhatsAppMessageLog;
 use App\Models\WhatsAppPromotion;
 use App\Models\WhatsAppTenantTemplate;
+use App\Policies\CmsMediaPolicy;
+use App\Policies\CmsPostPolicy;
 use App\Policies\RolePolicy;
+use App\Policies\SeoRedirectPolicy;
 use App\Support\AppSettings;
 use App\Support\ClinicSettings;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -81,6 +87,9 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(CmsPost::class, CmsPostPolicy::class);
+        Gate::policy(CmsMedia::class, CmsMediaPolicy::class);
+        Gate::policy(SeoRedirect::class, SeoRedirectPolicy::class);
 
         Route::bind('doctor', fn (string $value) => Doctor::withoutGlobalScopes()->findOrFail($value));
         Route::bind('doctorSchedule', fn (string $value) => DoctorSchedule::withoutGlobalScopes()->findOrFail($value));

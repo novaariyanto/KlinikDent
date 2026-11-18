@@ -1,0 +1,47 @@
+PATCH file list — SEO / GEO / Blog KlinikDent
+=============================================
+
+Migration & seeders
+- database/migrations/2026_11_18_100000_create_cms_and_seo_tables.php
+- database/seeders/CmsContentSeeder.php
+- docs/sql/2026-11-18-cms-seo-tables.sql
+
+Support
+- app/Support/Marketing/SeoMeta.php
+- app/Support/Marketing/SitemapBuilder.php
+- app/Support/Cms/HtmlSanitizer.php
+- app/Support/Cms/PostService.php
+- app/Support/Cms/SeoAnalyzer.php
+- app/Support/Access/PermissionCatalog.php (cms.*, seo.manage)
+- app/Support/Access/MenuCatalog.php (SEO & Content menu)
+
+Models / Enums / Policies
+- app/Enums/CmsPostStatus.php
+- app/Models/CmsPost.php, CmsAuthor.php, CmsCategory.php, CmsTag.php, CmsMedia.php
+- app/Models/CmsPostRevision.php, CmsContentPlan.php, CmsKeyword.php, CmsAnalyticsEvent.php
+- app/Models/SeoSetting.php, SeoRedirect.php
+- app/Policies/CmsPostPolicy.php, CmsMediaPolicy.php, SeoRedirectPolicy.php
+
+HTTP
+- app/Http/Middleware/ApplySeoRedirects.php
+- app/Http/Controllers/Marketing/LandingController.php
+- app/Http/Controllers/Marketing/BlogController.php
+- app/Http/Controllers/Cms/*
+- app/Http/Requests/Cms/StoreCmsPostRequest.php
+- bootstrap/app.php
+- routes/web.php
+- app/Providers/AppServiceProvider.php
+- app/Http/Middleware/EnforceRoutePermission.php
+
+Views
+- resources/views/marketing/layout.blade.php
+- resources/views/marketing/landing.blade.php
+- resources/views/marketing/sitemap.blade.php
+- resources/views/marketing/partials/header.blade.php, footer.blade.php, hub-schema.blade.php
+- resources/views/marketing/pages/*.blade.php (hub schema include)
+- resources/views/marketing/blog/*
+- resources/views/cms/**
+
+Docs
+- docs/cms-seo-blog.md
+- docs/cms-seo-patch-files.txt

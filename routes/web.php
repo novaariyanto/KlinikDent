@@ -40,6 +40,15 @@ use App\Http\Controllers\Management\ProcedureController;
 use App\Http\Controllers\Management\RoomController;
 use App\Http\Controllers\Management\ServiceController;
 use App\Http\Controllers\Management\TariffController;
+use App\Http\Controllers\Cms\ContentPlanController;
+use App\Http\Controllers\Cms\DashboardController as CmsDashboardController;
+use App\Http\Controllers\Cms\KeywordController;
+use App\Http\Controllers\Cms\MediaController as CmsMediaController;
+use App\Http\Controllers\Cms\PostController as CmsPostController;
+use App\Http\Controllers\Cms\RedirectController as CmsRedirectController;
+use App\Http\Controllers\Cms\SeoSettingsController;
+use App\Http\Controllers\Cms\TaxonomyController;
+use App\Http\Controllers\Marketing\BlogController;
 use App\Http\Controllers\Marketing\DemoRequestController;
 use App\Http\Controllers\Marketing\LandingController;
 use App\Http\Controllers\Marketing\StarterKitController;
@@ -95,6 +104,15 @@ Route::get('/privacy', [LandingController::class, 'privacy'])->name('privacy');
 Route::get('/terms', [LandingController::class, 'terms'])->name('terms');
 Route::get('/sitemap.xml', [LandingController::class, 'sitemap'])->name('sitemap');
 Route::get('/robots.txt', [LandingController::class, 'robots'])->name('robots');
+Route::get('/llms.txt', [LandingController::class, 'llmsTxt'])->name('llms');
+Route::get('/blog', [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/cari', [BlogController::class, 'search'])->middleware('throttle:30,1')->name('blog.search');
+Route::get('/blog/rss.xml', [BlogController::class, 'rss'])->name('blog.rss');
+Route::get('/blog/kategori/{slug}', [BlogController::class, 'category'])->name('blog.category');
+Route::get('/blog/tag/{slug}', [BlogController::class, 'tag'])->name('blog.tag');
+Route::get('/blog/penulis/{slug}', [BlogController::class, 'author'])->name('blog.author');
+Route::get('/blog/{slug}', [BlogController::class, 'show'])->name('blog.show');
+Route::post('/blog/track-cta', [BlogController::class, 'trackCta'])->middleware('throttle:60,1')->name('blog.track-cta');
 Route::post('/demo', [DemoRequestController::class, 'store'])
     ->middleware('throttle:5,1')
     ->name('demo.store');
@@ -782,6 +800,41 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::post('addon-subscriptions/{saasAddonSubscription}/suspend', [SaasAddonSubscriptionController::class, 'suspend'])->middleware('permission:addon.manage')->name('addon-subscriptions.suspend');
             Route::post('addon-subscriptions/{saasAddonSubscription}/revoke', [SaasAddonSubscriptionController::class, 'revoke'])->middleware('permission:addon.manage')->name('addon-subscriptions.revoke');
             Route::put('addon-subscriptions/{saasAddonSubscription}/extend', [SaasAddonSubscriptionController::class, 'extend'])->middleware('permission:addon.manage')->name('addon-subscriptions.extend');
+        });
+
+        Route::middleware('permission:cms.view')->prefix('cms')->name('cms.')->group(function () {
+            Route::get('/', [CmsDashboardController::class, 'index'])->name('dashboard');
+            Route::get('posts', [CmsPostController::class, 'index'])->name('posts.index');
+            Route::get('posts/create', [CmsPostController::class, 'create'])->middleware('permission:cms.manage')->name('posts.create');
+            Route::post('posts', [CmsPostController::class, 'store'])->middleware('permission:cms.manage')->name('posts.store');
+            Route::get('posts/{post}/edit', [CmsPostController::class, 'edit'])->name('posts.edit');
+            Route::get('posts/{post}/preview', [CmsPostController::class, 'preview'])->name('posts.preview');
+            Route::put('posts/{post}', [CmsPostController::class, 'update'])->middleware('permission:cms.manage')->name('posts.update');
+            Route::delete('posts/{post}', [CmsPostController::class, 'destroy'])->middleware('permission:cms.manage')->name('posts.destroy');
+            Route::post('posts/{post}/duplicate', [CmsPostController::class, 'duplicate'])->middleware('permission:cms.manage')->name('posts.duplicate');
+            Route::post('posts/{post}/revisions/{revision}/restore', [CmsPostController::class, 'restoreRevision'])->middleware('permission:cms.manage')->name('posts.revisions.restore');
+
+            Route::get('categories', [TaxonomyController::class, 'categories'])->name('categories.index');
+            Route::post('categories', [TaxonomyController::class, 'storeCategory'])->middleware('permission:cms.manage')->name('categories.store');
+            Route::get('tags', [TaxonomyController::class, 'tags'])->name('tags.index');
+            Route::post('tags', [TaxonomyController::class, 'storeTag'])->middleware('permission:cms.manage')->name('tags.store');
+            Route::get('authors', [TaxonomyController::class, 'authors'])->name('authors.index');
+            Route::post('authors', [TaxonomyController::class, 'storeAuthor'])->middleware('permission:cms.manage')->name('authors.store');
+
+            Route::get('media', [CmsMediaController::class, 'index'])->name('media.index');
+            Route::post('media', [CmsMediaController::class, 'store'])->middleware('permission:cms.manage')->name('media.store');
+            Route::delete('media/{medium}', [CmsMediaController::class, 'destroy'])->middleware('permission:cms.manage')->name('media.destroy');
+
+            Route::get('plans', [ContentPlanController::class, 'index'])->name('plans.index');
+            Route::post('plans', [ContentPlanController::class, 'store'])->middleware('permission:cms.manage')->name('plans.store');
+            Route::get('keywords', [KeywordController::class, 'index'])->name('keywords.index');
+            Route::post('keywords', [KeywordController::class, 'store'])->middleware('permission:cms.manage')->name('keywords.store');
+
+            Route::get('seo-settings', [SeoSettingsController::class, 'edit'])->middleware('permission:seo.manage')->name('seo-settings.edit');
+            Route::put('seo-settings', [SeoSettingsController::class, 'update'])->middleware('permission:seo.manage')->name('seo-settings.update');
+            Route::get('redirects', [CmsRedirectController::class, 'index'])->middleware('permission:seo.manage')->name('redirects.index');
+            Route::post('redirects', [CmsRedirectController::class, 'store'])->middleware('permission:seo.manage')->name('redirects.store');
+            Route::delete('redirects/{redirect}', [CmsRedirectController::class, 'destroy'])->middleware('permission:seo.manage')->name('redirects.destroy');
         });
 
         require __DIR__.'/modules.php';

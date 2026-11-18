@@ -5,6 +5,8 @@
 @section('description', $page['description'])
 @section('canonical', $canonical)
 
+@include('marketing.partials.hub-schema')
+
 @section('content')
 <section class="hero hero--page">
     <div class="wrap">

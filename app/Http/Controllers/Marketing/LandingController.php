@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Marketing;
 
 use App\Http\Controllers\Controller;
+use App\Models\CmsPost;
 use App\Models\Setting;
 use App\Support\Marketing\MarketingCatalog;
+use App\Support\Marketing\SeoMeta;
+use App\Support\Marketing\SitemapBuilder;
 use App\Support\Saas\ClinicProvisioningService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 
 class LandingController extends Controller
@@ -58,35 +62,76 @@ class LandingController extends Controller
 
     public function sitemap(): Response
     {
-        $urls = [
-            ['loc' => route('home'), 'priority' => '1.0', 'changefreq' => 'weekly'],
-            ['loc' => route('marketing.dokter-baru'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.klinik'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.multi-cabang'), 'priority' => '0.7', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.odontogram'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.rekam-medis'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('privacy'), 'priority' => '0.3', 'changefreq' => 'yearly'],
-            ['loc' => route('terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
-        ];
-
         return response()
-            ->view('marketing.sitemap', ['urls' => $urls])
+            ->view('marketing.sitemap', ['urls' => SitemapBuilder::urls()])
             ->header('Content-Type', 'application/xml; charset=UTF-8');
     }
 
     public function robots(): Response
     {
-        $body = implode("\n", [
-            'User-agent: *',
-            'Allow: /',
-            'Disallow: /dashboard',
-            'Disallow: /onboarding',
-            '',
-            'Sitemap: '.url('/sitemap.xml'),
-            '',
-        ]);
+        $extra = SeoMeta::get('robots_extra_disallow', []);
+        $disallow = array_merge([
+            '/dashboard',
+            '/onboarding',
+            '/saas',
+            '/cms',
+            '/settings',
+            '/api',
+            '/logs',
+            '/users',
+            '/roles',
+            '/menus',
+            '/janji',
+        ], is_array($extra) ? $extra : []);
 
-        return response($body, 200, [
+        $lines = ['User-agent: *', 'Allow: /'];
+        foreach (array_unique($disallow) as $path) {
+            $lines[] = 'Disallow: '.$path;
+        }
+        $lines[] = '';
+        $lines[] = 'Sitemap: '.url('/sitemap.xml');
+        $lines[] = '';
+
+        return response(implode("\n", $lines), 200, [
+            'Content-Type' => 'text/plain; charset=UTF-8',
+        ]);
+    }
+
+    public function llmsTxt(): Response
+    {
+        $appName = (string) SeoMeta::get('site_name', config('app.name'));
+        $lines = [
+            '# '.$appName,
+            '',
+            '> '.$appName.' adalah software manajemen klinik gigi dengan rekam medis elektronik, odontogram digital, pendaftaran, billing, dan multi-cabang.',
+            '',
+            '## Halaman utama',
+            '- Beranda: '.url('/'),
+            '- Odontogram digital: '.url('/odontogram-digital'),
+            '- Rekam medis gigi: '.url('/rekam-medis-gigi'),
+            '- Klinik & multi-cabang: '.url('/klinik-gigi'),
+            '- Harga: '.url('/#harga'),
+            '- Blog: '.url('/blog'),
+            '- Privasi: '.url('/privacy'),
+            '- Ketentuan: '.url('/terms'),
+            '',
+            '## Artikel published',
+        ];
+
+        try {
+            if (Schema::hasTable('cms_posts')) {
+                CmsPost::query()->published()->orderByDesc('published_at')->limit(30)->get(['title', 'slug'])
+                    ->each(function (CmsPost $post) use (&$lines) {
+                        $lines[] = '- '.$post->title.': '.route('blog.show', $post->slug);
+                    });
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        $lines[] = '';
+
+        return response(implode("\n", $lines), 200, [
             'Content-Type' => 'text/plain; charset=UTF-8',
         ]);
     }
@@ -121,12 +166,28 @@ class LandingController extends Controller
             $packages = collect();
         }
 
+        $latestPosts = collect();
+        try {
+            if (Schema::hasTable('cms_posts')) {
+                $latestPosts = CmsPost::query()
+                    ->published()
+                    ->with(['category', 'featuredMedia'])
+                    ->orderByDesc('published_at')
+                    ->limit(3)
+                    ->get();
+            }
+        } catch (\Throwable) {
+            $latestPosts = collect();
+        }
+
         return [
             'packages' => $packages,
             'hubs' => MarketingCatalog::hubs(),
             'featureGroups' => MarketingCatalog::featureGroups(),
             'faqs' => MarketingCatalog::faqs($appName),
             'softwareFeatures' => MarketingCatalog::softwareFeatures(),
+            'latestPosts' => $latestPosts,
+            'seo' => SeoMeta::defaults(),
         ];
     }
 }

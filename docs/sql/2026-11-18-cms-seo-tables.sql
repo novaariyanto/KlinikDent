@@ -1,0 +1,17 @@
+-- CMS & SEO platform tables (KlinikDent marketing blog)
+-- Prefer: php artisan migrate
+-- Source of truth: database/migrations/2026_11_18_100000_create_cms_and_seo_tables.php
+--
+-- Post-deploy (staging):
+--   php artisan db:seed --class=RolePermissionSeeder
+--   php artisan db:seed --class=MenuSeeder
+--   php artisan db:seed --class=CmsContentSeeder
+--   php artisan storage:link
+--
+-- Tables created:
+--   seo_settings, seo_redirects,
+--   cms_authors, cms_categories, cms_tags, cms_media,
+--   cms_posts, cms_post_tag, cms_post_revisions,
+--   cms_content_plans, cms_keywords, cms_analytics_events
+--
+-- Rollback: php artisan migrate:rollback --step=1

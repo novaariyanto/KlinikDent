@@ -19,6 +19,7 @@
         <div>
             <h3>Belajar</h3>
             <ul>
+                <li><a href="{{ route('blog.index') }}">Blog</a></li>
                 <li><a href="{{ route('marketing.odontogram') }}">Odontogram digital</a></li>
                 <li><a href="{{ route('marketing.rekam-medis') }}">Rekam medis gigi</a></li>
                 <li><a href="{{ route('privacy') }}">Kebijakan privasi</a></li>

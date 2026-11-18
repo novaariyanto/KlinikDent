@@ -67,6 +67,7 @@ class EnforceRoutePermission
         'menus.' => 'menus.view',
         'logs.' => 'logs.view',
         'saas.' => 'saas.access',
+        'cms.' => 'cms.view',
         'subscription.' => 'plan.view',
         'whatsapp.' => 'whatsapp.view',
     ];
