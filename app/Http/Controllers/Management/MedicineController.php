@@ -18,6 +18,7 @@ use App\Support\Medicine\MedicineXlsxImporter;
 use App\Support\Onboarding\OnboardingService;
 use App\Support\Pharmacy\InsufficientStockException;
 use App\Support\Pharmacy\PharmacyStockService;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -250,8 +251,21 @@ class MedicineController extends Controller
     {
         $this->authorize('delete', $medicine);
 
+        try {
+            $medicine->delete();
+        } catch (QueryException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 1451) {
+                throw $exception;
+            }
+
+            $message = str_contains($exception->getMessage(), 'medicine_stocks')
+                ? 'Obat tidak dapat dihapus karena masih punya stok atau riwayat stok. Kosongkan stok atau nonaktifkan obat.'
+                : 'Obat tidak dapat dihapus karena masih dipakai pada resep, pembelian, atau data lain. Nonaktifkan obat sebagai gantinya.';
+
+            return back()->with('error', $message);
+        }
+
         activity_log('deleted', $medicine, ['name' => $medicine->name], 'Deleted medicine '.$medicine->name, 'medicines');
-        $medicine->delete();
 
         return redirect()->route('management.medicines.index')->with('success', 'Obat deleted successfully.');
     }
