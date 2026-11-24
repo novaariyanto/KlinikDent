@@ -149,7 +149,9 @@ class MedicineController extends Controller
 
         $user = request()->user();
         $stocks = $medicine->stocks()->with('branch')->orderBy('expired_date')->orderBy('id');
-        $user?->applyBranchLimit($stocks);
+        if ($user) {
+            $user->applyBranchLimit($stocks->getQuery());
+        }
         $stocks = $stocks->get();
         $available = (int) $stocks->filter(fn (MedicineStock $stock) => $stock->quantity > 0 && ! $stock->isExpired())->sum('quantity');
 
