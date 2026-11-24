@@ -45,6 +45,7 @@ class PrescriptionItemWriter
         ]);
 
         $this->addIngredients($item, $ingredients);
+        $this->syncCompoundPrice($item);
 
         return $item;
     }
@@ -74,6 +75,19 @@ class PrescriptionItemWriter
 
             $row->update(['quantity' => $perDose * $packs]);
         }
+
+        $this->syncCompoundPrice($item);
+    }
+
+    public function syncCompoundPrice(PrescriptionItem $item): void
+    {
+        if (! $item->isCompound()) {
+            return;
+        }
+
+        $item->unsetRelation('ingredients');
+        $item->load('ingredients.medicine');
+        $item->update(['unit_price' => $item->compoundCharge()]);
     }
 
     /**
@@ -83,6 +97,7 @@ class PrescriptionItemWriter
     {
         $item->ingredients()->delete();
         $this->addIngredients($item, $ingredients);
+        $this->syncCompoundPrice($item);
     }
 
     /**

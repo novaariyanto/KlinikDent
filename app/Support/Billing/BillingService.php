@@ -83,12 +83,7 @@ class BillingService
 
             foreach ($medicines as $item) {
                 if ($item->isCompound()) {
-                    $price = '0.00';
-
-                    foreach ($item->ingredients as $ingredient) {
-                        $unit = (string) ($ingredient->medicine?->sell_price ?? $ingredient->medicine?->base_price ?? '0.00');
-                        $price = bcadd($price, bcmul($unit, (string) $ingredient->quantity, 2), 2);
-                    }
+                    $price = $item->compoundCharge();
 
                     $this->addItem(
                         $invoice,

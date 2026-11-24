@@ -684,6 +684,7 @@ class ClinicalCareService
             $writer->replaceIngredients($prescriptionItem, $ingredients);
         } elseif ($prescriptionItem->isCompound()) {
             $writer->scaleIngredients($prescriptionItem->fresh('ingredients'), $previousPacks);
+            $writer->syncCompoundPrice($prescriptionItem);
         }
 
         activity_log('updated', $prescriptionItem, $logged, 'Updated prescription item', 'prescriptions');

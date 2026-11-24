@@ -270,7 +270,8 @@
                                     {{ $item->notes ?: ($item->duration ?: '—') }}
                                 @endif
                             </td>
-                            <td class="text-end text-nowrap" data-rx-price data-raw="{{ (float) ($item->unit_price ?? 0) }}">{{ number_format((float) ($item->unit_price ?? 0), 2, ',', '.') }}</td>
+                            @php($linePrice = $isCompound ? (float) $item->compoundCharge() : (float) ($item->unit_price ?? 0))
+                            <td class="text-end text-nowrap" data-rx-price data-raw="{{ $linePrice }}">{{ number_format($linePrice, 2, ',', '.') }}</td>
                             <td class="text-end text-nowrap" data-rx-subtotal>{{ number_format($item->subtotal(), 2, ',', '.') }}</td>
                             <td class="text-center text-nowrap">
                                 @if ($rowEditable)

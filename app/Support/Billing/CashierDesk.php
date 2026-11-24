@@ -340,14 +340,7 @@ class CashierDesk
     protected function estimateUnitPrice(PrescriptionItem $item): string
     {
         if ($item->isCompound()) {
-            $price = '0.00';
-
-            foreach ($item->ingredients as $ingredient) {
-                $unit = (string) ($ingredient->medicine?->sell_price ?? $ingredient->medicine?->base_price ?? '0.00');
-                $price = bcadd($price, bcmul($unit, (string) $ingredient->quantity, 2), 2);
-            }
-
-            return $price;
+            return $item->compoundCharge();
         }
 
         return (string) ($item->medicine?->sell_price ?? $item->medicine?->base_price ?? '0.00');

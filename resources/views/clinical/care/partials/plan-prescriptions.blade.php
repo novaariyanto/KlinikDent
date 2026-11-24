@@ -178,6 +178,7 @@
                             'unit_label' => $medicine->unitLabel(),
                             'strength' => $medicine->strengthLabel(),
                             'price' => (float) ($medicine->base_price ?? 0),
+                            'sell' => (float) ($medicine->sell_price ?? $medicine->base_price ?? 0),
                             'stock' => (int) ($rxCatalogStock[$medicine->id] ?? 0),
                         ];
                     })->values();
@@ -1256,21 +1257,44 @@
         rxRecalcRow(row);
     }
 
-    function rxRecalcRow(row) {
+    function rxCompoundPrice(row) {
+        var total = 0;
+        row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
+            var select = ing.querySelector('[data-ing-medicine-id]');
+            var item = rxCatalogItem(select ? select.value : '');
+            var qty = Number((ing.querySelector('[data-ing-qty]') || {}).value || 0);
+            if (!item || qty < 1) return;
+            var unit = item.sell != null ? Number(item.sell) : Number(item.price || 0);
+            total += (Number.isFinite(unit) ? unit : 0) * qty;
+        });
+        return total;
+    }
+
+    function rxLineAmount(row) {
+        if ((row.getAttribute('data-kind') || '') === 'racikan') return rxCompoundPrice(row);
         var qtyInput = row.querySelector('[data-rx-qty]');
         var qty = Number(qtyInput ? qtyInput.value : 0) || 0;
-        var price = rxPriceOf(row);
+        return qty * rxPriceOf(row);
+    }
+
+    function rxRecalcRow(row) {
+        var amount = rxLineAmount(row);
+        if ((row.getAttribute('data-kind') || '') === 'racikan') {
+            var priceEl = row.querySelector('[data-rx-price]');
+            if (priceEl) {
+                priceEl.textContent = rxMoney(amount);
+                priceEl.dataset.raw = String(amount);
+            }
+        }
         var sub = row.querySelector('[data-rx-subtotal]');
-        if (sub) sub.textContent = rxMoney(qty * price);
+        if (sub) sub.textContent = rxMoney(amount);
         rxRecalcEstimate();
     }
 
     function rxRecalcEstimate() {
         var total = 0;
         document.querySelectorAll('[data-rx-row], [data-rx-draft]').forEach(function (row) {
-            var qtyInput = row.querySelector('[data-rx-qty]');
-            var qty = Number(qtyInput ? qtyInput.value : 0) || 0;
-            total += qty * rxPriceOf(row);
+            total += rxLineAmount(row);
         });
         var target = document.querySelector('[data-rx-estimate]');
         if (target) target.textContent = 'Rp ' + rxMoney(total);
@@ -1634,7 +1658,10 @@
             return;
         }
         rxSetActiveRow(active, target, { openSig: false });
-        if (target.matches('[data-ing-qty]')) target.dataset.manual = '1';
+        if (target.matches('[data-ing-qty]')) {
+            target.dataset.manual = '1';
+            rxRecalcRow(active);
+        }
         if (target.matches('[data-rx-qty]')) {
             target.dataset.manual = '1';
             var flag = active.querySelector('[name="quantity_manual"]');
@@ -1764,6 +1791,8 @@
             var ing = event.target.closest('[data-rx-ingredient]');
             var wrap = ing && ing.parentElement;
             if (ing) ing.remove();
+            var pricedRow = wrap && wrap.closest('[data-rx-draft], [data-rx-row]');
+            if (pricedRow) rxRecalcRow(pricedRow);
             if (wrap && !wrap.querySelector('[data-rx-ingredient]')) {
                 var parentCompound = wrap.closest('[data-rx-draft], [data-rx-row].is-editing');
                 if (parentCompound) rxAddIngredient(parentCompound);
@@ -1986,6 +2015,9 @@
             var ingredients = rxReadCompoundIngredients(row);
             if (ingredients.length < 1) return Promise.resolve();
             rxAppendCompoundIngredients(body, ingredients);
+            rxRecalcRow(row);
+            var compoundPrice = row.querySelector('[data-rx-price]');
+            if (compoundPrice && compoundPrice.dataset.raw) body.append('unit_price', compoundPrice.dataset.raw);
         } else {
             var medicineId = rxMedicineIdOf(row);
             if (!medicineId) return Promise.resolve();
@@ -2061,6 +2093,8 @@
         var catalogItem = rxCatalogItem(medicineId.value);
         var name = draft.querySelector('[data-ing-name]');
         if (catalogItem && name) name.value = catalogItem.name || name.value;
+        var compoundRow = draft.closest('[data-rx-draft], [data-rx-row]');
+        if (compoundRow) rxRecalcRow(compoundRow);
     }
 
     document.addEventListener('change', function (event) {

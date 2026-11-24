@@ -73,7 +73,23 @@ class PrescriptionItem extends Model
 
     public function subtotal(): float
     {
+        if ($this->isCompound()) {
+            return (float) $this->compoundCharge();
+        }
+
         return (float) $this->quantity * (float) ($this->unit_price ?? 0);
+    }
+
+    public function compoundCharge(): string
+    {
+        $price = '0.00';
+
+        foreach ($this->ingredients as $ingredient) {
+            $unit = (string) ($ingredient->medicine?->sell_price ?? $ingredient->medicine?->base_price ?? '0.00');
+            $price = bcadd($price, bcmul($unit, (string) max(0, (int) $ingredient->quantity), 2), 2);
+        }
+
+        return $price;
     }
 
     /**
