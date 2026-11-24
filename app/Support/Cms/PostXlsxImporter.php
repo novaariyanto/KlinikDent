@@ -184,13 +184,18 @@ final class PostXlsxImporter
                 }
             }
 
+            $hasSvg = str_contains(strtolower((string) ($raw['svg'] ?? '')), '<svg');
             $writtenImage = $this->storeSvg(
                 (string) ($raw['svg'] ?? ''),
                 (string) ($payload['og_image_path'] ?? ''),
                 (string) $payload['slug']
             );
+            $imageNote = '';
             if ($writtenImage !== null) {
                 $payload['og_image_path'] = $writtenImage;
+            } elseif ($hasSvg) {
+                $payload['og_image_path'] = null;
+                $imageNote = ' Ilustrasi tidak disimpan.';
             }
 
             if ($existing) {
@@ -198,12 +203,12 @@ final class PostXlsxImporter
                     $existing->restore();
                 }
                 $post = $this->posts->update($existing, $payload, $actor, false);
-                $message = 'Artikel diperbarui.';
+                $message = 'Artikel diperbarui.'.$imageNote;
             } else {
                 $post = $this->posts->create($payload, $actor);
-                $message = $post->slug !== $requestedSlug
+                $message = ($post->slug !== $requestedSlug
                     ? 'Artikel dibuat dengan slug '.$post->slug.'.'
-                    : 'Artikel dibuat.';
+                    : 'Artikel dibuat.').$imageNote;
             }
 
             return $this->result($row, $title, $existing ? 'updated' : 'created', $message);
@@ -351,14 +356,28 @@ final class PostXlsxImporter
         $svg = preg_replace('#<script\b[^>]*>.*?</script>#is', '', $svg) ?? $svg;
         $svg = preg_replace('/\son\w+\s*=\s*(".*?"|\'.*?\'|[^\s>]+)/i', '', $svg) ?? $svg;
 
-        $dir = public_path('images/articles');
-        if (! is_dir($dir) && ! mkdir($dir, 0755, true) && ! is_dir($dir)) {
+        if (! $this->writePublicFile('images/articles/'.$match[1], $svg)) {
             return null;
         }
 
-        file_put_contents($dir.DIRECTORY_SEPARATOR.$match[1], $svg);
-
         return $publicPath;
+    }
+
+    protected function writePublicFile(string $relative, string $contents): bool
+    {
+        $relative = str_replace(['\\', "\0"], ['/', ''], $relative);
+        $path = public_path($relative);
+        $dir = dirname($path);
+
+        try {
+            if (! is_dir($dir) && ! @mkdir($dir, 0755, true) && ! is_dir($dir)) {
+                return false;
+            }
+
+            return @file_put_contents($path, $contents) !== false;
+        } catch (\Throwable) {
+            return is_file($path);
+        }
     }
 
     protected function mediaId(mixed $value): ?int
