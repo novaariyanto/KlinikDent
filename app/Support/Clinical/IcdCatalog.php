@@ -3,10 +3,11 @@
 namespace App\Support\Clinical;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Sumber master: https://github.com/LuChang-CS/icd_hierarchical_structure (ICD-10-CM diagnosis).
- * File: database/master_icd_x.json (leaf codes, Bahasa Inggris).
+ * Sumber utama: tabel icd10_codes dari public/icd/[PUBLIC] ICD-10 e-klaim.xlsx.
  */
 final class IcdCatalog
 {
@@ -21,51 +22,81 @@ final class IcdCatalog
             return $items;
         }
 
+        $fromDatabase = self::fromDatabase();
+
+        if ($fromDatabase !== []) {
+            /** @var list<array{code: string, description: string}> $items */
+            $items = Cache::remember('icd10_catalog:eklaim', now()->addDay(), fn () => self::fromDatabase());
+
+            return $items;
+        }
+
+        $items = self::fromJson();
+
+        return $items;
+    }
+
+    /**
+     * @return list<array{code: string, description: string}>
+     */
+    protected static function fromDatabase(): array
+    {
+        if (! Schema::hasTable('icd10_codes')) {
+            return [];
+        }
+
+        return DB::table('icd10_codes')
+            ->orderBy('code')
+            ->get(['code', 'description'])
+            ->map(fn ($row) => [
+                'code' => (string) $row->code,
+                'description' => (string) $row->description,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{code: string, description: string}>
+     */
+    protected static function fromJson(): array
+    {
         $path = database_path('master_icd_x.json');
-        $mtime = is_file($path) ? (string) filemtime($path) : '0';
 
-        /** @var list<array{code: string, description: string}> $items */
-        $items = Cache::remember('icd_catalog:luchang:'.$mtime, now()->addDays(7), function () use ($path) {
-            if (! is_file($path)) {
-                return [];
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $raw = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
             }
 
-            $raw = json_decode((string) file_get_contents($path), true);
+            $code = trim((string) ($row['code'] ?? $row['kode_icd'] ?? ''));
 
-            if (! is_array($raw)) {
-                return [];
+            if ($code === '') {
+                continue;
             }
 
-            $mapped = [];
-
-            foreach ($raw as $row) {
-                if (! is_array($row)) {
-                    continue;
-                }
-
-                $code = trim((string) ($row['code'] ?? $row['kode_icd'] ?? ''));
-
-                if ($code === '') {
-                    continue;
-                }
-
-                $description = trim((string) (
+            $mapped[] = [
+                'code' => $code,
+                'description' => trim((string) (
                     $row['description']
                     ?? $row['nama_icd']
                     ?? $row['nama_icd_indo']
                     ?? ''
-                ));
+                )),
+            ];
+        }
 
-                $mapped[] = [
-                    'code' => $code,
-                    'description' => $description,
-                ];
-            }
-
-            return $mapped;
-        });
-
-        return $items;
+        return $mapped;
     }
 
     /**

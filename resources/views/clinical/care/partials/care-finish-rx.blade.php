@@ -21,7 +21,6 @@
                     <th>Frekuensi</th>
                     <th>Aturan pakai</th>
                     <th>Qty</th>
-                    <th>Status resep</th>
                 </tr>
             </thead>
             <tbody>
@@ -45,7 +44,6 @@
                                 @endif
                             </td>
                             <td>{{ $item->quantity }}</td>
-                            <td><span class="{{ $prescription->status->badgeClass() }}">{{ $prescription->status->label() }}</span></td>
                         </tr>
                     @endforeach
                 @endforeach

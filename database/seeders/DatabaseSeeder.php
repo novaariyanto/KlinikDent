@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             FinanceSeeder::class,
             SaasSeeder::class,
             SaasAddonSeeder::class,
+            IcdCatalogSeeder::class,
         ]);
 
         Setting::setValue('app_name', config('app.name'));

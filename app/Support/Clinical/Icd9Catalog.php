@@ -3,10 +3,11 @@
 namespace App\Support\Clinical;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
- * Sumber master: https://github.com/LuChang-CS/icd_hierarchical_structure (ICD-9-CM procedure).
- * File: database/master_icd9_cm.json (leaf codes, Bahasa Inggris).
+ * Sumber utama: tabel icd9_codes dari public/icd/[PUBLIC] ICD-9CM e-klaim.xlsx.
  */
 final class Icd9Catalog
 {
@@ -21,44 +22,76 @@ final class Icd9Catalog
             return $items;
         }
 
-        $path = database_path('master_icd9_cm.json');
-        $mtime = is_file($path) ? (string) filemtime($path) : '0';
+        $fromDatabase = self::fromDatabase();
 
-        /** @var list<array{code: string, description: string}> $items */
-        $items = Cache::remember('icd9_catalog:luchang:'.$mtime, now()->addDays(7), function () use ($path) {
-            if (! is_file($path)) {
-                return [];
-            }
+        if ($fromDatabase !== []) {
+            /** @var list<array{code: string, description: string}> $items */
+            $items = Cache::remember('icd9_catalog:eklaim', now()->addDay(), fn () => self::fromDatabase());
 
-            $raw = json_decode((string) file_get_contents($path), true);
+            return $items;
+        }
 
-            if (! is_array($raw)) {
-                return [];
-            }
-
-            $mapped = [];
-
-            foreach ($raw as $row) {
-                if (! is_array($row)) {
-                    continue;
-                }
-
-                $code = trim((string) ($row['code'] ?? ''));
-
-                if ($code === '') {
-                    continue;
-                }
-
-                $mapped[] = [
-                    'code' => $code,
-                    'description' => trim((string) ($row['description'] ?? '')),
-                ];
-            }
-
-            return $mapped;
-        });
+        $items = self::fromJson();
 
         return $items;
+    }
+
+    /**
+     * @return list<array{code: string, description: string}>
+     */
+    protected static function fromDatabase(): array
+    {
+        if (! Schema::hasTable('icd9_codes')) {
+            return [];
+        }
+
+        return DB::table('icd9_codes')
+            ->orderBy('code')
+            ->get(['code', 'description'])
+            ->map(fn ($row) => [
+                'code' => (string) $row->code,
+                'description' => (string) $row->description,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{code: string, description: string}>
+     */
+    protected static function fromJson(): array
+    {
+        $path = database_path('master_icd9_cm.json');
+
+        if (! is_file($path)) {
+            return [];
+        }
+
+        $raw = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($raw)) {
+            return [];
+        }
+
+        $mapped = [];
+
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $code = trim((string) ($row['code'] ?? ''));
+
+            if ($code === '') {
+                continue;
+            }
+
+            $mapped[] = [
+                'code' => $code,
+                'description' => trim((string) ($row['description'] ?? '')),
+            ];
+        }
+
+        return $mapped;
     }
 
     /**
