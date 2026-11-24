@@ -13,7 +13,7 @@ class UpdateAnamnesisRequest extends FormRequest
         /** @var Visit $visit */
         $visit = $this->route('visit');
 
-        return $this->user()?->can('anamnesis.manage')
+        return ($this->user()?->can('anamnesis.manage') || $this->user()?->can('medical_record.update'))
             && $this->user()?->can('view', $visit)
             && $visit->status !== VisitStatus::Cancelled;
     }

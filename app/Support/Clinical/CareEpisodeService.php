@@ -68,18 +68,19 @@ class CareEpisodeService
             }
 
             if ($record->assessment_kind === AssessmentKind::FollowUp) {
-                $this->seedAllergyFromBaselineIfEmpty((int) $episode->id, $record);
                 $this->seedAnthropometryFromBaselineIfEmpty((int) $episode->id, $record);
             }
+
+            $this->seedAllergyFromPriorVisitIfEmpty($visit, $record);
 
             return $record;
         });
     }
 
     /**
-     * Salin kunci alergi dari asesmen awal ke FollowUp jika belum terisi.
+     * Salin alergi dari kunjungan sebelumnya yang sudah punya data, bila kunjungan ini masih kosong.
      */
-    protected function seedAllergyFromBaselineIfEmpty(int $episodeId, MedicalRecord $record): void
+    protected function seedAllergyFromPriorVisitIfEmpty(Visit $visit, MedicalRecord $record): void
     {
         $current = is_array($record->systemic_history) ? $record->systemic_history : [];
 
@@ -87,10 +88,7 @@ class CareEpisodeService
             return;
         }
 
-        $baseline = $this->initialQuery($episodeId)
-            ->where('medical_records.id', '!=', $record->id)
-            ->orderBy('medical_records.id')
-            ->first();
+        $baseline = $this->priorVisitWithAllergy($visit);
 
         if (! $baseline) {
             return;
@@ -137,6 +135,39 @@ class CareEpisodeService
 
         $record->systemic_history = $current;
         $record->save();
+    }
+
+    protected function priorVisitWithAllergy(Visit $visit): ?MedicalRecord
+    {
+        $query = Visit::withoutGlobalScopes()
+            ->where('patient_id', $visit->patient_id)
+            ->where('tenant_id', $visit->tenant_id)
+            ->where('id', '!=', $visit->id)
+            ->with(['medicalRecord' => fn ($records) => $records->withoutGlobalScopes()])
+            ->orderByDesc('visit_date')
+            ->orderByDesc('id');
+
+        if ($visit->visit_date) {
+            $query->where(function ($earlier) use ($visit) {
+                $earlier->where('visit_date', '<', $visit->visit_date->toDateString())
+                    ->orWhere(function ($sameDay) use ($visit) {
+                        $sameDay->whereDate('visit_date', $visit->visit_date)
+                            ->where('id', '<', $visit->id);
+                    });
+            });
+        } else {
+            $query->where('id', '<', $visit->id);
+        }
+
+        foreach ($query->get() as $prior) {
+            $history = is_array($prior->medicalRecord?->systemic_history) ? $prior->medicalRecord->systemic_history : [];
+
+            if (! $this->allergyHistoryIsEmpty($history)) {
+                return $prior->medicalRecord;
+            }
+        }
+
+        return null;
     }
 
     /**

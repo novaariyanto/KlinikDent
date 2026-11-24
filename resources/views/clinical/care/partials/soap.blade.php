@@ -4,6 +4,11 @@
     $review = is_array($record?->follow_up_review) ? $record->follow_up_review : [];
     $complaintValue = old('chief_complaint', filled($record?->chief_complaint) ? $record->chief_complaint : ($followUp ? ($review['complaint_now'] ?? '') : ''));
     $anamnesisValue = old('anamnesis', filled($record?->anamnesis) ? $record->anamnesis : ($followUp ? collect([$review['complaint_change'] ?? null, $review['prior_response'] ?? null, $review['compliance'] ?? null, $review['health_change'] ?? null])->filter(fn ($line) => filled($line))->implode("\n") : ''));
+    $canEditAnamnesis = auth()->user()?->can('anamnesis.manage')
+        || ($embedded && auth()->user()?->can('medical_record.update'));
+    $canViewAnamnesis = $canEditAnamnesis
+        || auth()->user()?->can('anamnesis.view')
+        || ($embedded && auth()->user()?->can('medical_record.view'));
 @endphp
 <section class="care-section{{ $embedded ? ' care-section--embedded' : '' }}" id="keluhan">
     @unless ($embedded)
@@ -31,7 +36,7 @@
         @endcan
         @endunless
 
-        @can('anamnesis.manage')
+        @if ($canEditAnamnesis)
             @if ($writable)
                 <form action="{{ route('care.anamnesis.update', $visit) }}" method="POST" data-autosave>
                     @csrf
@@ -43,8 +48,8 @@
             @elseif ($anamnesisValue !== '')
                 <p class="text-muted mb-0">{{ $anamnesisValue }}</p>
             @endif
-        @elsecan('anamnesis.view')
+        @elseif ($canViewAnamnesis)
             <p class="text-muted mb-0">{{ $anamnesisValue ?: '—' }}</p>
-        @endcan
+        @endif
     </div>
 </section>

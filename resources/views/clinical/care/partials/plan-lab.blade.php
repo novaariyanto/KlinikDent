@@ -1,6 +1,6 @@
 @php
     $embedded = $embedded ?? false;
-    $canManageLab = ($writable ?? false) && auth()->user()?->can('procedure.manage');
+    $canManageLab = ($writable ?? false) && (auth()->user()?->can('procedure.manage') || auth()->user()?->can('lab.manage'));
     $reopenLabCreate = old('_form') === 'lab-create' && $errors->any();
     $reopenLabEdit = old('_form') === 'lab-edit' && $errors->any();
     $labValue = function (string $form, string $key, mixed $default = '') {

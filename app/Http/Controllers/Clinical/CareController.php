@@ -987,6 +987,7 @@ class CareController extends Controller
             'odontogram.manage',
             'diagnosis.manage',
             'procedure.manage',
+            'lab.manage',
             'prescription.create',
             'referral.manage',
         ] as $permission) {

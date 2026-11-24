@@ -530,7 +530,7 @@ class CareController extends Controller
     {
         $this->guard($visit);
         $this->authorize('view', $visit);
-        $this->authorize('procedure.manage');
+        abort_unless($request->user()?->can('procedure.manage') || $request->user()?->can('lab.manage'), 403);
         $order = $this->care->storeLabOrder($visit, $this->actor($request), $request->all());
 
         return $this->saved($visit, ['lab_order' => $this->labOrder($order)]);
@@ -540,7 +540,7 @@ class CareController extends Controller
     {
         $this->guard($visit);
         $this->authorize('view', $visit);
-        $this->authorize('procedure.manage');
+        abort_unless($request->user()?->can('procedure.manage') || $request->user()?->can('lab.manage'), 403);
         $order = $this->care->updateLabOrder($visit, $order, $request->all());
 
         return $this->saved($visit, ['lab_order' => $this->labOrder($order)]);
@@ -550,7 +550,7 @@ class CareController extends Controller
     {
         $this->guard($visit);
         $this->authorize('view', $visit);
-        $this->authorize('procedure.manage');
+        abort_unless(request()->user()?->can('procedure.manage') || request()->user()?->can('lab.manage'), 403);
         $id = $this->care->destroyLabOrder($visit, $order);
 
         return $this->saved($visit, ['deleted_id' => $id]);

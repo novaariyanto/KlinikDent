@@ -117,6 +117,7 @@ final class PermissionCatalog
             'diagnosis.manage',
             'procedure.view',
             'procedure.manage',
+            'lab.manage',
             'procedure.waive_doctor_fee',
             'procedure.discount',
             'procedure.approve_doctor_fee_waiver',
@@ -401,6 +402,7 @@ final class PermissionCatalog
             self::forNurse(),
             self::forPharmacy(),
             self::forCashier(),
+            ['lab.manage'],
         )));
     }
 
@@ -417,6 +419,8 @@ final class PermissionCatalog
             'queue.manage',
             'examination.view',
             'examination.manage',
+            'anamnesis.view',
+            'anamnesis.manage',
             'medical_record.view',
             'medical_record.create',
             'medical_record.update',

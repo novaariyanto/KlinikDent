@@ -36,7 +36,7 @@ class DentalLabController extends Controller
     {
         $this->authorize('view', $visit);
         $user = $request->user();
-        abort_unless($user?->can('procedure.manage'), 403);
+        abort_unless($user?->can('procedure.manage') || $user?->can('lab.manage'), 403);
 
         $order = $this->care->storeLabOrder($visit, $user, $request->all());
 
@@ -46,7 +46,7 @@ class DentalLabController extends Controller
     public function updateOrder(Request $request, Visit $visit, DentalLabOrder $order): RedirectResponse|JsonResponse
     {
         $this->authorize('view', $visit);
-        abort_unless($request->user()?->can('procedure.manage'), 403);
+        abort_unless($request->user()?->can('procedure.manage') || $request->user()?->can('lab.manage'), 403);
 
         $order = $this->care->updateLabOrder($visit, $order, $request->all());
 
@@ -56,7 +56,7 @@ class DentalLabController extends Controller
     public function destroy(Request $request, Visit $visit, DentalLabOrder $order): RedirectResponse|JsonResponse
     {
         $this->authorize('view', $visit);
-        abort_unless($request->user()?->can('procedure.manage'), 403);
+        abort_unless($request->user()?->can('procedure.manage') || $request->user()?->can('lab.manage'), 403);
 
         $orderId = $this->care->destroyLabOrder($visit, $order);
 
