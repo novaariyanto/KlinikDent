@@ -233,6 +233,12 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::post('medicines/import/row', [MedicineController::class, 'importRow'])
                     ->middleware('permission:medicine.manage')
                     ->name('medicines.import.row');
+                Route::post('medicines/{medicine}/stock', [MedicineController::class, 'storeStock'])
+                    ->middleware('permission:stock.manage')
+                    ->name('medicines.stock.store');
+                Route::post('medicines/{medicine}/stock/{medicineStock}/adjust', [MedicineController::class, 'adjustStock'])
+                    ->middleware('permission:stock.manage')
+                    ->name('medicines.stock.adjust');
                 Route::resource('medicines', MedicineController::class);
 
                 Route::get('payers/data', [PayerController::class, 'data'])

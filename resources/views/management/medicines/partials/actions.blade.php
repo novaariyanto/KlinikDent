@@ -3,6 +3,11 @@
         <a href="{{ route('management.medicines.show', $medicine) }}" class="btn btn-soft-info btn-sm" title="Lihat" aria-label="Lihat">
             <i class="bx bx-show-alt"></i>
         </a>
+        @can('viewAny', App\Models\MedicineStock::class)
+            <a href="{{ route('management.medicines.show', $medicine) }}#stok" class="btn btn-soft-primary btn-sm" title="Stok" aria-label="Stok">
+                <i class="bx bx-package"></i>
+            </a>
+        @endcan
     @endcan
     @can('update', $medicine)
         <a href="{{ route('management.medicines.edit', $medicine) }}" class="btn btn-soft-primary btn-sm" title="Ubah" aria-label="Ubah">
