@@ -11,6 +11,7 @@ use App\Models\CmsTag;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -165,9 +166,14 @@ final class PostXlsxImporter
             $existing = CmsPost::withTrashed()->where('slug', $requestedSlug)->first();
 
             if ($existing && ! $overwrite) {
-                return $this->result($row, $title, 'skipped', $existing->trashed()
-                    ? 'Slug sudah dipakai artikel yang dihapus.'
-                    : 'Slug sudah ada.');
+                $sameTitle = mb_strtolower($existing->title) === mb_strtolower($title);
+                if ($existing->trashed() || $sameTitle) {
+                    return $this->result($row, $title, 'skipped', $existing->trashed()
+                        ? 'Slug sudah dipakai artikel yang dihapus.'
+                        : 'Slug sudah ada.');
+                }
+
+                $existing = null;
             }
 
             $guardStatus = (string) $payload['status'];
@@ -204,7 +210,7 @@ final class PostXlsxImporter
         } catch (\Throwable $e) {
             report($e);
 
-            return $this->result($row, $title, 'failed', 'Gagal menyimpan artikel.');
+            return $this->result($row, $title, 'failed', $this->failureMessage($e));
         }
     }
 
@@ -496,6 +502,17 @@ final class PostXlsxImporter
         }
 
         return $candidate;
+    }
+
+    protected function failureMessage(\Throwable $e): string
+    {
+        if ($e instanceof QueryException) {
+            return 'Gagal menyimpan artikel ke database.';
+        }
+
+        $message = trim(strtok($e->getMessage(), "\n") ?: '');
+
+        return $message !== '' ? Str::limit($message, 180, '') : 'Gagal menyimpan artikel.';
     }
 
     /**

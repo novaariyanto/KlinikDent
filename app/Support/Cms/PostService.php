@@ -17,8 +17,10 @@ final class PostService
     public function create(array $data, User $actor): CmsPost
     {
         $data = $this->normalize($data, $actor);
+        $tagIds = $data['tag_ids'] ?? [];
+        unset($data['tag_ids']);
         $post = CmsPost::query()->create($data);
-        $this->syncTags($post, $data['tag_ids'] ?? []);
+        $this->syncTags($post, $tagIds);
         $this->snapshot($post, $actor, 'Revisi awal');
 
         return $post->fresh(['tags', 'category', 'author', 'featuredMedia']);
@@ -32,8 +34,10 @@ final class PostService
         $oldSlug = $post->slug;
         $wasPublished = $post->isPubliclyVisible();
         $data = $this->normalize($data, $actor, $post);
+        $tagIds = array_key_exists('tag_ids', $data) ? $data['tag_ids'] : null;
+        unset($data['tag_ids']);
         $post->update($data);
-        $this->syncTags($post, $data['tag_ids'] ?? null);
+        $this->syncTags($post, $tagIds);
         $this->snapshot($post, $actor, 'Perubahan konten');
 
         if ($autoRedirect && $wasPublished && $oldSlug !== $post->slug) {
