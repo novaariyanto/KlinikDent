@@ -408,10 +408,11 @@
             padding-bottom: 0.15rem;
             font-size: 0.78rem;
         }
-        .rx-signa { display: grid; grid-template-columns: repeat(4, 2.15rem); gap: 0.15rem; }
-        .rx-signa input { text-align: center; padding-left: 0.15rem; padding-right: 0.15rem; }
-        .rx-qty-hint { font-size: 0.68rem; line-height: 1.25; color: #0f766e; max-width: 11rem; margin-top: 0.15rem; }
-        .rx-qty-hint.is-warn { color: #b45309; }
+        .rx-signa { display: grid; grid-template-columns: repeat(4, 3.1rem); gap: 0.25rem; }
+        .rx-signa__slot { display: flex; flex-direction: column; align-items: stretch; gap: 0.1rem; margin: 0; }
+        .rx-signa__slot span { font-size: 0.62rem; font-weight: 600; line-height: 1.1; text-align: center; color: #00796b; }
+        .rx-signa input { text-align: center; padding-left: 0.1rem; padding-right: 0.1rem; }
+        .rx-qty-hint { display: none; }
         .rx-sig {
             display: flex;
             flex-wrap: wrap;

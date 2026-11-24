@@ -67,7 +67,7 @@
                     <th>Dosis</th>
                     <th>Stok</th>
                     <th>Satuan</th>
-                    <th title="Pagi, Siang, Sore, Malam">Pagi / Siang / Sore / Malam</th>
+                    <th title="Pagi, Siang, Sore, Malam">Signa</th>
                     <th>Waktu</th>
                     <th title="Jumlah hari obat">JHO (hari)</th>
                     <th>Qty</th>
@@ -156,10 +156,10 @@
                                 @if ($rowEditable)
                                     <div class="rx-sig-field">
                                         <div class="rx-signa">
-                                            <input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" placeholder="P" title="Pagi" data-rx-field data-rx-signa autocomplete="off">
-                                            <input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" placeholder="S" title="Siang" data-rx-field data-rx-signa autocomplete="off">
-                                            <input class="form-control form-control-sm" name="signa_sr" value="{{ $item->signa_sr }}" placeholder="Sr" title="Sore" data-rx-field data-rx-signa autocomplete="off">
-                                            <input class="form-control form-control-sm" name="signa_m" value="{{ $item->signa_m }}" placeholder="M" title="Malam" data-rx-field data-rx-signa autocomplete="off">
+                                            <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                                            <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                                            <label class="rx-signa__slot"><span>Sore</span><input class="form-control form-control-sm" name="signa_sr" value="{{ $item->signa_sr }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                                            <label class="rx-signa__slot"><span>Malam</span><input class="form-control form-control-sm" name="signa_m" value="{{ $item->signa_m }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
                                         </div>
                                         <input type="hidden" name="frequency" value="{{ $item->frequency }}" data-rx-frequency>
                                         @include('clinical.care.partials.prescription-sig', [
@@ -277,10 +277,10 @@
                 <td>
                     <div class="rx-sig-field">
                         <div class="rx-signa">
-                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" title="Pagi" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" title="Siang" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" title="Sore" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" title="Malam" data-rx-field data-rx-signa autocomplete="off">
+                            <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                            <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                            <label class="rx-signa__slot"><span>Sore</span><input class="form-control form-control-sm" name="signa_sr" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                            <label class="rx-signa__slot"><span>Malam</span><input class="form-control form-control-sm" name="signa_m" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
                         </div>
                         <input type="hidden" name="frequency" data-rx-frequency>
                         @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
@@ -343,10 +343,10 @@
                 <td>
                     <div class="rx-sig-field">
                         <div class="rx-signa">
-                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" title="Pagi" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" title="Siang" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" title="Sore" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" title="Malam" data-rx-field data-rx-signa autocomplete="off">
+                            <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                            <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                            <label class="rx-signa__slot"><span>Sore</span><input class="form-control form-control-sm" name="signa_sr" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
+                            <label class="rx-signa__slot"><span>Malam</span><input class="form-control form-control-sm" name="signa_m" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
                         </div>
                         <input type="hidden" name="frequency" data-rx-frequency>
                         @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
