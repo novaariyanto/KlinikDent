@@ -42,6 +42,7 @@
                         @if (isset($option['times'])) data-sig-times="{{ $option['times'] }}" @endif
                         @if (isset($option['dose'])) data-sig-dose="{{ $option['dose'] }}" @endif
                         @if (isset($option['days'])) data-sig-days="{{ $option['days'] }}" @endif
+                        @if (!empty($option['units'])) data-sig-units="{{ implode(' ', $option['units']) }}" @endif
                         title="{{ $option['hint'] }}"
                         aria-label="{{ $option['hint'] }}"
                     >{{ $option['label'] }}</button>
@@ -65,6 +66,7 @@
                 @if (isset($option['times'])) data-sig-times="{{ $option['times'] }}" @endif
                 @if (isset($option['dose'])) data-sig-dose="{{ $option['dose'] }}" @endif
                 @if (isset($option['days'])) data-sig-days="{{ $option['days'] }}" @endif
+                @if (!empty($option['units'])) data-sig-units="{{ implode(' ', $option['units']) }}" @endif
                 title="{{ $option['hint'] }}"
                 aria-label="{{ $option['hint'] }}"
             >{{ $option['label'] }}</button>

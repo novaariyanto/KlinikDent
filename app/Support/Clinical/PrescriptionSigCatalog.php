@@ -14,15 +14,16 @@ class PrescriptionSigCatalog
     public static function doses(): array
     {
         return [
-            self::option('1 tab', '1', 'Dosis 1. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1),
-            self::option('½ tab', '0.5', 'Dosis 0,5. Qty dibulatkan ke atas.', 'dose', dose: 0.5),
-            self::option('2 tab', '2', 'Dosis 2. Qty = 2 × signa × jumlah hari obat.', 'dose', dose: 2),
-            self::option('1 kaps', '1', 'Dosis 1 kapsul. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1),
-            self::option('5 ml', '5 ml', 'Dosis 5 ml. Qty = 5 ml × signa × jumlah hari obat.', 'dose', dose: 5),
-            self::option('10 ml', '10 ml', 'Dosis 10 ml. Qty = 10 ml × signa × jumlah hari obat.', 'dose', dose: 10),
-            self::option('1 cth', '1 cth (sendok teh)', 'Sendok teh. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text'),
-            self::option('1 csd', '1 csd (sendok makan)', 'Sendok makan. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text'),
-            self::option('1 bks', '1', 'Dosis 1 bungkus. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1),
+            self::option('1 tab', '1', 'Dosis 1. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1, units: ['tablet', 'kaplet']),
+            self::option('½ tab', '0.5', 'Dosis 0,5. Qty dibulatkan ke atas.', 'dose', dose: 0.5, units: ['tablet', 'kaplet']),
+            self::option('2 tab', '2', 'Dosis 2. Qty = 2 × signa × jumlah hari obat.', 'dose', dose: 2, units: ['tablet', 'kaplet']),
+            self::option('1 kaps', '1', 'Dosis 1 kapsul. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1, units: ['kapsul']),
+            self::option('2 kaps', '2', 'Dosis 2 kapsul. Qty = 2 × signa × jumlah hari obat.', 'dose', dose: 2, units: ['kapsul']),
+            self::option('5 ml', '5 ml', 'Dosis 5 ml. Qty = 5 ml × signa × jumlah hari obat.', 'dose', dose: 5, units: ['ml', 'sirup']),
+            self::option('10 ml', '10 ml', 'Dosis 10 ml. Qty = 10 ml × signa × jumlah hari obat.', 'dose', dose: 10, units: ['ml', 'sirup']),
+            self::option('1 cth', '1 cth (sendok teh)', 'Sendok teh. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text', units: ['ml', 'sirup']),
+            self::option('1 csd', '1 csd (sendok makan)', 'Sendok makan. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text', units: ['ml', 'sirup']),
+            self::option('1 bks', '1', 'Dosis 1 bungkus. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1, units: ['bungkus', 'sachet']),
         ];
     }
 
@@ -161,7 +162,8 @@ class PrescriptionSigCatalog
     }
 
     /**
-     * @return array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null}
+     * @param  list<string>|null  $units
+     * @return array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null, units: list<string>|null}
      */
     protected static function option(
         string $label,
@@ -171,6 +173,7 @@ class PrescriptionSigCatalog
         ?int $times = null,
         ?float $dose = null,
         ?int $days = null,
+        ?array $units = null,
     ): array {
         return [
             'label' => $label,
@@ -180,6 +183,7 @@ class PrescriptionSigCatalog
             'times' => $times,
             'dose' => $dose,
             'days' => $days,
+            'units' => $units,
         ];
     }
 }

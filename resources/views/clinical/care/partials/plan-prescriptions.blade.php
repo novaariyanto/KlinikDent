@@ -1466,12 +1466,43 @@
         if (!exceptToggle || rxSigOpenToggle !== exceptToggle) rxSigOpenToggle = exceptToggle || null;
     }
 
+    function rxHelpUnit(row) {
+        var select = row && row.querySelector('[name="unit"]');
+        var unit = select ? String(select.value || '').trim().toLowerCase() : '';
+        if (!unit && row) {
+            var item = rxCatalogItem(rxMedicineIdOf(row));
+            unit = item && item.unit ? String(item.unit).trim().toLowerCase() : '';
+        }
+        if (unit === 'tab') return 'tablet';
+        return unit;
+    }
+
+    function rxFilterDoseHelp(html, unit) {
+        if (!html || !unit) return html || '';
+        var wrap = document.createElement('div');
+        wrap.innerHTML = html;
+        var tagged = wrap.querySelectorAll('[data-sig-units]');
+        if (!tagged.length) return html;
+        var kept = 0;
+        tagged.forEach(function (btn) {
+            var list = (btn.getAttribute('data-sig-units') || '').toLowerCase().split(/\s+/);
+            if (list.indexOf(unit) === -1) btn.remove();
+            else kept += 1;
+        });
+        return kept ? wrap.innerHTML : html;
+    }
+
     function rxSigPopoverInstance(toggle) {
         if (!toggle || !window.bootstrap || !window.bootstrap.Popover) return null;
         var existing = window.bootstrap.Popover.getInstance(toggle);
-        if (existing) return existing;
+        if (existing) existing.dispose();
         var tip = toggle.closest('.rx-sig-tip');
         var template = tip && tip.querySelector('.rx-sig-tip__template');
+        var html = template ? template.innerHTML : '';
+        if (tip && tip.getAttribute('data-sig-name') === 'dosage') {
+            var row = toggle.closest('[data-rx-row], [data-rx-draft], form.rx-form');
+            html = rxFilterDoseHelp(html, rxHelpUnit(row));
+        }
         return window.bootstrap.Popover.getOrCreateInstance(toggle, {
             html: true,
             sanitize: false,
@@ -1479,7 +1510,7 @@
             placement: 'bottom',
             container: 'body',
             customClass: 'rx-sig-popover',
-            content: template ? template.innerHTML : '',
+            content: html,
         });
     }
 
@@ -1784,6 +1815,9 @@
                     searching: function () { return 'Mencari…'; },
                 },
             });
+            $el.off('select2:select.rxMed select2:clear.rxMed').on('select2:select.rxMed select2:clear.rxMed', function () {
+                rxHandleMedicineSelect(this);
+            });
         });
     }
 
@@ -1844,20 +1878,43 @@
         rxBindDraft(row);
     }
 
+    function rxSetRowUnit(row, item) {
+        if (!row || !item || !item.unit) return;
+        var select = row.querySelector('[name="unit"]');
+        if (!select || select.tagName !== 'SELECT') return;
+        var value = String(item.unit);
+        var found = false;
+        Array.prototype.forEach.call(select.options, function (opt) {
+            if (opt.value === value) found = true;
+        });
+        if (!found) {
+            var option = document.createElement('option');
+            option.value = value;
+            option.textContent = item.unit_label || value;
+            select.appendChild(option);
+        }
+        select.value = value;
+    }
+
     function rxFillMedicine(row, medicineId) {
         var item = rxCatalogItem(medicineId);
         if (!item) return;
         var strength = row.querySelector('[data-rx-strength]');
         var stock = row.querySelector('[data-rx-stock]');
         var price = row.querySelector('[data-rx-price]');
-        var unit = row.querySelector('[data-rx-unit]');
         if (strength) strength.textContent = item.strength || '—';
         if (stock) stock.innerHTML = '<span class="badge ' + (item.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + (item.stock || 0) + '</span>';
         if (price) {
             price.textContent = rxMoney(item.price || 0);
             price.dataset.raw = String(item.price || 0);
         }
-        if (unit && item.unit) unit.value = item.unit;
+        rxSetRowUnit(row, item);
+        var dosage = row.querySelector('[name="dosage"]');
+        if (dosage && !String(dosage.value || '').trim()) {
+            var liquidUnit = item.unit === 'ml' || item.unit === 'sirup';
+            dosage.placeholder = liquidUnit ? 'cth: 5 ml' : 'cth: 1';
+        }
+        rxClearQtyManual(row);
         rxAutoQty(row);
         var ingName = row.querySelector('[data-ing-name]');
         if (ingName && item.name) ingName.value = item.name;
@@ -1955,9 +2012,10 @@
         });
     }
 
-    document.addEventListener('change', function (event) {
-        var medicineId = event.target.closest('[data-rx-medicine-id], [data-ing-medicine-id]');
-        if (!medicineId) return;
+    function rxHandleMedicineSelect(medicineId) {
+        if (!medicineId || medicineId.dataset.rxMedLock === '1') return;
+        medicineId.dataset.rxMedLock = '1';
+        setTimeout(function () { medicineId.dataset.rxMedLock = ''; }, 40);
         var draft = medicineId.closest('[data-rx-draft], [data-rx-ingredient]');
         var savedRow = medicineId.closest('[data-rx-row]');
         if (medicineId.hasAttribute('data-rx-medicine-id')) {
@@ -1992,6 +2050,11 @@
         var name = draft.querySelector('[data-ing-name]');
         if (catalogItem && name) name.value = catalogItem.name || name.value;
         rxScheduleAutoSave(medicineId.closest('[data-rx-draft]'));
+    }
+
+    document.addEventListener('change', function (event) {
+        var medicineId = event.target.closest && event.target.closest('[data-rx-medicine-id], [data-ing-medicine-id]');
+        if (medicineId) rxHandleMedicineSelect(medicineId);
     });
 
     document.querySelectorAll('form.rx-form').forEach(function (form) {

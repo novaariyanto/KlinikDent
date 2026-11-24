@@ -142,7 +142,7 @@
                             </td>
                             <td style="min-width:6rem">
                                 @if ($rowEditable && ! $isCompound)
-                                    <select class="form-select form-select-sm" name="unit" data-rx-field>
+                                    <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
                                         <option value="">—</option>
                                         @foreach ($unitOptions as $value => $label)
                                             <option value="{{ $value }}" @selected(($item->unit ?: $item->medicine?->unit) === $value)>{{ $label }}</option>
