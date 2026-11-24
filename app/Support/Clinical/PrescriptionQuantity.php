@@ -356,7 +356,7 @@ final class PrescriptionQuantity
             }
 
             $signa = $daily;
-            $dose = $ml ?? $doseText;
+            $dose = $ml ?? $doseText ?? self::compoundPackDose($input);
 
             if ($dose === null || $signa <= 0) {
                 return [
@@ -393,7 +393,7 @@ final class PrescriptionQuantity
             }
         }
 
-        $dose = $ml ?? $doseText ?? $pairedDose;
+        $dose = $ml ?? $doseText ?? $pairedDose ?? self::compoundPackDose($input);
 
         $daily = ($dose !== null && $times !== null && $times > 0) ? $dose * $times : null;
 
@@ -461,6 +461,32 @@ final class PrescriptionQuantity
             'unit' => $unit !== '' ? $unit : null,
             'unit_label' => $label,
         ];
+    }
+
+    /**
+     * Racikan padat tanpa angka di dosis dihitung 1 satuan tiap kali minum.
+     */
+    protected static function compoundPackDose(array $input): ?float
+    {
+        $kind = strtolower(trim((string) ($input['kind'] ?? 'ready')));
+        if (! in_array($kind, ['racikan', 'compound'], true)) {
+            return null;
+        }
+
+        $dosage = strtolower(trim((string) ($input['dosage'] ?? '')));
+        if ($dosage === '' || $dosage === '-') {
+            return null;
+        }
+
+        $unit = strtolower(trim((string) ($input['unit'] ?? '')));
+        if (in_array($unit, ['ml', 'sirup'], true) || str_contains($dosage, 'ml') || str_contains($dosage, 'sirup') || str_contains($dosage, 'sediaan cair')) {
+            return null;
+        }
+        if (str_contains($dosage, 'salep') || str_contains($dosage, 'tetes') || str_contains($dosage, 'krim')) {
+            return null;
+        }
+
+        return 1.0;
     }
 
     protected static function amount(string $raw): ?float

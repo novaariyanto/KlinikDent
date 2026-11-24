@@ -717,8 +717,12 @@
             var sigMode = sig.getAttribute('data-sig-mode') || (holder && holder.getAttribute('data-sig-mode')) || '';
             if (!holder && !sigName && !sig.getAttribute('data-sig-for')) return;
             var fillValue = sig.getAttribute('data-sig-fill') || '';
-            var row = (holder && holder.closest('[data-rx-row], [data-rx-draft]'))
-                || document.querySelector('[data-rx-row].rx-row--active, [data-rx-draft].rx-row--active');
+            var row = null;
+            if (rxSigOpenToggle) row = rxSigOpenToggle.closest('[data-rx-row], [data-rx-draft], form.rx-form');
+            if (!row) {
+                row = (holder && holder.closest('[data-rx-row], [data-rx-draft]'))
+                    || document.querySelector('[data-rx-row].rx-row--active, [data-rx-draft].rx-row--active');
+            }
             var input = null;
             if (holder && holder.hasAttribute('data-sig-for')) {
                 input = document.getElementById(holder.getAttribute('data-sig-for'));
@@ -748,10 +752,14 @@
                     input.value = fillValue;
                     var coursePrn = row.querySelector('[name="course"]');
                     if (coursePrn && effect === 'until_finished') coursePrn.value = fillValue;
+                } else if (effect === 'form') {
+                    input.value = fillValue;
+                    rxApplySigUnit(row, sig.getAttribute('data-sig-unit'));
                 } else if (effect === 'dose') {
                     var doseValue = sig.getAttribute('data-sig-dose');
                     input.value = doseValue ? String(doseValue) : fillValue;
                     if (/ml\b/i.test(fillValue) && doseValue) input.value = doseValue + ' ml';
+                    rxApplySigUnit(row, sig.getAttribute('data-sig-unit'));
                 } else {
                     input.value = fillValue;
                 }
@@ -1126,6 +1134,7 @@
             });
             var signa = sum;
             var doseAmount = ml != null ? ml : rxParseAmount(dosage);
+            if (doseAmount == null && compound && form.countable && !form.liquid && dosage) doseAmount = 1;
             if (doseAmount != null && signa > 0) {
                 daily = doseAmount * signa;
                 explain = rxTrimNum(doseAmount) + (ml != null ? ' ml' : '') + ' × ' + rxTrimNum(signa) + ' (' + shown.join(', ') + ')';
@@ -1147,6 +1156,7 @@
                 if (hours > 0 && 24 % hours === 0) times = 24 / hours;
             }
             var dose = ml != null ? ml : (rxParseAmount(dosage) != null ? rxParseAmount(dosage) : paired);
+            if (dose == null && compound && form.countable && !form.liquid && dosage) dose = 1;
             if (dose != null && times) daily = dose * times;
             explain = rxTrimNum(dose || 0) + (ml != null ? ' ml' : '') + ' × ' + (times || 0) + ' kali/hari';
         }
@@ -1301,17 +1311,66 @@
         return data;
     }
 
+    function rxReadCompoundIngredients(row) {
+        var ingredients = [];
+        if (!row) return ingredients;
+        row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
+            var name = (ing.querySelector('[data-ing-name]') || {}).value || (ing.querySelector('[data-typeahead-q]') || {}).value || '';
+            name = String(name).trim();
+            if (!name) return;
+            var ingQty = ing.querySelector('[data-ing-qty]');
+            var ingManual = ingQty && ingQty.dataset.manual === '1';
+            var per = String((ing.querySelector('[data-ing-per]') || {}).value || '').trim();
+            ingredients.push({
+                name: name,
+                medicine_id: String((ing.querySelector('[data-ing-medicine-id]') || {}).value || '').trim(),
+                quantity: (ingQty || {}).value || 1,
+                per_dose_quantity: per || (ingManual ? '' : '1'),
+                quantity_manual: ingManual ? '1' : '0',
+                role: String((ing.querySelector('[data-ing-role]') || {}).value || 'active').trim() || 'active',
+                additive_kind: String((ing.querySelector('[data-ing-additive]') || {}).value || '').trim(),
+                unit: String((ing.querySelector('[data-ing-unit]') || {}).value || '').trim(),
+                strength_value: String((ing.querySelector('[data-ing-strength]') || {}).value || '').trim(),
+                strength_unit: String((ing.querySelector('[data-ing-strength-unit]') || {}).value || '').trim()
+            });
+        });
+        return ingredients;
+    }
+
+    function rxAppendCompoundIngredients(body, ingredients) {
+        ingredients.forEach(function (ing, index) {
+            body.append('ingredients[' + index + '][name]', ing.name);
+            body.append('ingredients[' + index + '][quantity]', ing.quantity);
+            body.append('ingredients[' + index + '][role]', ing.role);
+            body.append('ingredients[' + index + '][quantity_manual]', ing.quantity_manual);
+            if (ing.medicine_id) body.append('ingredients[' + index + '][medicine_id]', ing.medicine_id);
+            if (ing.per_dose_quantity) body.append('ingredients[' + index + '][per_dose_quantity]', ing.per_dose_quantity);
+            if (ing.additive_kind) body.append('ingredients[' + index + '][additive_kind]', ing.additive_kind);
+            if (ing.unit) body.append('ingredients[' + index + '][unit]', ing.unit);
+            if (ing.strength_value) body.append('ingredients[' + index + '][strength_value]', ing.strength_value);
+            if (ing.strength_unit) body.append('ingredients[' + index + '][strength_unit]', ing.strength_unit);
+        });
+        body.append('composition_confirmed', '1');
+    }
+
     function rxSaveRow(row, options) {
         options = options || {};
         var url = row.getAttribute('data-update');
         if (!url || row.dataset.busy === '1') return Promise.resolve();
         if (!rxRowShouldSave(row)) return Promise.resolve();
+        if ((row.getAttribute('data-kind') || '') === 'racikan') {
+            var compoundIngredients = rxReadCompoundIngredients(row);
+            if (!compoundIngredients.length) return Promise.reject(new Error('Isi minimal satu bahan racikan.'));
+        }
         row.dataset.busy = '1';
         var payload = rxCollectRowPayload(row);
         var body = new FormData();
         Object.keys(payload).forEach(function (key) {
             if (payload[key] != null) body.append(key, payload[key]);
         });
+        if ((row.getAttribute('data-kind') || '') === 'racikan') {
+            rxAppendCompoundIngredients(body, rxReadCompoundIngredients(row));
+        }
         return fetch(url, {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': rxCsrf(), 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
@@ -1370,6 +1429,8 @@
             snap.push({ name: el.name, value: el.value, manual: el.getAttribute('data-manual') || '' });
         });
         row._rxSnap = snap;
+        var ingList = row.querySelector('[data-rx-ingredients]');
+        row._rxIngHtml = ingList ? ingList.innerHTML : null;
         row.classList.add('is-editing');
         void row.offsetWidth;
         rxInitMedicineSelects(row);
@@ -1379,6 +1440,8 @@
     function rxCancelEdit(row) {
         if (!row) return;
         rxDestroyMedicineSelects(row);
+        var ingList = row.querySelector('[data-rx-ingredients]');
+        if (ingList && row._rxIngHtml != null) ingList.innerHTML = row._rxIngHtml;
         (row._rxSnap || []).forEach(function (item) {
             var el = row.querySelector('[name="' + item.name + '"]');
             if (!el) return;
@@ -1388,6 +1451,7 @@
         });
         row.classList.remove('is-editing');
         row._rxSnap = null;
+        row._rxIngHtml = null;
         rxHideAllSigPopovers();
         rxRecalcRow(row);
     }
@@ -1608,7 +1672,7 @@
         event.stopPropagation();
         if (Date.now() < rxSigIgnoreToggleUntil && rxSigOpenToggle === tipBtn) return;
         var tipRow = tipBtn.closest('[data-rx-row], [data-rx-draft]');
-        if (tipRow) tipRow.classList.add('rx-row--active');
+        if (tipRow) rxSetActiveRow(tipRow, tipBtn, { openSig: false });
         var open = tipBtn.getAttribute('aria-describedby') || (rxSigOpenToggle === tipBtn);
         if (open) rxHideAllSigPopovers();
         else rxShowSigPopover(tipBtn);
@@ -1692,8 +1756,8 @@
             return;
         }
         if (event.target.closest('[data-rx-add-ingredient]')) {
-            var draftCompound = event.target.closest('[data-rx-draft]');
-            if (draftCompound) rxAddIngredient(draftCompound);
+            var compoundHost = event.target.closest('[data-rx-draft], [data-rx-row].is-editing');
+            if (compoundHost && (compoundHost.getAttribute('data-kind') || '') === 'racikan') rxAddIngredient(compoundHost);
             return;
         }
         if (event.target.closest('[data-rx-remove-ingredient]')) {
@@ -1701,8 +1765,8 @@
             var wrap = ing && ing.parentElement;
             if (ing) ing.remove();
             if (wrap && !wrap.querySelector('[data-rx-ingredient]')) {
-                var parentDraft = wrap.closest('[data-rx-draft]');
-                if (parentDraft) rxAddIngredient(parentDraft);
+                var parentCompound = wrap.closest('[data-rx-draft], [data-rx-row].is-editing');
+                if (parentCompound) rxAddIngredient(parentCompound);
             }
             return;
         }
@@ -1831,6 +1895,24 @@
         rxBindDraft(row);
     }
 
+    function rxApplySigUnit(row, unit) {
+        if (!row || !unit) return;
+        var select = row.querySelector('[name="unit"]');
+        if (!select || select.tagName !== 'SELECT') return;
+        var value = String(unit);
+        var found = false;
+        Array.prototype.forEach.call(select.options, function (opt) {
+            if (opt.value === value) found = true;
+        });
+        if (!found) {
+            var option = document.createElement('option');
+            option.value = value;
+            option.textContent = value === 'bungkus' ? 'Bungkus/puyer' : value;
+            select.appendChild(option);
+        }
+        select.value = value;
+    }
+
     function rxSetRowUnit(row, item) {
         if (!row || !item || !item.unit) return;
         var select = row.querySelector('[name="unit"]');
@@ -1901,32 +1983,9 @@
         if (jho > 0) body.append('duration', jho + ' hari');
 
         if (kind === 'racikan') {
-            var ingredients = [];
-            row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
-                var name = (ing.querySelector('[data-ing-name]') || {}).value || (ing.querySelector('[data-typeahead-q]') || {}).value || '';
-                name = String(name).trim();
-                if (!name) return;
-                var ingQty = ing.querySelector('[data-ing-qty]');
-                var ingManual = ingQty && ingQty.dataset.manual === '1';
-                ingredients.push({
-                    name: name,
-                    medicine_id: (ing.querySelector('[data-ing-medicine-id]') || {}).value || '',
-                    quantity: (ingQty || {}).value || 1,
-                    per_dose_quantity: ingManual ? '' : '1',
-                    quantity_manual: ingManual ? '1' : '0',
-                    role: 'active'
-                });
-            });
+            var ingredients = rxReadCompoundIngredients(row);
             if (ingredients.length < 1) return Promise.resolve();
-            ingredients.forEach(function (ing, index) {
-                body.append('ingredients[' + index + '][name]', ing.name);
-                body.append('ingredients[' + index + '][medicine_id]', ing.medicine_id);
-                body.append('ingredients[' + index + '][quantity]', ing.quantity);
-                body.append('ingredients[' + index + '][role]', 'active');
-                body.append('ingredients[' + index + '][quantity_manual]', ing.quantity_manual);
-                if (ing.per_dose_quantity) body.append('ingredients[' + index + '][per_dose_quantity]', ing.per_dose_quantity);
-            });
-            body.append('composition_confirmed', '1');
+            rxAppendCompoundIngredients(body, ingredients);
         } else {
             var medicineId = rxMedicineIdOf(row);
             if (!medicineId) return Promise.resolve();

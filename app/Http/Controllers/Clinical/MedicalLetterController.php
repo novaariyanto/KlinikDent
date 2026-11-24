@@ -148,9 +148,7 @@ class MedicalLetterController extends Controller
     {
         $letter = $this->letters->issue($visit, $request->user(), $request->validated());
 
-        return redirect()
-            ->route('medical-letters.show', $letter)
-            ->with('success', 'Surat '.$letter->number.' diterbitkan.');
+        return redirect()->route('medical-letters.pdf', $letter);
     }
 
     public function revise(MedicalLetter $letter): View
@@ -169,9 +167,7 @@ class MedicalLetterController extends Controller
         $visit = $letter->visit()->firstOrFail();
         $issued = $this->letters->issue($visit, $request->user(), $request->validated(), $letter);
 
-        return redirect()
-            ->route('medical-letters.show', $issued)
-            ->with('success', 'Revisi diterbitkan sebagai '.$issued->number.'. Surat sebelumnya ditandai direvisi.');
+        return redirect()->route('medical-letters.pdf', $issued);
     }
 
     public function show(Request $request, MedicalLetter $letter): View

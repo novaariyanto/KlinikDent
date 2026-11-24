@@ -69,7 +69,7 @@ class UpdatePrescriptionItemRequest extends FormRequest
             ],
             'medication_type' => [Rule::excludeIf(! $compound || $editorRow), 'required', Rule::enum(MedicationTypeCode::class)],
             'composition_confirmed' => [Rule::excludeIf(! $compound || ! $interactive), 'accepted'],
-            'ingredients' => [Rule::excludeIf(! $compound || $editorRow), 'required', 'array', 'min:1'],
+            'ingredients' => [Rule::excludeIf(! $compound), 'sometimes', 'array', 'min:1'],
             'ingredients.*.name' => ['required_with:ingredients', 'string', 'max:120'],
             'ingredients.*.medicine_id' => [
                 'nullable',
@@ -108,6 +108,16 @@ class UpdatePrescriptionItemRequest extends FormRequest
             }
 
             if ($this->input('_form') === 'rx-editor-row') {
+                /** @var PrescriptionItem|null $item */
+                $item = $this->route('prescriptionItem');
+                if ($item?->isCompound() && $this->exists('ingredients')) {
+                    $active = collect($this->input('ingredients', []))
+                        ->filter(fn ($row) => is_array($row) && ($row['role'] ?? 'active') !== 'additive' && filled($row['name'] ?? null));
+                    if ($active->isEmpty()) {
+                        $validator->errors()->add('ingredients', 'Racikan membutuhkan minimal satu bahan obat.');
+                    }
+                }
+
                 return;
             }
 

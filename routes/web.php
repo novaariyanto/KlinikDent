@@ -418,6 +418,7 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::post('/visits/{visit}/care/documents/{document}/cancel', [CareController::class, 'cancelDocument'])->name('care.documents.cancel');
             Route::get('/visits/{visit}/care/referrals/{referral}/pdf', [CareController::class, 'printReferral'])->name('care.referral.pdf');
             Route::get('/visits/{visit}/care/prescriptions/pdf', [CareController::class, 'printPrescriptions'])->name('care.prescriptions.pdf');
+            Route::get('/visits/{visit}/care/prescriptions/receipt', [CareController::class, 'printPrescriptionReceipt'])->name('care.prescriptions.receipt');
             Route::get('/visits/{visit}/care/prescriptions/{prescription}/pdf', [CareController::class, 'printPrescription'])->name('care.prescription.pdf');
             Route::get('/visits/{visit}/care/instructions/pdf', [CareController::class, 'printInstructions'])->name('care.instructions.pdf');
             Route::get('/visits/{visit}/care/discharge/pdf', [CareController::class, 'printDischarge'])->name('care.discharge.pdf');

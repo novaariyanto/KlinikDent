@@ -42,6 +42,9 @@
             <a href="{{ route('care.prescriptions.pdf', $visit) }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border">
                 <i class="bx bx-printer me-1"></i>Cetak
             </a>
+            <a href="{{ route('care.prescriptions.receipt', $visit) }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border">
+                <i class="bx bx-receipt me-1"></i>58mm
+            </a>
         @endcan
         @if ($canEditDraft)
             @if ($draft && $draft->isDraft() && $draft->items->isNotEmpty())
@@ -97,10 +100,39 @@
                             <td>
                                 @if ($isCompound)
                                     <div class="fw-semibold">R/ RACIK-{{ str_pad((string) $racikIndex, 2, '0', STR_PAD_LEFT) }}</div>
-                                    <div class="rx-meta">{{ $item->label() }}</div>
-                                    @foreach ($item->ingredients as $ingredient)
-                                        <div class="rx-meta">· {{ $ingredient->compositionLabel() }}</div>
-                                    @endforeach
+                                    <div class="rx-when-view">
+                                        <div class="rx-meta">{{ $item->label() }}</div>
+                                        @foreach ($item->ingredients as $ingredient)
+                                            <div class="rx-meta">· {{ $ingredient->compositionLabel() }}</div>
+                                        @endforeach
+                                    </div>
+                                    @if ($rowEditable)
+                                        <div class="rx-when-edit">
+                                            <input type="hidden" name="kind" value="racikan">
+                                            <div class="rx-draft-ingredients" data-rx-ingredients>
+                                                @foreach ($item->ingredients as $ingredient)
+                                                    <div class="rx-draft-ingredient" data-rx-ingredient>
+                                                        <select class="form-select form-select-sm" data-ing-medicine-id data-rx-medicine-select data-rx-ing-medicine-select autocomplete="off">
+                                                            <option value="">Pilih bahan stok…</option>
+                                                            @foreach ($medicines as $medicine)
+                                                                <option value="{{ $medicine->id }}" @selected((int) $ingredient->medicine_id === (int) $medicine->id)>{{ $medicine->catalogLabel() }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                        <input type="text" class="form-control form-control-sm" data-ing-name value="{{ $ingredient->name }}" placeholder="Nama bahan" maxlength="120" autocomplete="off">
+                                                        <input type="number" class="form-control form-control-sm" data-ing-qty min="1" value="{{ $ingredient->quantity }}" data-manual="1" title="Qty bahan">
+                                                        <button type="button" class="btn btn-sm btn-soft-danger" data-rx-remove-ingredient>×</button>
+                                                        <input type="hidden" data-ing-role value="{{ $ingredient->role ?: 'active' }}">
+                                                        <input type="hidden" data-ing-additive value="{{ $ingredient->additive_kind }}">
+                                                        <input type="hidden" data-ing-unit value="{{ $ingredient->unit }}">
+                                                        <input type="hidden" data-ing-per value="{{ $ingredient->per_dose_quantity }}">
+                                                        <input type="hidden" data-ing-strength value="{{ $ingredient->strength_value }}">
+                                                        <input type="hidden" data-ing-strength-unit value="{{ $ingredient->strength_unit }}">
+                                                    </div>
+                                                @endforeach
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-light border mt-1" data-rx-add-ingredient>+ Bahan</button>
+                                        </div>
+                                    @endif
                                     <input type="hidden" name="medicine_id" value="{{ $item->medicine_id }}">
                                 @elseif ($rowEditable)
                                     <span class="rx-when-view fw-semibold">{{ $item->medicine?->name ?: $item->label() }}</span>
@@ -145,11 +177,14 @@
                                 @endif
                             </td>
                             <td style="min-width:6rem">
-                                @if ($rowEditable && ! $isCompound)
+                                @if ($rowEditable)
                                     <span class="rx-when-view">{{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—') }}</span>
                                     <div class="rx-when-edit">
                                         <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
                                             <option value="">—</option>
+                                            @if ($isCompound)
+                                                <option value="bungkus" @selected($item->unit === 'bungkus')>Bungkus/puyer</option>
+                                            @endif
                                             @foreach ($unitOptions as $value => $label)
                                                 <option value="{{ $value }}" @selected(($item->unit ?: $item->medicine?->unit) === $value)>{{ $label }}</option>
                                             @endforeach

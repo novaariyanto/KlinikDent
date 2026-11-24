@@ -619,6 +619,35 @@ class CareController extends Controller
         ])->setPaper('a5')->stream('resep-kunjungan-'.$visit->id.'.pdf');
     }
 
+    public function printPrescriptionReceipt(Visit $visit): View
+    {
+        $this->authorize('view', $visit);
+        abort_unless(request()->user()?->can('prescription.view'), 403);
+
+        $visit->loadMissing([
+            'patient',
+            'doctor:id,name',
+            'branch',
+            'prescriptions.items.medicine:id,name,unit',
+            'prescriptions.items.ingredients',
+            'prescriptions.doctor:id,name',
+        ]);
+
+        $prescriptions = $visit->prescriptions
+            ->filter(fn (Prescription $prescription) => $prescription->items->isNotEmpty())
+            ->values();
+        abort_unless($prescriptions->isNotEmpty(), 422, 'Belum ada resep yang dapat dicetak.');
+
+        activity_log('printed', $visit, ['prescription_ids' => $prescriptions->pluck('id')->all(), 'paper' => '58mm'], 'Cetak resep 58mm', 'prescriptions');
+
+        return view('clinical.care.print.prescription-58', [
+            ...$this->printMeta($visit),
+            'patient' => $visit->patient,
+            'prescriptions' => $prescriptions,
+            'title' => 'Resep Obat',
+        ]);
+    }
+
     public function printInstructions(Visit $visit): Response
     {
         $this->authorize('view', $visit);

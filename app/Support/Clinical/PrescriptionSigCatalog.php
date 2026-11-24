@@ -86,10 +86,18 @@ class PrescriptionSigCatalog
     public static function compoundForms(): array
     {
         return [
-            self::option('Puyer', 'Puyer / serbuk bagi', 'Serbuk yang dibagi ke dalam bungkus.'),
-            self::option('Kapsul', 'Kapsul', 'Racikan dalam kapsul.'),
-            self::option('Sirup', 'Sirup racikan', 'Sediaan cair sirup racikan.'),
-            self::option('Cair', 'Sediaan cair', 'Sediaan cair selain sirup.'),
+            self::option('Puyer', 'Puyer', 'Bentuk puyer. Satuan bungkus. Qty = 1 × signa × jumlah hari obat.', 'form', units: ['bungkus'], setUnit: 'bungkus'),
+            self::option('1 bks', '1', 'Dosis 1 bungkus. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1, units: ['bungkus'], setUnit: 'bungkus'),
+            self::option('2 bks', '2', 'Dosis 2 bungkus. Qty = 2 × signa × jumlah hari obat.', 'dose', dose: 2, units: ['bungkus'], setUnit: 'bungkus'),
+            self::option('Kapsul', 'Kapsul', 'Bentuk kapsul. Qty = 1 × signa × jumlah hari obat.', 'form', units: ['kapsul'], setUnit: 'kapsul'),
+            self::option('1 kaps', '1', 'Dosis 1 kapsul. Qty = 1 × signa × jumlah hari obat.', 'dose', dose: 1, units: ['kapsul'], setUnit: 'kapsul'),
+            self::option('2 kaps', '2', 'Dosis 2 kapsul. Qty = 2 × signa × jumlah hari obat.', 'dose', dose: 2, units: ['kapsul'], setUnit: 'kapsul'),
+            self::option('Sirup', 'Sirup', 'Sediaan sirup. Pilih dosis ml agar Qty terhitung.', 'form', units: ['sirup', 'ml'], setUnit: 'sirup'),
+            self::option('Cair', 'Sediaan cair', 'Sediaan cair selain sirup. Pilih dosis ml agar Qty terhitung.', 'form', units: ['sirup', 'ml'], setUnit: 'sirup'),
+            self::option('5 ml', '5 ml', 'Dosis 5 ml. Qty = 5 ml × signa × jumlah hari obat.', 'dose', dose: 5, units: ['sirup', 'ml'], setUnit: 'ml'),
+            self::option('10 ml', '10 ml', 'Dosis 10 ml. Qty = 10 ml × signa × jumlah hari obat.', 'dose', dose: 10, units: ['sirup', 'ml'], setUnit: 'ml'),
+            self::option('1 cth', '1 cth (sendok teh)', 'Sendok teh. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text', units: ['sirup', 'ml']),
+            self::option('1 csd', '1 csd (sendok makan)', 'Sendok makan. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text', units: ['sirup', 'ml']),
         ];
     }
 
@@ -163,7 +171,7 @@ class PrescriptionSigCatalog
 
     /**
      * @param  list<string>|null  $units
-     * @return array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null, units: list<string>|null}
+     * @return array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null, units: list<string>|null, set_unit: string|null}
      */
     protected static function option(
         string $label,
@@ -174,6 +182,7 @@ class PrescriptionSigCatalog
         ?float $dose = null,
         ?int $days = null,
         ?array $units = null,
+        ?string $setUnit = null,
     ): array {
         return [
             'label' => $label,
@@ -184,6 +193,7 @@ class PrescriptionSigCatalog
             'dose' => $dose,
             'days' => $days,
             'units' => $units,
+            'set_unit' => $setUnit,
         ];
     }
 }
