@@ -6,21 +6,33 @@
 @section('robots', 'noindex,follow')
 
 @section('content')
-<section class="hero hero--page"><div class="wrap">
-    <h1>Cari artikel</h1>
-    <form action="{{ route('blog.search') }}" method="GET" class="starter-form" style="max-width:28rem">
-        <label>Kata kunci<input type="search" name="q" value="{{ $q }}"></label>
-        <button class="btn btn--primary" type="submit">Cari</button>
-    </form>
-</div></section>
-<section class="section"><div class="wrap">
-    <div class="cards">
-        @forelse ($posts as $post)
-            <article class="card"><h2 style="font-size:1.1rem">{{ $post->title }}</h2><a href="{{ route('blog.show', $post->slug) }}">Baca</a></article>
-        @empty
-            <p>Tidak ada hasil untuk “{{ $q }}”.</p>
-        @endforelse
+<section class="hero hero--page hero--splash">
+    <div class="wrap">
+        <p class="eyebrow">Pencarian</p>
+        <h1>Cari artikel</h1>
+        <form action="{{ route('blog.search') }}" method="GET" class="blog-search">
+            <label>Kata kunci
+                <input type="search" name="q" value="{{ $q }}">
+            </label>
+            <button class="btn btn--primary" type="submit">Cari</button>
+        </form>
     </div>
-    {{ $posts->links('marketing.pagination') }}
-</div></section>
+</section>
+<section class="section">
+    <div class="wrap">
+        <div class="cards">
+            @forelse ($posts as $post)
+                <article class="card blog-card">
+                    <div class="blog-card__body">
+                        <h2>{{ $post->title }}</h2>
+                        <a href="{{ route('blog.show', $post->slug) }}">Baca</a>
+                    </div>
+                </article>
+            @empty
+                <p>Tidak ada hasil untuk “{{ $q }}”.</p>
+            @endforelse
+        </div>
+        {{ $posts->links('marketing.pagination') }}
+    </div>
+</section>
 @endsection

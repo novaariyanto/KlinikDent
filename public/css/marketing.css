@@ -1569,6 +1569,365 @@ a.blog-pager__btn:hover {
   cursor: not-allowed;
 }
 
+/* —— eHealth-inspired marketing sections (KlinikDent teal) —— */
+
+.hero--splash {
+  position: relative;
+  padding: 56px 0 40px;
+  background:
+    radial-gradient(ellipse 80% 60% at 85% 10%, rgba(128, 222, 234, 0.35), transparent 55%),
+    radial-gradient(ellipse 60% 50% at 10% 90%, rgba(0, 121, 107, 0.08), transparent 50%),
+    linear-gradient(180deg, #e8f5f3 0%, var(--bg) 72%);
+  overflow: hidden;
+}
+
+.hero--splash .hero-grid {
+  align-items: center;
+}
+
+.hero--splash .lede {
+  max-width: 36rem;
+  font-size: 1.08rem;
+}
+
+.hero-proof {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+}
+
+.hero-proof li {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--navy);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.benefit-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 22px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  min-height: 100%;
+}
+
+.benefit-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.benefit-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  color: var(--navy);
+}
+
+.benefit-card > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.benefit-card ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.benefit-card li + li {
+  margin-top: 4px;
+}
+
+.benefit-grid--five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.steps--four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  counter-reset: start-step;
+}
+
+.steps--four li {
+  position: relative;
+  padding: 22px 18px 18px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.steps--four li::before {
+  counter-increment: start-step;
+  content: counter(start-step);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin-bottom: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.steps--four strong {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--navy);
+  font-size: 1rem;
+}
+
+.steps--four p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.guarantee-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.guarantee-card {
+  padding: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  border-top: 3px solid var(--accent);
+}
+
+.guarantee-card h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  color: var(--navy);
+}
+
+.guarantee-card p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.cta-band {
+  padding: 56px 0;
+  background: var(--navy);
+  color: #d5e2ec;
+  text-align: center;
+}
+
+.cta-band .section-title {
+  color: #fff;
+}
+
+.cta-band .section-lede {
+  margin-inline: auto;
+  color: #c5d4e0;
+}
+
+.cta-band .hero-actions {
+  justify-content: center;
+  margin-bottom: 0;
+}
+
+.feature-spot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 36px;
+  align-items: center;
+}
+
+.section-head--center {
+  margin-inline: auto;
+  text-align: center;
+}
+
+.section-head--center .section-lede {
+  margin-inline: auto;
+}
+
+.blog-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.blog-card__media {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  background: var(--bg-soft);
+}
+
+.blog-card__body {
+  padding: 16px 18px 18px;
+}
+
+.blog-card__body h2,
+.blog-card__body h3 {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  color: var(--navy);
+}
+
+.blog-search {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: end;
+  max-width: 28rem;
+  margin-top: 1rem;
+}
+
+.blog-search label {
+  display: grid;
+  gap: 4px;
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.blog-search input {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  font: inherit;
+}
+
+.article-hero-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 1rem 0;
+}
+
+.share-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 1.5rem;
+}
+
+.article-aside .toc-card {
+  position: sticky;
+  top: calc(var(--header-h) + 12px);
+  margin-bottom: 1rem;
+}
+
+.aside-title {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  color: var(--navy);
+}
+
+.toc-list {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.toc-list--nested {
+  margin-left: 0.75rem;
+}
+
+.category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.site-footer {
+  background: #fafcfc;
+}
+
+.footer-grid {
+  grid-template-columns: 1.4fr repeat(4, minmax(0, 1fr));
+  gap: 28px;
+}
+
+.footer-brand p {
+  max-width: 28ch;
+}
+
+.footer-contact li {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1100px) {
+  .benefit-grid--five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .guarantee-grid,
+  .steps--four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 1024px) {
+  .feature-spot {
+    grid-template-columns: 1fr;
+  }
+
+  .benefit-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .hero--splash {
+    padding-top: 32px;
+  }
+
+  .benefit-grid,
+  .benefit-grid--five,
+  .guarantee-grid,
+  .steps--four,
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .blog-search {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *,

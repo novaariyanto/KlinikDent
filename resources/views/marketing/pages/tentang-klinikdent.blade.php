@@ -37,7 +37,7 @@
 @endpush
 
 @section('content')
-<section class="hero hero--page">
+<section class="hero hero--page hero--splash">
     <div class="wrap">
         <p class="eyebrow">Tentang produk</p>
         <h1>KlinikDent adalah software manajemen klinik gigi berbasis web.</h1>
@@ -102,10 +102,8 @@
     </div>
 </section>
 
-<section class="final section--navy">
-    <div class="wrap">
-        <h2 class="section-title">Siap melihat alur KlinikDent di klinik Anda?</h2>
-        @include('marketing.partials.cta-pair')
-    </div>
-</section>
+@include('marketing.partials.cta-band', [
+    'title' => 'Siap melihat alur KlinikDent di klinik Anda?',
+    'lede' => 'Daftar untuk onboarding, atau jadwalkan demo sesuai kebutuhan klinik.',
+])
 @endsection

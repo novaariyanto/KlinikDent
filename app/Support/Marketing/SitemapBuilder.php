@@ -17,14 +17,14 @@ final class SitemapBuilder
         $urls = [
             ['loc' => route('home'), 'priority' => '1.0', 'changefreq' => 'weekly', 'lastmod' => now()->toAtomString()],
             ['loc' => route('marketing.tentang'), 'priority' => '0.9', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
-            ['loc' => route('marketing.dokter-baru'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.klinik'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.multi-cabang'), 'priority' => '0.7', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.odontogram'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('marketing.rekam-medis'), 'priority' => '0.8', 'changefreq' => 'monthly'],
-            ['loc' => route('privacy'), 'priority' => '0.3', 'changefreq' => 'yearly'],
-            ['loc' => route('terms'), 'priority' => '0.3', 'changefreq' => 'yearly'],
-            ['loc' => route('blog.index'), 'priority' => '0.7', 'changefreq' => 'daily'],
+            ['loc' => route('marketing.dokter-baru'), 'priority' => '0.8', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('marketing.klinik'), 'priority' => '0.8', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('marketing.multi-cabang'), 'priority' => '0.7', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('marketing.odontogram'), 'priority' => '0.8', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('marketing.rekam-medis'), 'priority' => '0.8', 'changefreq' => 'monthly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('privacy'), 'priority' => '0.3', 'changefreq' => 'yearly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('terms'), 'priority' => '0.3', 'changefreq' => 'yearly', 'lastmod' => now()->toAtomString()],
+            ['loc' => route('blog.index'), 'priority' => '0.7', 'changefreq' => 'daily', 'lastmod' => now()->toAtomString()],
         ];
 
         try {

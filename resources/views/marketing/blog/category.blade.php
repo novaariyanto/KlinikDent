@@ -5,15 +5,28 @@
 @section('canonical', route('blog.category', $category->slug))
 
 @section('content')
-<section class="hero hero--page"><div class="wrap"><h1>{{ $category->name }}</h1><p class="lede">{{ $category->description }}</p></div></section>
-<section class="section"><div class="wrap">
-    <div class="cards">
-        @forelse ($posts as $post)
-            <article class="card"><h2 style="font-size:1.1rem">{{ $post->title }}</h2><a href="{{ route('blog.show', $post->slug) }}">Baca</a></article>
-        @empty
-            <p>Belum ada artikel pada kategori ini.</p>
-        @endforelse
+<section class="hero hero--page hero--splash">
+    <div class="wrap">
+        <p class="eyebrow">Kategori blog</p>
+        <h1>{{ $category->name }}</h1>
+        <p class="lede">{{ $category->description }}</p>
     </div>
-    {{ $posts->links('marketing.pagination') }}
-</div></section>
+</section>
+<section class="section">
+    <div class="wrap">
+        <div class="cards">
+            @forelse ($posts as $post)
+                <article class="card blog-card">
+                    <div class="blog-card__body">
+                        <h2>{{ $post->title }}</h2>
+                        <a href="{{ route('blog.show', $post->slug) }}">Baca</a>
+                    </div>
+                </article>
+            @empty
+                <p>Belum ada artikel pada kategori ini.</p>
+            @endforelse
+        </div>
+        {{ $posts->links('marketing.pagination') }}
+    </div>
+</section>
 @endsection

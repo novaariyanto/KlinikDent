@@ -153,6 +153,152 @@ final class MarketingCatalog
     }
 
     /**
+     * @return list<array{title: string, body: string, items: list<string>}>
+     */
+    public static function benefits(string $appName): array
+    {
+        return [
+            [
+                'title' => 'Khusus klinik gigi',
+                'body' => 'Bukan software klinik umum yang ditambahkan odontogram belakangan.',
+                'items' => [
+                    'Alur pasien hingga billing dalam satu sistem',
+                    'Odontogram di dalam rekam medis kunjungan',
+                    'Peran dokter, asisten, kasir, dan farmasi',
+                ],
+            ],
+            [
+                'title' => 'Siap dipakai cepat',
+                'body' => 'Onboarding klinik tanpa menunggu instalasi lokal yang rumit.',
+                'items' => [
+                    'Daftar dan siapkan profil klinik',
+                    'Tambah dokter, staf, layanan, dan tarif',
+                    'Mulai dari pasien pertama',
+                ],
+            ],
+            [
+                'title' => 'Rekam medis terstruktur',
+                'body' => 'SOAP, diagnosis, tindakan, dan riwayat tersimpan per kunjungan.',
+                'items' => [
+                    'Penomoran FDI dan kondisi per permukaan',
+                    'Riwayat perawatan yang dapat ditelusuri',
+                    'Data tidak tersebar di Excel terpisah',
+                ],
+            ],
+            [
+                'title' => 'Integrasi pendukung',
+                'body' => 'Dikonfigurasi per klinik sesuai kebutuhan operasional.',
+                'items' => [
+                    'Encounter SATUSEHAT',
+                    'Cek kepesertaan BPJS VClaim',
+                    'Pengingat WhatsApp sesuai aktivitas',
+                ],
+            ],
+            [
+                'title' => 'Tumbuh bersama klinik',
+                'body' => $appName.' mengikuti skala praktik mandiri hingga multi-cabang.',
+                'items' => [
+                    'Kontrol akses per peran',
+                    'Laporan operasional dan keuangan',
+                    'Batas cabang mengikuti paket langganan',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array{name: string, text: string}>
+     */
+    public static function startSteps(string $appName): array
+    {
+        return [
+            [
+                'name' => 'Daftar atau jadwalkan demo',
+                'text' => 'Buat akun '.$appName.' atau konsultasikan kebutuhan klinik lewat formulir demo.',
+            ],
+            [
+                'name' => 'Siapkan profil klinik',
+                'text' => 'Lengkapi cabang utama, dokter, staf, layanan, dan tarif melalui onboarding.',
+            ],
+            [
+                'name' => 'Catat kunjungan pertama',
+                'text' => 'Gunakan pendaftaran, pemeriksaan, odontogram, dan billing dalam satu alur.',
+            ],
+            [
+                'name' => 'Kembangkan operasional',
+                'text' => 'Tambah pengguna, cabang, dan integrasi pendukung saat klinik berkembang.',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array{title: string, body: string}>
+     */
+    public static function guarantees(string $appName): array
+    {
+        return [
+            [
+                'title' => 'Integrasi SATUSEHAT',
+                'body' => $appName.' dapat mengirim encounter kunjungan ke SATUSEHAT setelah klinik mengatur kredensial dan konfigurasi yang diperlukan.',
+            ],
+            [
+                'title' => 'Cek BPJS VClaim',
+                'body' => 'Pendaftaran dapat memakai cek kepesertaan BPJS VClaim sesuai pengaturan klinik — tanpa double input manual di luar sistem.',
+            ],
+            [
+                'title' => 'Pengingat WhatsApp',
+                'body' => 'Pengingat otomatis dapat diaktifkan sesuai aktivitas klinik (jadwal, follow-up) dan dikonfigurasi per klinik.',
+            ],
+            [
+                'title' => 'Akses berizin',
+                'body' => 'Halaman operasional memakai login dan peran. Data pasien tidak dipublikasikan di situs marketing atau schema publik.',
+            ],
+        ];
+    }
+
+    /**
+     * @return list<array{href: string, aria: string, alt: string, base: string, width: int, height: int, title: string, caption: string, fallback: string}>
+     */
+    public static function trustLogos(): array
+    {
+        return [
+            [
+                'href' => 'https://pse.komdigi.go.id/',
+                'aria' => 'Cek pendaftaran PSE di situs resmi Komdigi',
+                'alt' => 'Logo PSE Lingkup Privat — Komdigi, Klinikdent terdaftar sebagai PSE',
+                'base' => 'pse',
+                'width' => 222,
+                'height' => 104,
+                'title' => 'PSE (G-MEDIS)',
+                'caption' => '005314.01/DJAI.PSE/01/2024',
+                'fallback' => 'PSE (G-MEDIS)',
+            ],
+            [
+                'href' => 'https://satusehat.kemkes.go.id/platform/system-rme-list/684',
+                'aria' => 'Lihat pendaftaran sistem RME di daftar SatuSehat',
+                'alt' => 'Logo SatuSehat Kementerian Kesehatan RI — Klinikdent terdaftar di daftar sistem RME',
+                'base' => 'satusehat',
+                'width' => 156,
+                'height' => 104,
+                'title' => 'SatuSehat',
+                'caption' => 'Terdaftar di daftar sistem RME',
+                'fallback' => 'SatuSehat',
+            ],
+            [
+                'href' => 'https://hakcipta.dgip.go.id/legal/c/MDAxMzY3MDA0',
+                'aria' => 'Lihat catatan HKI di situs resmi DGIP',
+                'alt' => 'Logo DJKI Direktorat Jenderal Kekayaan Intelektual — hak cipta Klinikdent',
+                'base' => 'hki',
+                'width' => 360,
+                'height' => 97,
+                'title' => 'HKI',
+                'caption' => 'MDAxMzY3MDA0',
+                'fallback' => 'HKI / DJKI',
+            ],
+        ];
+    }
+
+    /**
      * @return list<array{q: string, a: string}>
      */
     public static function faqs(string $appName): array

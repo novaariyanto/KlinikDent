@@ -6,24 +6,78 @@
 @section('canonical', url('/'))
 
 @push('head')
-<script type="application/ld+json">
-{!! json_encode([
-    '@context' => 'https://schema.org',
-    '@graph' => [
-        [
-            '@type' => 'Organization',
-            '@id' => url('/').'#organization',
-            'name' => $appName,
-            'url' => url('/'),
-            'logo' => url($appLogo),
-            'description' => 'Sistem manajemen klinik gigi dengan odontogram sebagai bagian dari rekam medis.',
-        ],
+@php
+    $orgId = url('/').'#organization';
+    $sameAs = collect($seo['social_profiles'] ?? [])->filter(fn ($u) => is_string($u) && $u !== '')->values()->all();
+    $offers = collect($packages ?? [])->map(function ($package) {
+        $amount = (float) $package->price;
+        $offer = [
+            '@type' => 'Offer',
+            'name' => $package->name,
+            'priceCurrency' => 'IDR',
+            'price' => $amount <= 0 ? '0' : (string) $amount,
+            'url' => url('/#harga'),
+            'availability' => 'https://schema.org/InStock',
+        ];
+        if (method_exists($package, 'interval') && $package->interval) {
+            $offer['description'] = 'Paket '.$package->name.' / '.strtolower($package->interval->label());
+        }
+
+        return $offer;
+    })->values()->all();
+
+    $howToSteps = collect($startSteps ?? [])->values()->map(fn ($step, $i) => [
+        '@type' => 'HowToStep',
+        'position' => $i + 1,
+        'name' => $step['name'],
+        'text' => $step['text'],
+    ])->all();
+
+    $organization = [
+        '@type' => 'Organization',
+        '@id' => $orgId,
+        'name' => $seo['organization_name'] ?? $appName,
+        'url' => url('/'),
+        'logo' => url($appLogo),
+        'description' => $seo['organization_description'] ?? 'Sistem manajemen klinik gigi dengan odontogram sebagai bagian dari rekam medis.',
+    ];
+    if ($sameAs !== []) {
+        $organization['sameAs'] = $sameAs;
+    }
+
+    $softwareApp = [
+        '@type' => 'SoftwareApplication',
+        'name' => $appName,
+        'applicationCategory' => 'HealthApplication',
+        'applicationSubCategory' => 'Dental Clinic Management',
+        'operatingSystem' => 'Web',
+        'inLanguage' => 'id-ID',
+        'url' => url('/'),
+        'description' => 'Sistem manajemen klinik gigi untuk pasien, rekam medis, odontogram, pemeriksaan, tindakan, billing, dan operasional klinik.',
+        'featureList' => $softwareFeatures,
+        'publisher' => ['@id' => $orgId],
+    ];
+    if (count($offers) === 1) {
+        $softwareApp['offers'] = $offers[0];
+    } elseif (count($offers) > 1) {
+        $softwareApp['offers'] = [
+            '@type' => 'AggregateOffer',
+            'priceCurrency' => 'IDR',
+            'lowPrice' => (string) collect($offers)->min(fn ($o) => (float) $o['price']),
+            'highPrice' => (string) collect($offers)->max(fn ($o) => (float) $o['price']),
+            'offerCount' => count($offers),
+            'offers' => $offers,
+        ];
+    }
+
+    $graph = [
+        $organization,
         [
             '@type' => 'WebSite',
             '@id' => url('/').'#website',
             'name' => $appName,
             'url' => url('/'),
-            'publisher' => ['@id' => url('/').'#organization'],
+            'publisher' => ['@id' => $orgId],
             'inLanguage' => 'id-ID',
             'potentialAction' => [
                 '@type' => 'SearchAction',
@@ -31,44 +85,51 @@
                 'query-input' => 'required name=search_term_string',
             ],
         ],
-        [
-            '@type' => 'SoftwareApplication',
-            'name' => $appName,
-            'applicationCategory' => 'HealthApplication',
-            'applicationSubCategory' => 'Dental Clinic Management',
-            'operatingSystem' => 'Web',
-            'inLanguage' => 'id-ID',
-            'url' => url('/'),
-            'description' => 'Sistem manajemen klinik gigi untuk pasien, rekam medis, odontogram, pemeriksaan, tindakan, billing, dan operasional klinik.',
-            'featureList' => $softwareFeatures,
-            'publisher' => ['@id' => url('/').'#organization'],
-        ],
+        $softwareApp,
         \App\Support\Marketing\SeoMeta::breadcrumbList([
             ['name' => 'Beranda', 'item' => url('/')],
         ]),
-        [
-            '@type' => 'FAQPage',
-            'mainEntity' => collect($faqs)->map(fn ($item) => [
-                '@type' => 'Question',
-                'name' => $item['q'],
-                'acceptedAnswer' => [
-                    '@type' => 'Answer',
-                    'text' => $item['a'],
-                ],
-            ])->values()->all(),
-        ],
-    ],
+    ];
+    if ($howToSteps !== []) {
+        $graph[] = [
+            '@type' => 'HowTo',
+            'name' => 'Mulai memakai '.$appName,
+            'description' => 'Langkah memulai sistem manajemen klinik gigi '.$appName.'.',
+            'step' => $howToSteps,
+        ];
+    }
+    $graph[] = [
+        '@type' => 'FAQPage',
+        'mainEntity' => collect($faqs)->map(fn ($item) => [
+            '@type' => 'Question',
+            'name' => $item['q'],
+            'acceptedAnswer' => [
+                '@type' => 'Answer',
+                'text' => $item['a'],
+            ],
+        ])->values()->all(),
+    ];
+@endphp
+<script type="application/ld+json">
+{!! json_encode([
+    '@context' => 'https://schema.org',
+    '@graph' => $graph,
 ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS) !!}
 </script>
 @endpush
 
 @section('content')
-<section class="hero">
+<section class="hero hero--splash">
     <div class="wrap hero-grid">
         <div>
-            <p class="eyebrow">KlinikDent</p>
-            <h1>Software Klinik Gigi dengan Rekam Medis &amp; Odontogram Digital</h1>
-            <p class="lede">Kelola pasien, rekam medis elektronik, odontogram digital, pemeriksaan, tindakan, resep, billing, dan operasional klinik dalam satu sistem yang dirancang khusus untuk klinik gigi di Indonesia.</p>
+            <p class="eyebrow">{{ $appName }}</p>
+            <h1>Belum menemukan software klinik gigi yang tepat?</h1>
+            <p class="lede">Kelola pasien, rekam medis elektronik, odontogram digital FDI, pemeriksaan, tindakan, resep, billing, dan operasional klinik dalam satu sistem untuk klinik gigi di Indonesia.</p>
+            <ul class="hero-proof" aria-label="Keunggulan singkat">
+                <li>Odontogram di RME</li>
+                <li>PSE &amp; SatuSehat</li>
+                <li>Siap multi-cabang</li>
+            </ul>
             @include('marketing.partials.cta-pair', ['primaryTrack' => 'hero_cta_clicked', 'secondaryTrack' => 'demo_clicked'])
             <p class="micro">Tidak perlu membangun sistem sendiri. Mulai dari pasien pertama dan kembangkan bersama klinik Anda.</p>
         </div>
@@ -90,136 +151,27 @@
     </div>
 </section>
 
-<section class="band on-sky-wash" aria-label="Kesiapan dan ringkasan produk">
-    <div class="wrap">
-        <p class="trust-label">Terdaftar &amp; terintegrasi</p>
-        <div class="regs">
-            @php
-                $trustLogos = [
-                    [
-                        'href' => 'https://pse.komdigi.go.id/',
-                        'aria' => 'Cek pendaftaran PSE di situs resmi Komdigi',
-                        'alt' => 'Logo PSE Lingkup Privat — Komdigi, Klinikdent terdaftar sebagai PSE',
-                        'base' => 'pse',
-                        'width' => 222,
-                        'height' => 104,
-                        'title' => 'PSE (G-MEDIS)',
-                        'caption' => '005314.01/DJAI.PSE/01/2024',
-                        'fallback' => 'PSE (G-MEDIS)',
-                    ],
-                    [
-                        'href' => 'https://satusehat.kemkes.go.id/platform/system-rme-list/684',
-                        'aria' => 'Lihat pendaftaran sistem RME di daftar SatuSehat',
-                        'alt' => 'Logo SatuSehat Kementerian Kesehatan RI — Klinikdent terdaftar di daftar sistem RME',
-                        'base' => 'satusehat',
-                        'width' => 156,
-                        'height' => 104,
-                        'title' => 'SatuSehat',
-                        'caption' => 'Terdaftar di daftar sistem RME',
-                        'fallback' => 'SatuSehat',
-                    ],
-                    [
-                        'href' => 'https://hakcipta.dgip.go.id/legal/c/MDAxMzY3MDA0',
-                        'aria' => 'Lihat catatan HKI di situs resmi DGIP',
-                        'alt' => 'Logo DJKI Direktorat Jenderal Kekayaan Intelektual — hak cipta Klinikdent',
-                        'base' => 'hki',
-                        'width' => 360,
-                        'height' => 97,
-                        'title' => 'HKI',
-                        'caption' => 'MDAxMzY3MDA0',
-                        'fallback' => 'HKI / DJKI',
-                    ],
-                ];
-            @endphp
-            @foreach ($trustLogos as $logo)
-                @php
-                    $webp = public_path('image/'.$logo['base'].'.webp');
-                    $png = public_path('image/'.$logo['base'].'.web.png');
-                    $hasWebp = is_file($webp);
-                    $hasPng = is_file($png);
-                @endphp
-                <figure class="reg">
-                    <a class="reg-logo" href="{{ $logo['href'] }}" target="_blank" rel="noopener noreferrer" aria-label="{{ $logo['aria'] }}">
-                        @if ($hasWebp || $hasPng)
-                            <picture>
-                                @if ($hasWebp)
-                                    <source type="image/webp" srcset="{{ asset('image/'.$logo['base'].'.webp') }}">
-                                @endif
-                                <img
-                                    src="{{ asset('image/'.$logo['base'].($hasPng ? '.web.png' : '.webp')) }}"
-                                    alt="{{ $logo['alt'] }}"
-                                    width="{{ $logo['width'] }}"
-                                    height="{{ $logo['height'] }}"
-                                    loading="lazy"
-                                    decoding="async"
-                                >
-                            </picture>
-                        @else
-                            <span class="reg-logo-fallback">{{ $logo['fallback'] }}</span>
-                        @endif
-                    </a>
-                    <figcaption><b>{{ $logo['title'] }}</b><span class="reg-num">{{ $logo['caption'] }}</span></figcaption>
-                </figure>
-            @endforeach
-        </div>
-    </div>
-</section>
+@include('marketing.partials.trust-regs')
 
-<section class="section section--tight" id="trust">
-    <div class="wrap">
-        <p class="trust-line">Dibangun khusus untuk alur kerja klinik gigi</p>
-        <ul class="trust">
-            <li>Dirancang untuk dokter gigi dan tim klinik</li>
-            <li>Odontogram di dalam rekam medis</li>
-            <li>Siap dipakai sejak pasien pertama</li>
-        </ul>
-    </div>
-</section>
+@include('marketing.partials.benefit-grid', [
+    'title' => 'Keuntungan memakai sistem RME '.$appName,
+    'lede' => 'Dirancang khusus untuk dokter gigi dan tim klinik — bukan modul odontogram tambahan pada software umum.',
+])
 
-<section class="section section--soft" id="masalah">
-    <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Masih Mengelola Klinik dengan Cara Manual?</h2>
-            <p class="section-lede">{{ $appName }} menyatukan alur tersebut dalam satu sistem yang dibuat khusus untuk klinik gigi.</p>
-        </div>
-        <div class="cards cards--four">
-            <article class="card">
-                <h3>Rekam medis tersebar</h3>
-                <p>Data pasien masih tersimpan di kertas, Excel, atau file yang berbeda.</p>
-            </article>
-            <article class="card">
-                <h3>Odontogram tidak terdokumentasi dengan baik</h3>
-                <p>Riwayat kondisi gigi sulit dilacak ketika pasien kembali.</p>
-            </article>
-            <article class="card">
-                <h3>Administrasi semakin kompleks</h3>
-                <p>Pasien, pemeriksaan, tindakan, resep, pembayaran, dan laporan harus dicatat di tempat berbeda.</p>
-            </article>
-            <article class="card">
-                <h3>Klinik mulai berkembang</h3>
-                <p>Semakin banyak dokter, staf, dan cabang, semakin sulit menjaga data tetap rapi.</p>
-            </article>
-        </div>
-        <div class="mid-cta">
-            @include('marketing.partials.cta-pair')
-        </div>
-    </div>
-</section>
+@include('marketing.partials.start-steps')
 
-<section class="section" id="odontogram">
-    <div class="wrap feature-hero">
+<section class="section section--soft" id="odontogram">
+    <div class="wrap feature-spot">
         <div class="feature-copy">
             <span class="badge">Fitur inti</span>
-            <h2 class="section-title">Odontogram Digital yang Menjadi Bagian dari Rekam Medis Pasien.</h2>
-            <p class="section-lede">Catat kondisi gigi secara terstruktur dan lihat riwayatnya kembali saat pasien datang untuk kunjungan berikutnya.</p>
+            <h2 class="section-title">Odontogram digital di dalam rekam medis pasien</h2>
+            <p class="section-lede">Catat kondisi gigi secara terstruktur dan buka riwayatnya saat pasien kembali.</p>
             <ul class="check">
                 <li>Penomoran FDI</li>
-                <li>Kondisi gigi per gigi</li>
-                <li>Kondisi berdasarkan permukaan gigi</li>
+                <li>Kondisi gigi per gigi dan permukaan</li>
                 <li>Riwayat perubahan kondisi</li>
-                <li>Terhubung dengan kunjungan, pemeriksaan, diagnosis, dan tindakan</li>
+                <li>Terhubung kunjungan, diagnosis, dan tindakan</li>
             </ul>
-            <p class="quote">Bukan sekadar gambar gigi. Odontogram menjadi bagian dari data rekam medis pasien.</p>
             <a class="btn btn--primary" href="{{ route('marketing.odontogram') }}">Pelajari odontogram digital</a>
         </div>
         <div class="mock" aria-label="Mockup odontogram digital">
@@ -234,62 +186,11 @@
     </div>
 </section>
 
-<section class="section section--soft" id="alur">
+<section class="section" id="fitur">
     <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Satu Alur dari Pasien Datang hingga Kunjungan Selesai.</h2>
-            <p class="section-lede">Tidak perlu berpindah-pindah sistem untuk mencatat proses pelayanan pasien.</p>
-        </div>
-        <ol class="steps">
-            <li><b>01</b><span>Pasien datang</span></li>
-            <li><b>02</b><span>Pendaftaran</span></li>
-            <li><b>03</b><span>Pemeriksaan</span></li>
-            <li><b>04</b><span>Odontogram</span></li>
-            <li><b>05</b><span>Diagnosis</span></li>
-            <li><b>06</b><span>Tindakan</span></li>
-            <li><b>07</b><span>Resep / Rujukan</span></li>
-            <li><b>08</b><span>Billing</span></li>
-            <li><b>09</b><span>Rekam medis tersimpan</span></li>
-        </ol>
-        <div class="mid-cta">
-            @include('marketing.partials.cta-pair')
-        </div>
-    </div>
-</section>
-
-<section class="section" id="rekam-medis">
-    <div class="wrap feature-hero">
-        <div class="feature-copy">
-            <h2 class="section-title">Rekam Medis Gigi yang Mengikuti Kunjungan Pasien.</h2>
-            <p class="section-lede">Dokter mencatat di ruang periksa. Data kunjungan tetap utuh ketika pasien kembali.</p>
-            <ul class="check">
-                <li>Data pasien dan kunjungan</li>
-                <li>Pemeriksaan SOAP</li>
-                <li>Odontogram dan diagnosis</li>
-                <li>Tindakan, resep, rujukan, dan instruksi pasien</li>
-                <li>Riwayat perawatan yang dapat ditelusuri</li>
-            </ul>
-            <a class="btn btn--ghost" href="{{ route('marketing.rekam-medis') }}">Cara mencatat rekam medis gigi</a>
-        </div>
-        <div class="tablet" aria-label="Contoh daftar pasien hari ini">
-            <div class="tablet__screen">
-                <div class="mock__bar">Pasien hari ini · drg. Andi</div>
-                <ul class="plist">
-                    <li><span>Siti Rahayu</span><span>Pemeriksaan</span></li>
-                    <li><span>Budi Santoso</span><span>Kontrol</span></li>
-                    <li><span>Maya Putri</span><span>Tumpatan</span></li>
-                    <li><span>Raka Wijaya</span><span>Scaling</span></li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</section>
-
-<section class="section section--soft" id="fitur">
-    <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Fitur yang Mengikuti Alur Kerja Klinik Gigi</h2>
-            <p class="section-lede">Dikelompokkan menurut pekerjaan harian, bukan daftar menu teknis.</p>
+        <div class="section-head section-head--center">
+            <h2 class="section-title">Fitur unggulan {{ $appName }}</h2>
+            <p class="section-lede">Dikelompokkan menurut pekerjaan harian klinik gigi, bukan daftar menu teknis.</p>
         </div>
         <div class="cards">
             @foreach ($featureGroups as $group)
@@ -303,127 +204,22 @@
                 </article>
             @endforeach
         </div>
-        <p class="note">Integrasi pendukung: pengingat WhatsApp sesuai aktivitas klinik, pengiriman encounter kunjungan ke SATUSEHAT, dan cek kepesertaan BPJS VClaim pada pendaftaran. Ketiganya dikonfigurasi per klinik.</p>
-    </div>
-</section>
-
-<section class="section" id="baru">
-    <div class="wrap feature-hero">
-        <div class="feature-copy">
-            <h2 class="section-title">Baru Lulus dan Mau Membuka Klinik Gigi?</h2>
-            <p class="section-lede">Jangan mulai dengan spreadsheet yang akan semakin rumit ketika pasien mulai bertambah.</p>
-            <ul class="check">
-                <li><strong>Mulai sederhana.</strong> Buat klinik dan mulai mencatat pasien.</li>
-                <li><strong>Rekam medis lebih terstruktur.</strong> Semua kunjungan tersimpan dalam satu tempat.</li>
-                <li><strong>Siap berkembang.</strong> Bangun alur yang rapi sejak awal agar tidak perlu berganti sistem.</li>
-            </ul>
-            <div class="hero-actions">
-                <a class="btn btn--primary" href="{{ route('register') }}" data-track="register_clicked">Mulai Klinik Anda</a>
-                <a class="btn btn--ghost" href="{{ route('marketing.dokter-baru') }}">Untuk dokter gigi baru</a>
-            </div>
-        </div>
-        <div class="mock" aria-label="Langkah setup klinik">
-            <div class="mock__bar">Onboarding · Setup klinik</div>
-            <ol class="onboard onboard--stack">
-                <li>Profil klinik</li>
-                <li>Cabang utama</li>
-                <li>Dokter dan staf</li>
-                <li>Layanan dan tarif</li>
-            </ol>
+        <p class="note" style="text-align:center">Integrasi pendukung: WhatsApp, SATUSEHAT Encounter, dan BPJS VClaim — dikonfigurasi per klinik.</p>
+        <div class="mid-cta" style="justify-content:center">
+            <a class="btn btn--ghost" href="{{ route('marketing.dokter-baru') }}">Untuk dokter gigi baru</a>
+            <a class="btn btn--ghost" href="{{ route('marketing.multi-cabang') }}">Klinik multi-cabang</a>
+            <a class="btn btn--ghost" href="{{ route('marketing.rekam-medis') }}">Rekam medis gigi</a>
         </div>
     </div>
 </section>
 
-<section class="section section--soft" id="starter-kit">
-    <div class="wrap pricing">
-        <div>
-            <h2 class="section-title">Sedang Mempersiapkan Klinik Gigi Pertama Anda?</h2>
-            <p class="section-lede">Dapatkan checklist praktis untuk mempersiapkan administrasi dan operasional klinik gigi.</p>
-            <ul class="plain">
-                <li>Checklist persiapan klinik dan peralatan</li>
-                <li>Struktur data pasien dan contoh alur kunjungan</li>
-                <li>Checklist rekam medis dan panduan dasar odontogram</li>
-            </ul>
-        </div>
-        @include('marketing.partials.starter-form')
-    </div>
-</section>
-
-<section class="section" id="multi-cabang">
-    <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Ketika Klinik Anda Berkembang, Sistemnya Harus Ikut Berkembang.</h2>
-            <p class="section-lede">Kelola operasional klinik dengan struktur data dan workflow yang siap mendukung pertumbuhan.</p>
-        </div>
-        <div class="org" aria-label="Struktur owner dan cabang">
-            <div class="org__root">Owner</div>
-            <div class="org__branches">
-                <div>
-                    <strong>Cabang A</strong>
-                    <span>Dokter · Staf</span>
-                </div>
-                <div>
-                    <strong>Cabang B</strong>
-                    <span>Dokter · Staf</span>
-                </div>
-                <div>
-                    <strong>Cabang C</strong>
-                    <span>Dokter · Staf</span>
-                </div>
-            </div>
-        </div>
-        <ul class="check check--grid">
-            <li>Data lebih terstruktur per cabang</li>
-            <li>Role dan kontrol akses</li>
-            <li>Laporan operasional dan keuangan</li>
-            <li>Standar alur kerja yang sama</li>
-        </ul>
-        <p class="note">Dirancang untuk berkembang bersama klinik Anda. Jumlah cabang mengikuti paket langganan.</p>
-        <div class="mid-cta">
-            <a class="btn btn--primary" href="{{ route('home', ['intent' => 'cabang']).'#demo' }}" data-track="demo_clicked">Diskusikan Kebutuhan Klinik</a>
-            <a class="btn btn--ghost" href="{{ route('marketing.multi-cabang') }}">Pelajari multi-cabang</a>
-        </div>
-    </div>
-</section>
-
-<section class="section section--navy" id="dental">
-    <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Bukan Software Klinik Umum yang Ditambahkan Odontogram.</h2>
-            <p class="section-lede">{{ $appName }} dibangun dengan memahami workflow klinik gigi — mulai dari pasien, kunjungan, pemeriksaan, odontogram, diagnosis, tindakan, hingga billing.</p>
-        </div>
-        <div class="compare">
-            <article>
-                <h3>Software klinik umum</h3>
-                <ul>
-                    <li>Pasien</li>
-                    <li>Pemeriksaan</li>
-                    <li>Billing</li>
-                </ul>
-            </article>
-            <article class="compare--after">
-                <h3>{{ $appName }}</h3>
-                <ul>
-                    <li>Pasien</li>
-                    <li>Kunjungan</li>
-                    <li>Pemeriksaan</li>
-                    <li>Odontogram</li>
-                    <li>Diagnosis</li>
-                    <li>Tindakan</li>
-                    <li>Resep</li>
-                    <li>Billing</li>
-                    <li>Riwayat perawatan</li>
-                </ul>
-            </article>
-        </div>
-    </div>
-</section>
+@include('marketing.partials.guarantee-grid')
 
 <section class="section" id="harga" data-track-view="pricing_viewed">
     <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Pilih paket yang sesuai dengan tahap perkembangan klinik Anda.</h2>
-            <p class="section-lede">Mulai dari klinik kecil. Upgrade ketika klinik berkembang. Untuk kebutuhan multi-cabang, hubungi kami.</p>
+        <div class="section-head section-head--center">
+            <h2 class="section-title">Pilih paket sesuai tahap klinik Anda</h2>
+            <p class="section-lede">Mulai dari skala kecil. Upgrade saat klinik berkembang. Diskusikan multi-cabang jika melewati batas paket.</p>
         </div>
         @if ($packages->isNotEmpty())
             <div class="price-grid">
@@ -453,15 +249,20 @@
                 @endforeach
             </div>
         @endif
-        <p class="note">Harga mengikuti paket aktif di sistem. Diskusikan kebutuhan multi-cabang jika klinik Anda melewati batas paket.</p>
+        <p class="note" style="text-align:center">Harga mengikuti paket aktif di sistem.</p>
     </div>
 </section>
 
 <section class="section section--soft" id="demo">
     <div class="wrap pricing">
         <div>
-            <h2 class="section-title">Ingin Melihat {{ $appName }} Bekerja di Klinik Anda?</h2>
+            <h2 class="section-title">Ingin melihat {{ $appName }} di klinik Anda?</h2>
             <p class="section-lede">Konsultasikan kebutuhan klinik dan lihat bagaimana {{ $appName }} menyesuaikan alur operasional Anda.</p>
+            <ul class="check">
+                <li>Demo sesuai skenario klinik Anda</li>
+                <li>Tanpa komitmen berlangganan di formulir ini</li>
+                <li>Atau <a href="{{ route('register') }}">daftar langsung</a> dan mulai onboarding</li>
+            </ul>
         </div>
         <form class="form" method="POST" action="{{ route('demo.store') }}" novalidate data-track-submit="demo_clicked">
             @csrf
@@ -500,21 +301,34 @@
 
 <section class="section" id="edukasi">
     <div class="wrap">
-        <div class="section-head">
-            <h2 class="section-title">Belajar Mengelola Klinik Gigi</h2>
-            <p class="section-lede">Panduan produk dan artikel blog tentang odontogram, rekam medis gigi, dan digitalisasi klinik.</p>
+        <div class="section-head section-head--center">
+            <h2 class="section-title">Belajar mengelola klinik gigi</h2>
+            <p class="section-lede">Panduan produk dan artikel tentang odontogram, rekam medis gigi, dan digitalisasi klinik.</p>
         </div>
         @if (($latestPosts ?? collect())->isNotEmpty())
             <div class="cards" style="margin-bottom:1.5rem">
                 @foreach ($latestPosts as $post)
-                    <article class="card">
-                        <h3>{{ $post->title }}</h3>
-                        <p>{{ $post->excerpt ?: \Illuminate\Support\Str::limit(strip_tags((string) $post->body), 120) }}</p>
-                        <a href="{{ route('blog.show', $post->slug) }}">Baca artikel</a>
+                    <article class="card blog-card">
+                        @if ($post->featuredMedia)
+                            <img
+                                class="blog-card__media"
+                                src="{{ $post->featuredMedia->url() }}"
+                                alt="{{ $post->featuredMedia->alt ?: $post->title }}"
+                                width="640"
+                                height="360"
+                                loading="lazy"
+                                decoding="async"
+                            >
+                        @endif
+                        <div class="blog-card__body">
+                            <h3>{{ $post->title }}</h3>
+                            <p>{{ $post->excerpt ?: \Illuminate\Support\Str::limit(strip_tags((string) $post->body), 120) }}</p>
+                            <a href="{{ route('blog.show', $post->slug) }}">Baca artikel</a>
+                        </div>
                     </article>
                 @endforeach
             </div>
-            <p style="margin-bottom:1.25rem"><a href="{{ route('blog.index') }}">Lihat semua artikel blog →</a></p>
+            <p style="margin-bottom:1.25rem;text-align:center"><a href="{{ route('blog.index') }}">Lihat semua artikel blog →</a></p>
         @endif
         <div class="cards">
             @foreach ($hubs as $hub)
@@ -530,18 +344,12 @@
 
 <section class="section section--soft" id="faq">
     <div class="wrap">
-        <div class="section-head">
+        <div class="section-head section-head--center">
             <h2 class="section-title">Pertanyaan yang sering diajukan</h2>
         </div>
         @include('marketing.partials.faq')
     </div>
 </section>
 
-<section class="final section--navy">
-    <div class="wrap">
-        <h2 class="section-title">Siapkan Sistem Klinik Gigi Anda dari Sekarang.</h2>
-        <p class="section-lede">Mulai dengan pasien pertama. Bangun workflow yang rapi. Kembangkan klinik Anda dengan sistem yang siap mengikuti pertumbuhan.</p>
-        @include('marketing.partials.cta-pair', ['secondaryClass' => 'btn--ghost'])
-    </div>
-</section>
+@include('marketing.partials.cta-band')
 @endsection

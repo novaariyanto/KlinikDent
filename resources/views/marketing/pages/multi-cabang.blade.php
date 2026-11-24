@@ -8,7 +8,7 @@
 @include('marketing.partials.hub-schema')
 
 @section('content')
-<section class="hero hero--page">
+<section class="hero hero--page hero--splash">
     <div class="wrap">
         <p class="eyebrow">Klinik berkembang</p>
         <h1>{{ $page['h1'] }}</h1>
@@ -48,13 +48,8 @@
     </div>
 </section>
 
-<section class="final section--navy">
-    <div class="wrap">
-        <h2 class="section-title">Siapkan struktur data sebelum cabang berikutnya dibuka.</h2>
-        <div class="hero-actions">
-            <a class="btn btn--light" href="{{ route('home', ['intent' => 'cabang']).'#demo' }}" data-track="demo_clicked">Diskusikan Kebutuhan Klinik</a>
-            <a class="btn btn--ghost" href="{{ route('register') }}" data-track="register_clicked">Coba {{ $appName }}</a>
-        </div>
-    </div>
-</section>
+@include('marketing.partials.cta-band', [
+    'title' => 'Siapkan struktur data sebelum cabang berikutnya dibuka.',
+    'lede' => 'Cabang, peran, dan laporan mengikuti pertumbuhan klinik sesuai paket langganan.',
+])
 @endsection

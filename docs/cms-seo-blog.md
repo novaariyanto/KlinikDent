@@ -38,6 +38,14 @@ Modul blog/CMS platform untuk situs marketing `klinikdent.id` (tanpa `tenant_id`
 - Evaluasi rubrik: `docs/seo-geo-evaluation-2026-11-18.md`
 - Spec/plan: `docs/superpowers/specs/2026-11-18-seo-geo-optimization-design.md`, `docs/superpowers/plans/2026-11-18-seo-geo-optimization.md`
 
+## Redesign marketing + SEO/GEO (2026-11-18)
+
+- Surface marketing (beranda, hub, tentang, blog) memakai ritme visual ala eHealth dengan palet teal KlinikDent.
+- Beranda: hero splash, trust PSE/SatuSehat/HKI, benefit, 4 langkah, fitur, jaminan, harga, demo, edukasi, FAQ, CTA band.
+- Schema beranda: Organization, WebSite, SoftwareApplication (+ Offer/AggregateOffer dari paket), HowTo, FAQPage, BreadcrumbList — tanpa AggregateRating/testimoni.
+- Footer multi-kolom SEO-rich; `llms.txt` dan sitemap lastmod hub diperbarui.
+- Setelah ubah CSS: regenerate `public/css/marketing.min.css` (layout meng-inline file min).
+
 ## Routes admin (`/cms/*`)
 
 Butuh permission `cms.view` / `cms.manage` / `seo.manage` + akses SuperAdmin SaaS.
@@ -56,7 +64,8 @@ Butuh permission `cms.view` / `cms.manage` / `seo.manage` + akses SuperAdmin Saa
 ## Checklist deploy
 
 - [ ] Migrate + seed permission/menu/cms
-- [ ] Smoke: `/`, `/blog`, `/sitemap.xml`, `/robots.txt`, `/llms.txt`
+- [ ] Smoke: `/`, `/tentang-klinikdent`, hub pages, `/blog`, `/sitemap.xml`, `/robots.txt`, `/llms.txt`
+- [ ] View-source beranda: cek JSON-LD Offer/HowTo/FAQ sinkron dengan UI
 - [ ] Login SuperAdmin → menu SEO & Content
 - [ ] Preview draft tidak muncul di `/blog` tanpa auth
 - [ ] Regresi: login, dashboard SaaS, demo/starter-kit
