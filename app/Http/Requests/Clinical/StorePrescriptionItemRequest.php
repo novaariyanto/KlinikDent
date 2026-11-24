@@ -188,6 +188,9 @@ class StorePrescriptionItemRequest extends FormRequest
         if ($merge['jho'] && (! filled($this->input('duration')) || trim((string) $this->input('duration')) === '-')) {
             $merge['duration'] = $merge['jho'].' hari';
         }
+        if ($this->input('_form') === 'rx-editor-create') {
+            $merge = array_merge($merge, PrescriptionQuantity::editorQuantity(array_merge($this->all(), $merge)));
+        }
 
         $this->merge($merge);
     }

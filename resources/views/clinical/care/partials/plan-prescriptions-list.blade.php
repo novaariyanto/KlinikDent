@@ -103,7 +103,7 @@
                                     @endforeach
                                     <input type="hidden" name="medicine_id" value="{{ $item->medicine_id }}">
                                 @elseif ($rowEditable)
-                                    <select class="form-select form-select-sm" name="medicine_id" data-rx-medicine-id data-rx-medicine-select autocomplete="off">
+                                    <select class="form-select form-select-sm" name="medicine_id" data-rx-field data-rx-medicine-id data-rx-medicine-select autocomplete="off">
                                         <option value="">Cari obat…</option>
                                         @foreach ($medicines as $medicine)
                                             <option value="{{ $medicine->id }}" @selected((int) $item->medicine_id === (int) $medicine->id)>{{ $medicine->name }}{{ ($strength = $medicine->strengthLabel()) ? ' · '.$strength : '' }}</option>

@@ -171,6 +171,9 @@ class UpdatePrescriptionItemRequest extends FormRequest
         if ($merge['jho'] && (! filled($this->input('duration')) || trim((string) $this->input('duration')) === '-')) {
             $merge['duration'] = $merge['jho'].' hari';
         }
+        if ($this->input('_form') === 'rx-editor-row') {
+            $merge = array_merge($merge, PrescriptionQuantity::editorQuantity(array_merge($this->all(), $merge)));
+        }
 
         /** @var PrescriptionItem|null $item */
         $item = $this->route('prescriptionItem');

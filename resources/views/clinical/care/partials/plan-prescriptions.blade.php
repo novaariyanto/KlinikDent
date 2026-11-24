@@ -959,6 +959,17 @@
         });
     }
 
+    function rxFillFrequencySigna(row, times, dose) {
+        var pattern = { 1: [1, 0, 0, 0], 2: [1, 0, 0, 1], 3: [1, 1, 0, 1], 4: [1, 1, 1, 1] }[times];
+        if (!pattern) return false;
+        ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name, index) {
+            var input = row.querySelector('[name="' + name + '"]');
+            if (!input) return;
+            input.value = pattern[index] ? rxTrimNum(dose) : '';
+        });
+        return true;
+    }
+
     function rxClearQtyManual(row) {
         var qty = row.querySelector('[data-rx-qty]');
         var flag = row.querySelector('[name="quantity_manual"]');
@@ -977,10 +988,12 @@
             rxClearSigna(row);
         } else {
             if (freq) freq.value = fillValue;
-            var dose = sig.getAttribute('data-sig-dose');
+            var dose = Number(sig.getAttribute('data-sig-dose') || 1);
+            if (!dose || dose <= 0) dose = 1;
+            var times = Number(sig.getAttribute('data-sig-times') || 0);
             var dosage = row.querySelector('[name="dosage"]');
-            if (dose && dosage && !String(dosage.value || '').trim()) dosage.value = dose;
-            rxClearSigna(row);
+            if (sig.getAttribute('data-sig-dose') && dosage && !String(dosage.value || '').trim()) dosage.value = String(dose);
+            if (!rxFillFrequencySigna(row, times, dose)) rxClearSigna(row);
         }
         rxClearQtyManual(row);
         rxAutoQty(row);
@@ -1253,6 +1266,14 @@
     }
 
     function rxCollectRowPayload(row) {
+        var qtyInput = row.querySelector('[data-rx-qty]');
+        if (!qtyInput || qtyInput.dataset.manual !== '1') rxAutoQty(row);
+        var result = rxAssess(row);
+        if (qtyInput && result.mode === 'manual') {
+            qtyInput.dataset.manual = '1';
+            var manualFlag = row.querySelector('[name="quantity_manual"]');
+            if (manualFlag) manualFlag.value = '1';
+        }
         var data = {
             _token: rxCsrf(),
             _method: 'PUT',
@@ -1260,10 +1281,14 @@
             quantity: 1,
             medication_type: 'NC'
         };
-        row.querySelectorAll('[data-rx-field], [data-rx-frequency], input[type="hidden"][name]').forEach(function (input) {
-            if (!input.name) return;
+        row.querySelectorAll('[data-rx-field], [data-rx-frequency], [data-rx-medicine-id], input[type="hidden"][name], select[name]').forEach(function (input) {
+            if (!input.name || input.disabled) return;
             data[input.name] = input.value;
         });
+        if (qtyInput && result.mode === 'calculated' && qtyInput.dataset.manual !== '1' && result.quantity) {
+            data.quantity = String(result.quantity);
+            data.quantity_manual = '0';
+        }
         var jho = Number(data.jho || 0);
         if (jho > 0 && (!data.duration || data.duration === '-')) data.duration = jho + ' hari';
         if (!data.dosage || data.dosage === '-') data.dosage = '';

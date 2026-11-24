@@ -102,6 +102,36 @@ final class PrescriptionQuantity
     /**
      * @param  array<string, mixed>  $input
      */
+    /**
+     * Autosave editor: pakai Qty yang dibulatkan ke atas, atau kunci angka yang sudah diisi.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public static function editorQuantity(array $input): array
+    {
+        $result = self::assess($input);
+        $manual = filter_var($input['quantity_manual'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        if ($result['mode'] === 'calculated' && $result['quantity'] && ! $manual) {
+            $adjusted = [
+                'quantity' => $result['quantity'],
+                'quantity_manual' => false,
+            ];
+            if ($result['liquid']) {
+                $adjusted['unit'] = 'ml';
+            }
+
+            return $adjusted;
+        }
+
+        if ($result['mode'] === 'manual' && filled($input['quantity'] ?? null)) {
+            return ['quantity_manual' => true];
+        }
+
+        return [];
+    }
+
     public static function mismatchMessage(array $input): ?string
     {
         $result = self::assess($input);
