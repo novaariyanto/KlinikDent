@@ -83,7 +83,7 @@ final class PrescriptionQuantity
         }
 
         if ($schedule['daily'] === null || $schedule['daily'] <= 0 || $days === null || $days <= 0) {
-            $base['formula'] = 'Qty = dosis tiap kali × frekuensi per hari × jumlah hari obat.';
+            $base['formula'] = 'Qty = dosis × signa × jumlah hari obat.';
 
             return $base;
         }
@@ -355,22 +355,28 @@ final class PrescriptionQuantity
                 $shown[] = $labels[$index].' '.($slot === null ? '0' : self::trimNumber($slot));
             }
 
-            if ($ml !== null && $administrations > 0) {
+            $signa = $daily;
+            $dose = $ml ?? $doseText;
+            if ($dose === null && $signa > 0 && $ml === null && ! self::looksLiquid($input)) {
+                $dose = 1.0;
+            }
+
+            if ($dose === null || $signa <= 0) {
                 return [
-                    'dose' => $ml,
-                    'times' => $administrations,
-                    'daily' => $ml * $administrations,
-                    'administrations' => $administrations,
-                    'explain' => self::trimNumber($ml).' ml × '.$administrations.' kali ('.implode(', ', $shown).')',
+                    'dose' => $dose,
+                    'times' => $signa > 0 ? $signa : null,
+                    'daily' => null,
+                    'administrations' => $administrations > 0 ? $administrations : null,
+                    'explain' => 'Qty = dosis × signa × jumlah hari obat.',
                 ];
             }
 
             return [
-                'dose' => null,
-                'times' => $administrations > 0 ? $administrations : null,
-                'daily' => $daily > 0 ? $daily : null,
+                'dose' => $dose,
+                'times' => $signa,
+                'daily' => $dose * $signa,
                 'administrations' => $administrations > 0 ? $administrations : null,
-                'explain' => '('.implode(' + ', array_map(fn ($slot) => self::trimNumber($slot ?? 0), $slots)).')',
+                'explain' => self::trimNumber($dose).($ml !== null ? ' ml' : '').' × '.self::trimNumber($signa).' ('.implode(', ', $shown).')',
             ];
         }
 

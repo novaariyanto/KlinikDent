@@ -965,7 +965,7 @@
         ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name, index) {
             var input = row.querySelector('[name="' + name + '"]');
             if (!input) return;
-            input.value = pattern[index] ? rxTrimNum(dose) : '';
+            input.value = pattern[index] ? '1' : '';
         });
         return true;
     }
@@ -992,8 +992,8 @@
             if (!dose || dose <= 0) dose = 1;
             var times = Number(sig.getAttribute('data-sig-times') || 0);
             var dosage = row.querySelector('[name="dosage"]');
-            if (sig.getAttribute('data-sig-dose') && dosage && !String(dosage.value || '').trim()) dosage.value = String(dose);
-            if (!rxFillFrequencySigna(row, times, dose)) rxClearSigna(row);
+            if (sig.getAttribute('data-sig-dose') && dosage) dosage.value = String(dose);
+            if (!rxFillFrequencySigna(row, times, 1)) rxClearSigna(row);
         }
         rxClearQtyManual(row);
         rxAutoQty(row);
@@ -1120,12 +1120,13 @@
                 }
                 shown.push(labelsSlot[index] + ' ' + rxTrimNum(slot || 0));
             });
-            if (ml != null && administrations > 0) {
-                daily = ml * administrations;
-                explain = rxTrimNum(ml) + ' ml × ' + administrations + ' kali (' + shown.join(', ') + ')';
-            } else if (sum > 0) {
-                daily = sum;
-                explain = '(' + slots.map(function (slot) { return rxTrimNum(slot || 0); }).join(' + ') + ')';
+            var signa = sum;
+            var doseAmount = ml != null ? ml : rxParseAmount(dosage);
+            var looksLiquid = unit === 'ml' || unit === 'sirup' || dosageLower.indexOf('ml') !== -1 || dosageLower.indexOf('sirup') !== -1;
+            if (doseAmount == null && signa > 0 && ml == null && !looksLiquid) doseAmount = 1;
+            if (doseAmount != null && signa > 0) {
+                daily = doseAmount * signa;
+                explain = rxTrimNum(doseAmount) + (ml != null ? ' ml' : '') + ' × ' + rxTrimNum(signa) + ' (' + shown.join(', ') + ')';
             }
         } else {
             var frequency = rxField(row, 'frequency');
@@ -1151,7 +1152,7 @@
         }
 
         if (!daily || daily <= 0 || !days) {
-            base.formula = 'Qty = dosis tiap kali × frekuensi per hari × jumlah hari obat.';
+            base.formula = 'Qty = dosis × signa × jumlah hari obat.';
             return base;
         }
         var quantity = Math.ceil(Math.round(daily * days * 10000) / 10000);
