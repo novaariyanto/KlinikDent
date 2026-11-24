@@ -26,7 +26,7 @@
                         @csrf
                         <button type="submit" class="dropdown-item">
                             <i class="bx bx-sync me-1"></i>
-                            {{ $status === \App\Enums\UserStatus::Active ? 'Deactivate' : 'Activate' }}
+                            {{ $status === \App\Enums\UserStatus::Active ? 'Deactivate' : 'Aktifkan' }}
                         </button>
                     </form>
                 </li>

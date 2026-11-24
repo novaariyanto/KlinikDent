@@ -226,6 +226,32 @@
             font-weight: 400;
         }
 
+        .soap-vital-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+            gap: 0.5rem 0.75rem;
+            width: 100%;
+        }
+
+        .soap-vital-grid label {
+            display: grid;
+            gap: 0.2rem;
+            margin: 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            min-width: 0;
+        }
+
+        .soap-vital-grid__wide {
+            grid-column: span 2;
+        }
+
+        .soap-vital-grid .input-group-text {
+            font-size: 0.75rem;
+            font-weight: 600;
+            padding: 0.25rem 0.45rem;
+        }
+
         .soap-icd {
             display: grid;
             gap: 0.65rem 1rem;

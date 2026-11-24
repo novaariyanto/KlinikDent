@@ -187,6 +187,12 @@ final class SatuSehatPayloadValidator
                 'Validasi lokal gagal ['.$localKey.']: Encounter.location[0].extension[0].ExtUrl:upgradeClassIndicator wajib diisi (RuleNumber: 10165).'
             );
         }
+
+        if (($payload['status'] ?? '') === 'finished' && (! is_array($payload['diagnosis'] ?? null) || $payload['diagnosis'] === [])) {
+            throw IntegrationException::permanent(
+                'Validasi lokal gagal ['.$localKey.']: Encounter.diagnosis wajib diisi saat kunjungan ditutup (RuleNumber: 10457).'
+            );
+        }
     }
 
     /**

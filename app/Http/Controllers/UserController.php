@@ -11,8 +11,10 @@ use App\Models\Branch;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Support\Impersonation;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Spatie\Permission\Models\Role;
@@ -44,11 +46,15 @@ class UserController extends Controller
         return view('users.index', compact('columns'));
     }
 
-    public function data(): JsonResponse
+    public function data(Request $request): JsonResponse
     {
         $this->authorize('viewAny', User::class);
 
         $query = User::query()->with(['roles', 'tenant', 'branch', 'branches']);
+        $status = $request->string('status')->toString() === UserStatus::Inactive->value
+            ? UserStatus::Inactive
+            : UserStatus::Active;
+        $query->where('status', $status);
 
         return DataTables::eloquent($query)
             ->addIndexColumn()
@@ -180,16 +186,35 @@ class UserController extends Controller
 
         $before = activity_snapshot($user);
 
+        try {
+            $user->delete();
+        } catch (QueryException $exception) {
+            if ((int) ($exception->errorInfo[1] ?? 0) !== 1451) {
+                throw $exception;
+            }
+
+            return back()->with('error', $this->userDeleteBlockedMessage($exception));
+        }
+
         activity_audit('deleted', $user, $before, 'Deleted user '.$user->name, 'users', [
             'name' => $user->name,
             'email' => $user->email,
         ]);
 
-        $user->delete();
-
         return redirect()
             ->route('users.index')
             ->with('success', 'User deleted successfully.');
+    }
+
+    protected function userDeleteBlockedMessage(QueryException $exception): string
+    {
+        $detail = $exception->getMessage();
+
+        if (str_contains($detail, 'cashier_shifts') || str_contains($detail, 'payments')) {
+            return 'User tidak dapat dihapus karena masih tercatat sebagai kasir pada shift atau pembayaran. Nonaktifkan akun jika tidak lagi bertugas.';
+        }
+
+        return 'User tidak dapat dihapus karena masih dipakai pada data lain. Nonaktifkan akun sebagai gantinya.';
     }
 
     public function toggleStatus(User $user): RedirectResponse

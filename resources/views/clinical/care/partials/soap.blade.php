@@ -13,6 +13,7 @@
         </div>
     @endunless
     <div class="care-section__body">
+        @unless ($embedded)
         @can('medical_record.update')
             @if ($writable)
                 <form action="{{ route('care.record.update', $visit) }}" method="POST" data-autosave>
@@ -28,10 +29,11 @@
         @elsecan('medical_record.view')
             <p>{{ $complaintValue ?: '—' }}</p>
         @endcan
+        @endunless
 
         @can('anamnesis.manage')
             @if ($writable)
-                <form action="{{ route('care.anamnesis.update', $visit) }}" method="POST" data-autosave class="{{ $embedded ? 'mt-2' : '' }}">
+                <form action="{{ route('care.anamnesis.update', $visit) }}" method="POST" data-autosave>
                     @csrf
                     @method('PUT')
                     <div class="soap-field">
@@ -39,10 +41,10 @@
                     </div>
                 </form>
             @elseif ($anamnesisValue !== '')
-                <p class="text-muted mb-0 mt-2">{{ $anamnesisValue }}</p>
+                <p class="text-muted mb-0">{{ $anamnesisValue }}</p>
             @endif
         @elsecan('anamnesis.view')
-            <p class="text-muted mb-0 {{ $embedded ? 'mt-2' : '' }}">{{ $anamnesisValue ?: '—' }}</p>
+            <p class="text-muted mb-0">{{ $anamnesisValue ?: '—' }}</p>
         @endcan
     </div>
 </section>

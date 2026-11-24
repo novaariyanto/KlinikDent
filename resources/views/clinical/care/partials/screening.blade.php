@@ -201,13 +201,48 @@
                 @method('PUT')
                 @if ($embedded)
                     <div class="soap-vital-grid">
-                        <label>Sistole <span>mmHg</span><input class="form-control vital-example" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="cth: 120"></label>
-                        <label>Diastole <span>mmHg</span><input class="form-control vital-example" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="cth: 80"></label>
-                        <label>Nadi <span>x/mnt</span><input class="form-control vital-example" name="pulse" value="{{ $vitalSigns['pulse'] ?? '' }}" inputmode="numeric" placeholder="cth: 84"></label>
-                        <label>Napas <span>x/mnt</span><input class="form-control vital-example" name="respiration" value="{{ $vitalSigns['respiration'] ?? '' }}" inputmode="numeric" placeholder="cth: 20"></label>
-                        <label>Suhu <span>°C</span><input class="form-control vital-example" name="temperature" value="{{ $vitalSigns['temperature'] ?? '' }}" inputmode="decimal" placeholder="cth: 36.5"></label>
-                        <label>Berat <span>kg</span><input class="form-control vital-example" name="weight" value="{{ $vitalSigns['weight'] ?? '' }}" inputmode="decimal" placeholder="cth: 60"></label>
-                        <label>Tinggi <span>cm</span><input class="form-control vital-example" name="height" value="{{ $vitalSigns['height'] ?? '' }}" inputmode="decimal" placeholder="cth: 160"></label>
+                        <label>Sistole
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="blood_pressure_sys" value="{{ $bpSys }}" inputmode="numeric" placeholder="120" aria-label="Sistole">
+                                <span class="input-group-text">mmHg</span>
+                            </span>
+                        </label>
+                        <label>Diastole
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="blood_pressure_dia" value="{{ $bpDia }}" inputmode="numeric" placeholder="80" aria-label="Diastole">
+                                <span class="input-group-text">mmHg</span>
+                            </span>
+                        </label>
+                        <label>Nadi
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="pulse" value="{{ $vitalSigns['pulse'] ?? '' }}" inputmode="numeric" placeholder="84" aria-label="Nadi">
+                                <span class="input-group-text">x/menit</span>
+                            </span>
+                        </label>
+                        <label>Napas
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="respiration" value="{{ $vitalSigns['respiration'] ?? '' }}" inputmode="numeric" placeholder="20" aria-label="Napas">
+                                <span class="input-group-text">x/menit</span>
+                            </span>
+                        </label>
+                        <label>Suhu
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="temperature" value="{{ $vitalSigns['temperature'] ?? '' }}" inputmode="decimal" placeholder="36.5" aria-label="Suhu">
+                                <span class="input-group-text">°C</span>
+                            </span>
+                        </label>
+                        <label>Berat
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="weight" value="{{ $vitalSigns['weight'] ?? '' }}" inputmode="decimal" placeholder="60" aria-label="Berat">
+                                <span class="input-group-text">kg</span>
+                            </span>
+                        </label>
+                        <label>Tinggi
+                            <span class="input-group input-group-sm">
+                                <input class="form-control vital-example" name="height" value="{{ $vitalSigns['height'] ?? '' }}" inputmode="decimal" placeholder="160" aria-label="Tinggi">
+                                <span class="input-group-text">cm</span>
+                            </span>
+                        </label>
                         <label class="soap-vital-grid__wide">Keadaan umum<input class="form-control vital-example" name="general_condition" value="{{ $vitalSigns['general_condition'] ?? '' }}" placeholder="cth: Baik"></label>
                         <label class="soap-vital-grid__wide">Kesadaran<input class="form-control vital-example" name="consciousness" value="{{ $vitalSigns['consciousness'] ?? '' }}" placeholder="cth: Compos mentis"></label>
                     </div>

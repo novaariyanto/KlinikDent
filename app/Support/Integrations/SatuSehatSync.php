@@ -6,8 +6,6 @@ use App\Enums\RoomType;
 use App\Enums\SatuSehatStatus;
 use App\Enums\VisitStatus;
 use App\Models\Branch;
-use App\Models\Room;
-use App\Support\Clinical\CareExamOptions;
 use App\Models\BranchSatuSehatSetting;
 use App\Models\Diagnosis;
 use App\Models\Doctor;
@@ -15,9 +13,11 @@ use App\Models\OdontogramLog;
 use App\Models\OdontogramTooth;
 use App\Models\Patient;
 use App\Models\ProcedureRecord;
+use App\Models\Room;
 use App\Models\SatuSehatResource;
 use App\Models\TenantIntegration;
 use App\Models\Visit;
+use App\Support\Clinical\CareExamOptions;
 use App\Support\Indonesia\WilayahService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -120,6 +120,12 @@ class SatuSehatSync
             $conditionIds = [];
 
             foreach ($visit->diagnoses as $diagnosis) {
+                if (! filled($diagnosis->code)) {
+                    $this->notes[] = 'Diagnosis #'.$diagnosis->id.' tidak dikirim karena kode ICD-10 kosong.';
+
+                    continue;
+                }
+
                 $id = $this->trySend(
                     $client,
                     'Condition',
@@ -180,6 +186,19 @@ class SatuSehatSync
                     'id' => $encounterId,
                     'response' => $this->resultPayload($client, $encounterId, $locationId),
                     'error' => 'Sinkronisasi sebagian: '.implode('; ', $this->requiredFailures).'. Encounter belum ditutup (finished).',
+                ];
+            }
+
+            if ($conditionIds === []) {
+                $message = 'Encounter belum ditutup karena belum ada diagnosis ICD-10. SATUSEHAT mewajibkan Encounter.diagnosis (RuleNumber: 10457). Tambahkan diagnosis lalu kirim ulang.';
+                $this->notes[] = $message;
+
+                return [
+                    'ok' => false,
+                    'partial' => true,
+                    'id' => $encounterId,
+                    'response' => $this->resultPayload($client, $encounterId, $locationId),
+                    'error' => $message,
                 ];
             }
 
@@ -825,7 +844,7 @@ class SatuSehatSync
             $client,
             'Observation',
             'observation:'.$key.':'.$visit->id,
-            $this->observationBase($patientIhs, $practitionerIhs, $encounterId, $at, 'exam', 'Exam', $observationCode            ) + [
+            $this->observationBase($patientIhs, $practitionerIhs, $encounterId, $at, 'exam', 'Exam', $observationCode) + [
                 'valueCodeableConcept' => $concept,
             ],
             $visit->medicalRecord,
@@ -1370,7 +1389,7 @@ class SatuSehatSync
     /**
      * @return array<string, mixed>
      */
-    protected function placeDetails(?\App\Models\Branch $branch, ?Room $room = null): array
+    protected function placeDetails(?Branch $branch, ?Room $room = null): array
     {
         $details = [];
         $telecom = [];
@@ -1521,8 +1540,6 @@ class SatuSehatSync
 
             if ($diagnosis !== []) {
                 $payload['diagnosis'] = $diagnosis;
-            } else {
-                $this->notes[] = 'Kunjungan ditutup tanpa diagnosis karena belum ada ICD-10.';
             }
         }
 
