@@ -54,7 +54,7 @@
                         @can('procedure.manage')
                             <td class="text-end text-nowrap">
                                 @if ($writable)
-                                    <button type="button" class="btn btn-sm btn-soft-primary" data-toggle-panel="#proc-edit-{{ $item->id }}">Ubah</button>
+                                    <button type="button" class="btn btn-sm btn-soft-primary" data-bs-toggle="modal" data-bs-target="#proc-edit-{{ $item->id }}">Ubah</button>
                                 @endif
                                 @if ($writable && $item->waiver_status?->value === 'pending' && ($canApproveDoctorFeeWaiver ?? false))
                                     <form action="{{ route('care.procedure.waiver.approve', [$visit, $item]) }}" method="POST" class="d-inline" onsubmit="return confirm('Setujui pembebasan jasa dokter?')">
@@ -72,40 +72,6 @@
                             </td>
                         @endcan
                     </tr>
-                    @can('procedure.manage')
-                        @if ($writable)
-                            @php($reopenProcedureEdit = old('_form') === 'procedure-update-'.$item->id)
-                            <tr id="proc-edit-{{ $item->id }}" @if (! $reopenProcedureEdit) hidden @endif>
-                                <td colspan="{{ auth()->user()?->can('procedure.manage') ? 8 : 7 }}">
-                                    <form action="{{ route('care.procedure.update', [$visit, $item]) }}" method="POST">
-                                        @csrf
-                                        @method('PUT')
-                                        <input type="hidden" name="_form" value="procedure-update-{{ $item->id }}">
-                                        <input type="hidden" name="procedure_id" value="{{ $item->procedure_id }}">
-                                        <input type="hidden" name="quantity" value="{{ $item->quantity }}">
-                                        @include('clinical.care.partials.icd9-select', [
-                                            'id' => 'procedure-icd9-'.$item->id,
-                                            'selected' => $reopenProcedureEdit ? old('icd9_code', $item->icd9_code) : $item->icd9_code,
-                                            'showError' => $reopenProcedureEdit,
-                                        ])
-                                        @if ($item->isUnbilled())
-                                            @include('clinical.care.partials.procedure-adjustment-fields', [
-                                                'prefix' => 'proc-edit-'.$item->id,
-                                                'quoteUrl' => $procedureTariffQuoteUrl ?? '',
-                                                'procedureId' => $item->procedure_id,
-                                                'quantity' => $item->quantity,
-                                                'canWaive' => $canWaiveDoctorFee ?? false,
-                                                'canDiscount' => $canDiscountProcedure ?? false,
-                                                'oldForm' => $reopenProcedureEdit,
-                                                'record' => $item,
-                                            ])
-                                        @endif
-                                        <x-button type="submit" icon="bx bx-save">Simpan</x-button>
-                                    </form>
-                                </td>
-                            </tr>
-                        @endif
-                    @endcan
                 @empty
                     <tr><td colspan="{{ auth()->user()?->can('procedure.manage') ? 8 : 7 }}" class="text-muted">Belum ada tindakan.</td></tr>
                 @endforelse
@@ -114,6 +80,39 @@
 
         @can('procedure.manage')
             @if ($writable)
+                @foreach ($visit->procedureRecords as $item)
+                    @php($reopenProcedureEdit = old('_form') === 'procedure-update-'.$item->id)
+                    <x-modal id="proc-edit-{{ $item->id }}" title="Ubah {{ $item->procedure?->name ?: 'tindakan' }}" size="modal-lg" class="care-modal" :data-show-on-load="$reopenProcedureEdit ? '' : null">
+                        <form action="{{ route('care.procedure.update', [$visit, $item]) }}" method="POST">
+                            @csrf
+                            @method('PUT')
+                            <input type="hidden" name="_form" value="procedure-update-{{ $item->id }}">
+                            <input type="hidden" name="procedure_id" value="{{ $item->procedure_id }}">
+                            <input type="hidden" name="quantity" value="{{ $item->quantity }}">
+                            <p class="text-muted small mb-3">{{ $item->procedure?->name ?: 'Tindakan' }}@if ($item->tooth_number) · gigi {{ $item->tooth_number }}@endif · qty {{ $item->quantity }}</p>
+                            @include('clinical.care.partials.icd9-select', [
+                                'id' => 'procedure-icd9-'.$item->id,
+                                'selected' => $reopenProcedureEdit ? old('icd9_code', $item->icd9_code) : $item->icd9_code,
+                                'showError' => $reopenProcedureEdit,
+                            ])
+                            @if ($item->isUnbilled())
+                                @include('clinical.care.partials.procedure-adjustment-fields', [
+                                    'prefix' => 'proc-edit-'.$item->id,
+                                    'quoteUrl' => $procedureTariffQuoteUrl ?? '',
+                                    'procedureId' => $item->procedure_id,
+                                    'quantity' => $item->quantity,
+                                    'canWaive' => $canWaiveDoctorFee ?? false,
+                                    'canDiscount' => $canDiscountProcedure ?? false,
+                                    'oldForm' => $reopenProcedureEdit,
+                                    'record' => $item,
+                                ])
+                            @endif
+                            <div class="text-end">
+                                <x-button type="submit" icon="bx bx-save">Simpan</x-button>
+                            </div>
+                        </form>
+                    </x-modal>
+                @endforeach
                 @php($reopenProcedure = old('_form') === 'procedure-create')
                 <x-modal id="procedure-create-modal" title="Tambah tindakan" size="modal-lg" class="care-modal" :data-show-on-load="$reopenProcedure ? '' : null">
                     <form action="{{ route('care.procedure.store', $visit) }}" method="POST" data-procedure-form>

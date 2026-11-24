@@ -4,6 +4,11 @@
     </p>
 
     <div class="d-flex flex-wrap gap-2 mb-3">
+        @php($catalogCount = \App\Support\Onboarding\OnboardingCatalog::medicineTemplateCount())
+        <form method="POST" action="{{ route('management.medicines.import.catalog') }}" onsubmit="return confirm('Impor {{ number_format($catalogCount, 0, ',', '.') }} obat dari master onboarding? Nama yang sudah ada ikut diperbarui.')">
+            @csrf
+            <x-button type="submit" variant="soft-primary" icon="bx bx-upload">Impor master obat</x-button>
+        </form>
         <x-button href="{{ route('management.medicines.import.template') }}" variant="secondary" icon="bx bx-download">
             Unduh Template XLSX
         </x-button>

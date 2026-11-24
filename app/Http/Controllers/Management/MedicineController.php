@@ -13,11 +13,14 @@ use App\Models\Branch;
 use App\Models\Medicine;
 use App\Models\MedicineStock;
 use App\Models\StockMovement;
+use App\Models\Tenant;
 use App\Support\Medicine\MedicineXlsxImporter;
+use App\Support\Onboarding\OnboardingService;
 use App\Support\Pharmacy\InsufficientStockException;
 use App\Support\Pharmacy\PharmacyStockService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use InvalidArgumentException;
@@ -112,6 +115,17 @@ class MedicineController extends Controller
         $this->authorize('create', Medicine::class);
 
         return $importer->templateResponse();
+    }
+
+    public function importCatalog(Request $request, OnboardingService $onboarding): RedirectResponse
+    {
+        $this->authorize('create', Medicine::class);
+        $tenant = Tenant::query()->findOrFail($request->user()?->tenant_id);
+        $count = $onboarding->importMedicineTemplate($tenant);
+
+        activity_log('created', $tenant, ['count' => $count], 'Imported medicine catalog', 'medicines');
+
+        return back()->with('success', $count.' obat dari master onboarding diimpor.');
     }
 
     public function importParse(ImportMedicineRequest $request, MedicineXlsxImporter $importer): JsonResponse

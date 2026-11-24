@@ -214,6 +214,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::get('procedures/data', [ProcedureController::class, 'data'])
                     ->middleware('permission:procedure.view')
                     ->name('procedures.data');
+                Route::post('procedures/import-catalog', [ProcedureController::class, 'importCatalog'])
+                    ->name('procedures.import-catalog');
                 Route::resource('procedures', ProcedureController::class);
 
                 Route::get('tariffs/data', [TariffController::class, 'data'])
@@ -233,6 +235,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
                 Route::post('medicines/import/row', [MedicineController::class, 'importRow'])
                     ->middleware('permission:medicine.manage')
                     ->name('medicines.import.row');
+                Route::post('medicines/import/catalog', [MedicineController::class, 'importCatalog'])
+                    ->name('medicines.import.catalog');
                 Route::post('medicines/{medicine}/stock', [MedicineController::class, 'storeStock'])
                     ->middleware('permission:stock.manage')
                     ->name('medicines.stock.store');

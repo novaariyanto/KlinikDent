@@ -7,8 +7,11 @@ use App\Http\Requests\Procedure\StoreProcedureRequest;
 use App\Http\Requests\Procedure\UpdateProcedureRequest;
 use App\Models\Procedure;
 use App\Models\Service;
+use App\Models\Tenant;
+use App\Support\Onboarding\OnboardingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Yajra\DataTables\Facades\DataTables;
 
@@ -68,6 +71,19 @@ class ProcedureController extends Controller
         activity_log('created', $procedure, $data, 'Created procedure '.$procedure->code, 'procedures');
 
         return redirect()->route('management.procedures.index')->with('success', 'Tindakan created successfully.');
+    }
+
+    public function importCatalog(Request $request, OnboardingService $onboarding): RedirectResponse
+    {
+        $this->authorize('create', Procedure::class);
+        $tenant = Tenant::query()->findOrFail($request->user()?->tenant_id);
+        $count = $onboarding->importServiceTemplate($tenant);
+
+        activity_log('created', $tenant, ['count' => $count], 'Imported dental tariff catalog', 'procedures');
+
+        return redirect()
+            ->route('management.procedures.index')
+            ->with('success', $count.' tindakan dari master tarif KlinikDent diimpor.');
     }
 
     public function show(Procedure $procedure): View

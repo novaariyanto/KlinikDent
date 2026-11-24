@@ -287,17 +287,7 @@ class OnboardingService
 
         DB::transaction(function () use ($tenant, $mode, $data) {
             if ($mode === 'template') {
-                foreach (OnboardingCatalog::medicineTemplate() as $item) {
-                    if (! filled($item['name'] ?? null)) {
-                        continue;
-                    }
-
-                    $this->upsertMedicine($tenant->id, $item, [
-                        'margin_type' => filled($item['margin_type'] ?? null) ? $item['margin_type'] : 'fixed',
-                        'margin_value' => Medicine::normalizeDecimalInput($item['margin_value'] ?? null) ?? 0,
-                        'is_active' => array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true,
-                    ]);
-                }
+                $this->seedMedicineTemplate($tenant);
             }
 
             if ($mode === 'manual') {
@@ -492,6 +482,15 @@ class OnboardingService
         $addons->activate($subscription, $actor, $trial);
     }
 
+    public function importServiceTemplate(Tenant $tenant): int
+    {
+        return DB::transaction(function () use ($tenant) {
+            $this->seedServiceTemplate($tenant);
+
+            return count(OnboardingCatalog::serviceTemplate());
+        });
+    }
+
     protected function seedServiceTemplate(Tenant $tenant): void
     {
         $payer = Payer::query()->updateOrCreate(
@@ -544,6 +543,31 @@ class OnboardingService
         $settings->fake = false;
         $settings->credentials = $settings->mergeCredentials($credentials, $secretKeys);
         $settings->save();
+    }
+
+    public function importMedicineTemplate(Tenant $tenant): int
+    {
+        return DB::transaction(fn () => $this->seedMedicineTemplate($tenant));
+    }
+
+    protected function seedMedicineTemplate(Tenant $tenant): int
+    {
+        $count = 0;
+
+        foreach (OnboardingCatalog::medicineTemplate() as $item) {
+            if (! filled($item['name'] ?? null)) {
+                continue;
+            }
+
+            $this->upsertMedicine($tenant->id, $item, [
+                'margin_type' => filled($item['margin_type'] ?? null) ? $item['margin_type'] : 'fixed',
+                'margin_value' => Medicine::normalizeDecimalInput($item['margin_value'] ?? null) ?? 0,
+                'is_active' => array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true,
+            ]);
+            $count++;
+        }
+
+        return $count;
     }
 
     /**
