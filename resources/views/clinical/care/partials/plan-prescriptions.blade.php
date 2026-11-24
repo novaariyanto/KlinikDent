@@ -1728,6 +1728,7 @@
     }
 
     function rxDestroyMedicineSelects(scope) {
+        var $ = window.jQuery;
         if (!$ || !$.fn || !$.fn.select2) return;
         $(scope || document).find('[data-rx-medicine-select]').each(function () {
             var $el = $(this);
@@ -1736,6 +1737,7 @@
     }
 
     function rxInitMedicineSelects(scope) {
+        var $ = window.jQuery;
         if (!$ || !$.fn || !$.fn.select2) return;
         $(scope || document).find('[data-rx-medicine-select]').each(function () {
             var $el = $(this);
@@ -1789,7 +1791,8 @@
             rxSetActiveRow(row);
             var focus = row.querySelector('[data-rx-medicine-select]:not([data-rx-ing-medicine-select])')
                 || row.querySelector('[data-rx-medicine-select]');
-            if (focus && $ && $(focus).data('select2')) {
+            var $ = window.jQuery;
+            if (focus && $ && $.fn && $.fn.select2 && $(focus).data('select2')) {
                 $(focus).select2('open');
             } else if (focus) {
                 focus.focus();
@@ -2000,8 +2003,16 @@
         if (row.querySelector('[data-rx-qty]')) rxShowQtyHint(row, rxAssess(row));
     });
 
-    rxDisableBrowserAutofill(document.getElementById('rx-list'));
-    rxInitMedicineSelects(document.getElementById('rx-list'));
-    rxSeedDefaultDraft();
+    function rxBoot() {
+        rxDisableBrowserAutofill(document.getElementById('rx-list'));
+        rxInitMedicineSelects(document.getElementById('rx-list'));
+        rxSeedDefaultDraft();
+    }
+
+    if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {
+        rxBoot();
+    } else {
+        document.addEventListener('DOMContentLoaded', rxBoot);
+    }
 })();
 </script>
