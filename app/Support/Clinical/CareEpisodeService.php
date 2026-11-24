@@ -69,6 +69,7 @@ class CareEpisodeService
 
             if ($record->assessment_kind === AssessmentKind::FollowUp) {
                 $this->seedAllergyFromBaselineIfEmpty((int) $episode->id, $record);
+                $this->seedAnthropometryFromBaselineIfEmpty((int) $episode->id, $record);
             }
 
             return $record;
@@ -135,6 +136,49 @@ class CareEpisodeService
         $current['conditions'] = $conditions;
 
         $record->systemic_history = $current;
+        $record->save();
+    }
+
+    /**
+     * Isi berat dan tinggi kunjungan lanjutan dari asesmen awal bila masih kosong.
+     */
+    protected function seedAnthropometryFromBaselineIfEmpty(int $episodeId, MedicalRecord $record): void
+    {
+        $vitals = is_array($record->vital_signs) ? $record->vital_signs : [];
+        $needWeight = ! filled($vitals['weight'] ?? null);
+        $needHeight = ! filled($vitals['height'] ?? null);
+
+        if (! $needWeight && ! $needHeight) {
+            return;
+        }
+
+        $baseline = $this->initialQuery($episodeId)
+            ->where('medical_records.id', '!=', $record->id)
+            ->orderBy('medical_records.id')
+            ->first();
+
+        if (! $baseline) {
+            return;
+        }
+
+        $source = is_array($baseline->vital_signs) ? $baseline->vital_signs : [];
+        $changed = false;
+
+        if ($needWeight && filled($source['weight'] ?? null)) {
+            $vitals['weight'] = $source['weight'];
+            $changed = true;
+        }
+
+        if ($needHeight && filled($source['height'] ?? null)) {
+            $vitals['height'] = $source['height'];
+            $changed = true;
+        }
+
+        if (! $changed) {
+            return;
+        }
+
+        $record->vital_signs = $vitals;
         $record->save();
     }
 
