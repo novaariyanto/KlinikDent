@@ -29,10 +29,10 @@
                 </form>
             @else
                 <p>
-                    <a href="{{ route('medical-letters.index') }}">Daftar surat</a>
+                    <button type="button" onclick="window.print()">Cetak</button>
                     <a href="{{ route('medical-letters.pdf', $letter) }}" target="_blank">PDF</a>
                     <a href="{{ route('medical-letters.pdf', [$letter, 'download' => 1]) }}">Unduh PDF</a>
-                    <a href="{{ route('medical-letters.show', [$letter, 'cetak' => 1]) }}">Cetak</a>
+                    <a href="{{ route('medical-letters.index') }}">Daftar surat</a>
                     @if ($letter->visit)
                         <a href="{{ route('care.show', $letter->visit) }}">Kunjungan</a>
                     @endif
