@@ -116,6 +116,16 @@
                             <i class="bx bx-file me-1"></i>Buat surat kontrol
                         </a>
                     @endcan
+                    @php
+                        $issuedControl = ($medicalLetters ?? collect())->first(
+                            fn ($item) => $item->type === \App\Enums\MedicalLetterType::Control && $item->isIssued()
+                        );
+                    @endphp
+                    @if ($issuedControl && auth()->user()?->can('medical_record.view'))
+                        <a href="{{ route('medical-letters.pdf', $issuedControl) }}" target="_blank" rel="noopener" class="btn btn-sm btn-soft-primary">
+                            <i class="bx bx-printer me-1"></i>Cetak
+                        </a>
+                    @endif
                 </div>
             </div>
         </div>

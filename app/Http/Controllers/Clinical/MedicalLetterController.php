@@ -178,7 +178,11 @@ class MedicalLetterController extends Controller
                 : 'Surat '.$letter->number.' diterbitkan.';
 
             return redirect()
-                ->route('medical-letters.show', $letter)
+                ->route('care.letters.create', array_filter([
+                    'visit' => $letter->visit_id,
+                    'type' => 'control',
+                    'control_date' => data_get($letter->payload, 'control_date'),
+                ]))
                 ->with('success', $message);
         }
 
@@ -293,6 +297,12 @@ class MedicalLetterController extends Controller
             'visit' => $visit,
             'patient' => $visit->patient,
             'letter' => $letter,
+            'issuedControl' => MedicalLetter::query()
+                ->where('visit_id', $visit->id)
+                ->where('type', MedicalLetterType::Control)
+                ->where('status', MedicalLetterStatus::Issued)
+                ->latest('id')
+                ->first(),
             'defaults' => $defaults,
             'suggestions' => $suggestions,
             'types' => MedicalLetterType::options(),

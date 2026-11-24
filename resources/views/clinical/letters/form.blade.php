@@ -219,8 +219,11 @@
                         <p class="text-muted small mb-0">Teks ini yang tercetak. Mengganti jenis surat mengisi ulang teks selama belum Anda ubah.</p>
                     </div>
 
-                    <div class="mt-3 d-flex gap-2">
-                        <x-button type="submit" icon="bx bx-check">Terbitkan surat</x-button>
+                    <div class="mt-3 d-flex flex-wrap gap-2">
+                        <x-button type="submit" icon="bx bx-check">Simpan</x-button>
+                        @if (($defaults['type'] ?? '') === 'control' && ! empty($issuedControl))
+                            <x-button href="{{ route('medical-letters.pdf', $issuedControl) }}" target="_blank" rel="noopener" variant="soft-primary" icon="bx bx-printer">Cetak</x-button>
+                        @endif
                         <x-button href="{{ route('care.show', ['visit' => $visit, 'tab' => 'ringkasan']) }}" variant="light">Batal</x-button>
                     </div>
                 </x-card>

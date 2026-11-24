@@ -24,7 +24,7 @@
                             <input type="hidden" name="{{ $key }}" value="{{ $value }}">
                         @endif
                     @endforeach
-                    <button type="submit">Terbitkan surat</button>
+                    <button type="submit">Simpan</button>
                     <a href="{{ route('care.letters.create', $visit) }}">Kembali ke form</a>
                 </form>
             @else
