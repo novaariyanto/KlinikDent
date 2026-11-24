@@ -93,7 +93,16 @@
                     @csrf
                     <label class="care-complete-confirm" for="care-complete-confirm">
                         <input class="form-check-input" type="checkbox" value="1" id="care-complete-confirm" required>
-                        <span data-care-finish-confirm-text>Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan@if ($finishDraftRx->isNotEmpty()) dan pengiriman resep ke farmasi@endif@if ($finalizeWithVisit) serta finalisasi asesmen dan rekam medis@endif ini.</span>
+                        <span data-care-finish-confirm-text>
+                            Saya sudah memverifikasi tindakan dan obat di atas, serta menyetujui penyelesaian kunjungan
+                            @if ($finishDraftRx->isNotEmpty())
+                                dan pengiriman resep ke farmasi
+                            @endif
+                            @if ($finalizeWithVisit)
+                                serta finalisasi asesmen dan rekam medis
+                            @endif
+                            ini.
+                        </span>
                     </label>
                 </form>
 
