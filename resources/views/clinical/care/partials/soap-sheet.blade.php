@@ -346,7 +346,9 @@
                                 @endforelse
                                 <a class="soap-sheet__jump" href="{{ route('care.show', ['visit' => $visit, 'tab' => 'tindakan']) }}" data-care-section="tindakan">Kelola di tab Tindakan</a>
                                 @if (auth()->user()?->can('procedure.view') || auth()->user()?->can('procedure.manage'))
-                                    <a class="soap-sheet__jump" href="{{ route('care.procedure.history', array_filter(['visit' => $visit, 'from' => request('from') === 'pelayanan' ? 'pelayanan' : null])) }}">Tampilkan riwayat</a>
+                                    <div class="mt-2">
+                                        <x-button href="{{ route('care.procedure.history', array_filter(['visit' => $visit, 'from' => request('from') === 'pelayanan' ? 'pelayanan' : null])) }}" variant="soft-primary" class="btn-sm" icon="bx bx-history">Tampilkan riwayat</x-button>
+                                    </div>
                                 @endif
                             </div>
                         </td>
