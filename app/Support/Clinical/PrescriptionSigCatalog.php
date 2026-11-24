@@ -9,67 +9,73 @@ namespace App\Support\Clinical;
 class PrescriptionSigCatalog
 {
     /**
-     * @return list<array{label: string, text: string, hint: string}>
+     * @return list<array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null}>
      */
     public static function doses(): array
     {
         return [
-            self::option('1 tab', '1 tablet', 'Satu tablet.'),
-            self::option('½ tab', '1/2 tablet', 'Setengah tablet.'),
-            self::option('2 tab', '2 tablet', 'Dua tablet.'),
-            self::option('1 kaps', '1 kapsul', 'Satu kapsul.'),
-            self::option('5 ml', '5 ml', 'Lima mililiter.'),
-            self::option('10 ml', '10 ml', 'Sepuluh mililiter.'),
-            self::option('1 cth', '1 cth (sendok teh)', 'Cth: sendok teh. Singkatan lokal, bukan kode SATUSEHAT.'),
-            self::option('1 csd', '1 csd (sendok makan)', 'Csd: sendok makan. Singkatan lokal, bukan kode SATUSEHAT.'),
-            self::option('1 bks', '1 bungkus', 'Satu bungkus.'),
+            self::option('1 tab', '1 tablet', 'Satu tablet.', 'dose', dose: 1),
+            self::option('½ tab', '1/2 tablet', 'Setengah tablet.', 'dose', dose: 0.5),
+            self::option('2 tab', '2 tablet', 'Dua tablet.', 'dose', dose: 2),
+            self::option('1 kaps', '1 kapsul', 'Satu kapsul.', 'dose', dose: 1),
+            self::option('5 ml', '5 ml', 'Lima mililiter. Qty cair dihitung dalam ml.', 'dose', dose: 5),
+            self::option('10 ml', '10 ml', 'Sepuluh mililiter. Qty cair dihitung dalam ml.', 'dose', dose: 10),
+            self::option('1 cth', '1 cth (sendok teh)', 'Cth: sendok teh. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text'),
+            self::option('1 csd', '1 csd (sendok makan)', 'Csd: sendok makan. Bukan ml; Qty tidak dihitung sampai dosis ml diisi.', 'text'),
+            self::option('1 bks', '1 bungkus', 'Satu bungkus.', 'dose', dose: 1),
         ];
     }
 
     /**
-     * @return list<array{label: string, text: string, hint: string}>
+     * @return list<array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null}>
      */
     public static function frequencies(): array
     {
         return [
-            self::option('1×1', '1x sehari', 'Satu kali sehari.'),
-            self::option('2×1', '2x sehari', 'Dua kali sehari.'),
-            self::option('3×1', '3x sehari', 'Tiga kali sehari.'),
-            self::option('4×1', '4x sehari', 'Empat kali sehari.'),
-            self::option('tiap 6 jam', 'tiap 6 jam', 'Setiap 6 jam.'),
-            self::option('tiap 8 jam', 'tiap 8 jam', 'Setiap 8 jam.'),
-            self::option('tiap 12 jam', 'tiap 12 jam', 'Setiap 12 jam.'),
-            self::option('PRN', 'PRN — jika diperlukan', 'Pro Re Nata: jika diperlukan. Bukan kode terminologi SATUSEHAT.'),
-            self::option('SOS', 'SOS — jika diperlukan dalam kondisi tertentu', 'Si opus sit: jika diperlukan pada kondisi tertentu. Bukan kode SATUSEHAT.'),
+            self::option('1×1', '1x sehari', 'Satu kali sehari, 1 unit tiap kali.', 'frequency', 1, 1),
+            self::option('2×1', '2x sehari', 'Dua kali sehari, 1 unit tiap kali.', 'frequency', 2, 1),
+            self::option('3×1', '3x sehari', 'Tiga kali sehari, 1 unit tiap kali. Contoh 5 hari = 15.', 'frequency', 3, 1),
+            self::option('3×2', '3x sehari', 'Tiga kali sehari, 2 unit tiap kali. Contoh 5 hari = 30.', 'frequency', 3, 2),
+            self::option('4×1', '4x sehari', 'Empat kali sehari, 1 unit tiap kali.', 'frequency', 4, 1),
+            self::option('tiap 6 jam', 'tiap 6 jam', 'Setiap 6 jam (4 kali sehari). Dosis diambil dari kolom dosis.', 'frequency', 4),
+            self::option('tiap 8 jam', 'tiap 8 jam', 'Setiap 8 jam (3 kali sehari). Dosis diambil dari kolom dosis.', 'frequency', 3),
+            self::option('tiap 12 jam', 'tiap 12 jam', 'Setiap 12 jam (2 kali sehari). Dosis diambil dari kolom dosis.', 'frequency', 2),
+            self::option('PRN', 'PRN — bila perlu', 'Pro Re Nata: bila perlu. Qty tidak dihitung otomatis.', 'prn'),
+            self::option('SOS', 'SOS — bila perlu pada kondisi tertentu', 'Si opus sit. Qty tidak dihitung otomatis.', 'prn'),
         ];
     }
 
     /**
-     * @return list<array{label: string, text: string, hint: string}>
+     * @return list<array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null}>
      */
     public static function instructions(): array
     {
         return [
-            self::option('AC', 'AC — sebelum makan', 'Ante Cibum: sebelum makan. Bukan kode SATUSEHAT.'),
-            self::option('PC', 'PC — sesudah makan', 'Post Cibum: sesudah makan. Bukan kode SATUSEHAT.'),
-            self::option('saat makan', 'saat makan', 'Bersamaan dengan makan.'),
-            self::option('HS', 'HS — sebelum tidur', 'Hora Somni: sebelum tidur. Bukan kode SATUSEHAT.'),
-            self::option('PRN', 'PRN — jika diperlukan', 'Pro Re Nata: jika diperlukan. Bukan kode SATUSEHAT.'),
-            self::option('SOS', 'SOS — jika diperlukan dalam kondisi tertentu', 'Si opus sit: jika diperlukan pada kondisi tertentu. Bukan kode SATUSEHAT.'),
+            self::option('AC', 'AC — sebelum makan', 'Ante Cibum: sebelum makan. Tidak mengubah Qty.', 'timing'),
+            self::option('PC', 'PC — sesudah makan', 'Post Cibum: sesudah makan. Tidak mengubah Qty.', 'timing'),
+            self::option('saat makan', 'saat makan', 'Bersamaan dengan makan. Tidak mengubah Qty.', 'timing'),
+            self::option('S', 'S — pagi', 'Pagi. Hanya waktu minum, bukan pengali Qty.', 'timing'),
+            self::option('M', 'M — siang', 'Siang. Hanya waktu minum, bukan pengali Qty.', 'timing'),
+            self::option('N', 'N — malam', 'Malam. Hanya waktu minum, bukan pengali Qty.', 'timing'),
+            self::option('HS', 'HS — sebelum tidur', 'Hora Somni: sebelum tidur. Tidak mengubah Qty.', 'timing'),
+            self::option('PRN', 'PRN — bila perlu', 'Pro Re Nata: bila perlu. Qty diisi dokter, tidak dihitung.', 'prn'),
+            self::option('bila perlu', 'bila perlu', 'Sama dengan PRN. Qty tidak dihitung otomatis.', 'prn'),
+            self::option('SOS', 'SOS — bila perlu pada kondisi tertentu', 'Si opus sit. Qty tidak dihitung otomatis.', 'prn'),
+            self::option('sampai habis', 'sampai habis', 'Dihitung hanya jika jumlah hari obat diisi. Jika tidak, tentukan Qty.', 'until_finished'),
+            self::option('s/d habis', 's/d habis', 'Sampai habis. Bukan PRN. Butuh JHO atau Qty manual.', 'until_finished'),
         ];
     }
 
     /**
-     * @return list<array{label: string, text: string, hint: string}>
+     * @return list<array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null}>
      */
     public static function courses(): array
     {
         return [
-            self::option('3 hari', '3 hari', 'Durasi 3 hari.'),
-            self::option('5 hari', '5 hari', 'Durasi 5 hari.'),
-            self::option('7 hari', '7 hari', 'Durasi 7 hari.'),
-            self::option('10 hari', '10 hari', 'Durasi 10 hari.'),
-            self::option('sampai habis', 'sampai habis', 'Dipakai sampai obat habis.'),
+            self::option('3 hari', '3 hari', 'Jumlah hari obat: 3.', 'duration', days: 3),
+            self::option('5 hari', '5 hari', 'Jumlah hari obat: 5.', 'duration', days: 5),
+            self::option('7 hari', '7 hari', 'Jumlah hari obat: 7.', 'duration', days: 7),
+            self::option('10 hari', '10 hari', 'Jumlah hari obat: 10.', 'duration', days: 10),
         ];
     }
 
@@ -155,14 +161,25 @@ class PrescriptionSigCatalog
     }
 
     /**
-     * @return array{label: string, text: string, hint: string}
+     * @return array{label: string, text: string, hint: string, effect: string, times: int|null, dose: float|null, days: int|null}
      */
-    protected static function option(string $label, string $text, string $hint): array
-    {
+    protected static function option(
+        string $label,
+        string $text,
+        string $hint,
+        string $effect = 'text',
+        ?int $times = null,
+        ?float $dose = null,
+        ?int $days = null,
+    ): array {
         return [
             'label' => $label,
             'text' => $text,
             'hint' => $hint,
+            'effect' => $effect,
+            'times' => $times,
+            'dose' => $dose,
+            'days' => $days,
         ];
     }
 }

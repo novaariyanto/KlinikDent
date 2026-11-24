@@ -15,7 +15,7 @@
         (int) $visit->branch_id,
         $medicineIds,
     );
-    $unitOptions = \App\Models\Medicine::UNITS;
+    $unitOptions = \App\Models\Medicine::UNITS + ['ml' => 'ml'];
     $ssIssues = \App\Support\Clinical\PrescriptionSatuSehatReadiness::forVisit($visit);
     $ssBlocking = \App\Support\Clinical\PrescriptionSatuSehatReadiness::blockingMessages($ssIssues);
     $ssWarnings = \App\Support\Clinical\PrescriptionSatuSehatReadiness::warningMessages($ssIssues);
@@ -67,9 +67,9 @@
                     <th>Dosis</th>
                     <th>Stok</th>
                     <th>Satuan</th>
-                    <th>Signa (P/S/Sr/M)</th>
+                    <th title="Pagi, Siang, Sore, Malam">Pagi / Siang / Sore / Malam</th>
                     <th>Waktu</th>
-                    <th>JHO</th>
+                    <th title="Jumlah hari obat">JHO (hari)</th>
                     <th>Qty</th>
                     <th>Keterangan</th>
                     <th>Harga</th>
@@ -156,10 +156,10 @@
                                 @if ($rowEditable)
                                     <div class="rx-sig-field">
                                         <div class="rx-signa">
-                                            <input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" placeholder="P" data-rx-field data-rx-signa autocomplete="off">
-                                            <input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" placeholder="S" data-rx-field data-rx-signa autocomplete="off">
-                                            <input class="form-control form-control-sm" name="signa_sr" value="{{ $item->signa_sr }}" placeholder="Sr" data-rx-field data-rx-signa autocomplete="off">
-                                            <input class="form-control form-control-sm" name="signa_m" value="{{ $item->signa_m }}" placeholder="M" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" placeholder="P" title="Pagi" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" placeholder="S" title="Siang" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_sr" value="{{ $item->signa_sr }}" placeholder="Sr" title="Sore" data-rx-field data-rx-signa autocomplete="off">
+                                            <input class="form-control form-control-sm" name="signa_m" value="{{ $item->signa_m }}" placeholder="M" title="Malam" data-rx-field data-rx-signa autocomplete="off">
                                         </div>
                                         <input type="hidden" name="frequency" value="{{ $item->frequency }}" data-rx-frequency>
                                         @include('clinical.care.partials.prescription-sig', [
@@ -190,7 +190,7 @@
                             <td style="min-width:3.5rem">
                                 @if ($rowEditable)
                                     <div class="rx-sig-field">
-                                        <input class="form-control form-control-sm" name="jho" type="number" min="1" value="{{ $item->jho }}" data-rx-field autocomplete="off">
+                                        <input class="form-control form-control-sm" name="jho" type="number" min="1" value="{{ $item->jho }}" title="Jumlah hari obat" data-rx-field autocomplete="off">
                                         @include('clinical.care.partials.prescription-sig', [
                                             'group' => 'courses',
                                             'name' => 'jho',
@@ -203,7 +203,9 @@
                             </td>
                             <td style="min-width:3.5rem">
                                 @if ($rowEditable)
-                                    <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="{{ $item->quantity }}" data-rx-field data-rx-qty>
+                                    <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="{{ $item->quantity }}" data-rx-field data-rx-qty @if ($item->quantity_manual) data-manual="1" @endif>
+                                    <input type="hidden" name="quantity_manual" value="{{ $item->quantity_manual ? 1 : 0 }}">
+                                    <div class="rx-qty-hint" data-rx-qty-hint></div>
                                 @else
                                     {{ $item->quantity }}
                                 @endif
@@ -275,10 +277,10 @@
                 <td>
                     <div class="rx-sig-field">
                         <div class="rx-signa">
-                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" title="Pagi" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" title="Siang" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" title="Sore" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" title="Malam" data-rx-field data-rx-signa autocomplete="off">
                         </div>
                         <input type="hidden" name="frequency" data-rx-frequency>
                         @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
@@ -292,11 +294,15 @@
                 </td>
                 <td>
                     <div class="rx-sig-field">
-                        <input class="form-control form-control-sm" name="jho" type="number" min="1" data-rx-field autocomplete="off">
+                        <input class="form-control form-control-sm" name="jho" type="number" min="1" title="Jumlah hari obat" data-rx-field autocomplete="off">
                         @include('clinical.care.partials.prescription-sig', ['group' => 'courses', 'name' => 'jho', 'compact' => true])
                     </div>
                 </td>
-                <td><input class="form-control form-control-sm" name="quantity" type="number" min="1" value="1" data-rx-field data-rx-qty></td>
+                <td>
+                    <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="1" data-rx-field data-rx-qty>
+                    <input type="hidden" name="quantity_manual" value="0">
+                    <div class="rx-qty-hint" data-rx-qty-hint></div>
+                </td>
                 <td>
                     <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Keterangan">
                 </td>
@@ -337,10 +343,10 @@
                 <td>
                     <div class="rx-sig-field">
                         <div class="rx-signa">
-                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" data-rx-field data-rx-signa autocomplete="off">
-                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_p" placeholder="P" title="Pagi" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_s" placeholder="S" title="Siang" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_sr" placeholder="Sr" title="Sore" data-rx-field data-rx-signa autocomplete="off">
+                            <input class="form-control form-control-sm" name="signa_m" placeholder="M" title="Malam" data-rx-field data-rx-signa autocomplete="off">
                         </div>
                         <input type="hidden" name="frequency" data-rx-frequency>
                         @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
@@ -354,11 +360,15 @@
                 </td>
                 <td>
                     <div class="rx-sig-field">
-                        <input class="form-control form-control-sm" name="jho" type="number" min="1" data-rx-field autocomplete="off">
+                        <input class="form-control form-control-sm" name="jho" type="number" min="1" title="Jumlah hari obat" data-rx-field autocomplete="off">
                         @include('clinical.care.partials.prescription-sig', ['group' => 'courses', 'name' => 'jho', 'compact' => true])
                     </div>
                 </td>
-                <td><input class="form-control form-control-sm" name="quantity" type="number" min="1" value="1" data-rx-field data-rx-qty></td>
+                <td>
+                    <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="1" data-rx-field data-rx-qty>
+                    <input type="hidden" name="quantity_manual" value="0">
+                    <div class="rx-qty-hint" data-rx-qty-hint></div>
+                </td>
                 <td>
                     <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Indikasi / ket.">
                 </td>

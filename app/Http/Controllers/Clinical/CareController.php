@@ -231,6 +231,15 @@ class CareController extends Controller
     {
         $this->care->updateFollowUp($visit, $request->validated(), $request->user());
 
+        if ($request->input('_return') === 'procedure-history') {
+            return redirect()
+                ->route('care.procedure.history', array_filter([
+                    'visit' => $visit,
+                    'from' => $request->input('from') === 'pelayanan' ? 'pelayanan' : null,
+                ]))
+                ->with('success', 'Evaluasi tindakan disimpan.');
+        }
+
         return $this->respondCare($visit, 'soap', 'Asesmen ulang disimpan.');
     }
 
@@ -394,6 +403,38 @@ class CareController extends Controller
         $this->care->destroyProcedure($visit, $procedureRecord);
 
         return $this->respondCare($visit, 'tindakan', 'Tindakan dihapus.');
+    }
+
+    public function procedureHistory(Request $request, Visit $visit): View
+    {
+        $this->authorizeProcedureRead($request, $visit);
+        $visit->load(['patient', 'medicalRecord']);
+        [$writable, $record] = $this->procedurePageState($request, $visit);
+
+        return view('clinical.care.procedure-history', [
+            'visit' => $visit,
+            'record' => $record,
+            'writable' => $writable,
+            'history' => $this->patientProcedures($visit, excludeVisitId: (int) $visit->id),
+        ]);
+    }
+
+    public function showProcedure(Request $request, Visit $visit, ProcedureRecord $procedureRecord): View
+    {
+        $this->authorizeProcedureRead($request, $visit);
+        $procedureRecord->loadMissing(['procedure', 'visit.patient', 'visit.doctor']);
+        abort_unless((int) $procedureRecord->visit?->patient_id === (int) $visit->patient_id, 404);
+        $visit->loadMissing('patient');
+
+        $history = $procedureRecord->procedure_id
+            ? $this->patientProcedures($visit)->where('procedure_id', $procedureRecord->procedure_id)->where('id', '!=', $procedureRecord->id)->values()
+            : collect();
+
+        return view('clinical.care.procedure-show', [
+            'visit' => $visit,
+            'procedureRecord' => $procedureRecord,
+            'history' => $history,
+        ]);
     }
 
     public function quoteProcedureTariff(Request $request, Visit $visit): JsonResponse
@@ -910,6 +951,43 @@ class CareController extends Controller
     protected function instructionDone(MedicalRecord $record): bool
     {
         return CareProgress::instructionComplete($record);
+    }
+
+    protected function authorizeProcedureRead(Request $request, Visit $visit): void
+    {
+        $this->authorizeCare($request, $visit);
+        abort_unless($request->user()?->can('procedure.view') || $request->user()?->can('procedure.manage'), 403);
+    }
+
+    /**
+     * @return array{0: bool, 1: ?MedicalRecord}
+     */
+    protected function procedurePageState(Request $request, Visit $visit): array
+    {
+        $record = $visit->medicalRecord;
+        $writable = $request->user() && $this->canWriteAny($request->user()) && $visit->status !== VisitStatus::Cancelled;
+
+        if ($record && app(\App\Support\Clinical\MedicalRecordLock::class)->isLocked($record)) {
+            $writable = false;
+        }
+
+        return [$writable, $record];
+    }
+
+    protected function patientProcedures(Visit $visit, ?int $excludeVisitId = null)
+    {
+        $query = ProcedureRecord::query()
+            ->whereHas('visit', function ($visits) use ($visit, $excludeVisitId) {
+                $visits->where('patient_id', $visit->patient_id);
+                if ($excludeVisitId) {
+                    $visits->where('id', '!=', $excludeVisitId);
+                }
+            })
+            ->with(['procedure:id,name,code', 'visit:id,visit_date,doctor_id,patient_id', 'visit.doctor:id,name'])
+            ->orderByDesc(Visit::query()->select('visit_date')->whereColumn('visits.id', 'procedure_records.visit_id')->limit(1))
+            ->orderByDesc('procedure_records.id');
+
+        return $query->get();
     }
 
     protected function authorizeCare(Request $request, Visit $visit): void

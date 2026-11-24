@@ -1,0 +1,10 @@
+-- SUDAH DIGANTI MIGRATION LARAVEL
+-- Jalankan: php artisan migrate
+-- File: database/migrations/2026_11_24_110500_add_quantity_manual_to_prescription_items.php
+--
+-- Qty yang diketik dokter tidak ditimpa hitungan otomatis.
+--
+-- Alternatif manual (review DBA):
+--
+-- ALTER TABLE prescription_items
+--   ADD COLUMN quantity_manual TINYINT(1) NOT NULL DEFAULT 0 AFTER quantity;

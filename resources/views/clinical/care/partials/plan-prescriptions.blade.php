@@ -534,7 +534,11 @@
             var total = row.querySelector('[data-total-qty]');
             if (!per || !total || total.dataset.manual === '1') return;
             var amount = Number(per.value);
-            if (per.value && packs > 0 && amount > 0) total.value = String(Math.round(amount * packs));
+            if (per.value && packs > 0 && amount > 0) {
+                total.value = String(Math.round(amount * packs));
+                var flag = row.querySelector('[data-ingredient-qty-manual]');
+                if (flag) flag.value = '0';
+            }
             refreshIngredientDisplay(row);
         });
         preview(form);
@@ -693,6 +697,8 @@
         if (totalInput) {
             totalInput.value = total;
             totalInput.dataset.manual = editor.querySelector('[data-ing-total]').dataset.manual || '';
+            var totalFlag = row.querySelector('[data-ingredient-qty-manual]');
+            if (totalFlag) totalFlag.value = totalInput.dataset.manual === '1' ? '1' : '0';
         }
         if (unitInput) unitInput.value = editor.querySelector('[data-ing-unit]').value || '';
         if (strengthInput) strengthInput.value = editor.querySelector('[data-ing-strength]').value || '';
@@ -722,66 +728,31 @@
                 var fieldWrap = tipNode ? tipNode.closest('.rx-sig-field') : null;
                 input = (fieldWrap || row).querySelector('[name="' + sigName + '"]');
             }
-            if (sigMode === 'signa' && row) {
-                var p = sig.getAttribute('data-sig-p');
-                var s = sig.getAttribute('data-sig-s');
-                if ((p == null || s == null) && fillValue) {
-                    var interval = String(fillValue).match(/tiap\s+(\d+)\s*jam/i);
-                    if (interval) {
-                        var hours = Number(interval[1]);
-                        if (hours > 0 && hours <= 24) {
-                            p = String(Math.max(1, Math.round(24 / hours)));
-                            s = '1';
-                        }
-                    } else if (/^(PRN|SOS)\b/i.test(String(fillValue).trim()) || /^(PRN|SOS)$/i.test(String(sig.textContent || '').trim())) {
-                        p = '1';
-                        s = '1';
-                    }
-                }
-                if (p != null && s != null) {
-                    var pInput = row.querySelector('[name="signa_p"]');
-                    var sInput = row.querySelector('[name="signa_s"]');
-                    var srInput = row.querySelector('[name="signa_sr"]');
-                    var mInput = row.querySelector('[name="signa_m"]');
-                    if (pInput) pInput.value = p;
-                    if (sInput) sInput.value = s;
-                    if (srInput && !String(srInput.value || '').trim()) srInput.value = '0';
-                    if (mInput && !String(mInput.value || '').trim()) mInput.value = '0';
-                    rxSyncSigna(row);
-                    if (input) input.value = fillValue;
-                    ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (field) {
-                        var el = row.querySelector('[name="' + field + '"]');
-                        if (el) el.dispatchEvent(new Event('input', { bubbles: true }));
-                    });
-                } else if (input) {
-                    input.value = fillValue;
-                    input.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-                var qtySigna = row.querySelector('[data-rx-qty]');
-                if (qtySigna) qtySigna.dataset.manual = '';
-                rxAutoQty(row);
-                if (row.matches('[data-rx-row]')) row.dataset.dirty = '1';
-                rxScheduleAutoSave(row);
+            var effect = sig.getAttribute('data-sig-effect') || '';
+            var scope = row || (input && input.closest('form.rx-form'));
+            if (scope && (effect === 'frequency' || effect === 'prn' || (row && sigMode === 'signa'))) {
+                rxApplySig(scope, sig, fillValue, effect || 'frequency');
+                if (row && row.matches('[data-rx-row]')) row.dataset.dirty = '1';
+                if (row) rxScheduleAutoSave(row);
                 rxHideAllSigPopovers();
                 return;
             }
             if (input) {
-                if (row && sigName === 'jho') {
-                    var daysFromHelp = rxParseDays(fillValue) || rxParseAmount(fillValue);
+                if (row && (effect === 'duration' || sigName === 'jho')) {
+                    var daysFromHelp = sig.getAttribute('data-sig-days') || rxParseDays(fillValue) || rxParseAmount(fillValue);
                     if (daysFromHelp) input.value = String(daysFromHelp);
                     var course = row.querySelector('[name="course"]');
                     if (course) course.value = fillValue;
+                } else if (row && (effect === 'prn' || effect === 'until_finished')) {
+                    input.value = fillValue;
+                    var coursePrn = row.querySelector('[name="course"]');
+                    if (coursePrn && effect === 'until_finished') coursePrn.value = fillValue;
+                } else if (effect === 'dose' && input && String(input.value || '').trim() !== '') {
+                    /* dosis yang sudah diisi dokter tidak ditimpa */
                 } else {
                     input.value = fillValue;
                 }
-                if (row && sigName === 'waktu') {
-                    var durationField = row.querySelector('[name="duration"]');
-                    if (durationField) durationField.value = fillValue;
-                }
-                if (row) {
-                    var qtyHelp = row.querySelector('[data-rx-qty]');
-                    if (qtyHelp) qtyHelp.dataset.manual = '';
-                }
+                if (row) rxClearQtyManual(row);
                 input.dispatchEvent(new Event('input', { bubbles: true }));
                 input.dispatchEvent(new Event('change', { bubbles: true }));
                 if (row) rxAutoQty(row);
@@ -976,16 +947,222 @@
         return num.toLocaleString('id-ID', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function rxSyncSigna(row) {
-        var parts = ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].map(function (name) {
+    function rxField(row, name) {
+        var input = row.querySelector('[name="' + name + '"]');
+        return input ? String(input.value || '').trim() : '';
+    }
+
+    function rxClearSigna(row) {
+        ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name) {
             var input = row.querySelector('[name="' + name + '"]');
-            var val = input ? String(input.value || '').trim() : '';
-            return val === '' ? '0' : val;
+            if (input) input.value = '';
         });
-        var line = parts.join('-');
-        var freqHidden = row.querySelector('[data-rx-frequency]');
-        if (freqHidden) freqHidden.value = line;
-        return line;
+    }
+
+    function rxClearQtyManual(row) {
+        var qty = row.querySelector('[data-rx-qty]');
+        var flag = row.querySelector('[name="quantity_manual"]');
+        if (qty) delete qty.dataset.manual;
+        if (flag) flag.value = '0';
+    }
+
+    function rxApplySig(row, sig, fillValue, effect) {
+        var freq = row.querySelector('[data-rx-frequency]') || row.querySelector('[name="frequency"]');
+        if (effect === 'prn' || effect === 'until_finished') {
+            var waktu = row.querySelector('[name="waktu"]');
+            if (waktu) waktu.value = fillValue;
+            var course = row.querySelector('[name="course"]');
+            if (course && effect === 'until_finished') course.value = fillValue;
+            if (freq && effect === 'prn') freq.value = fillValue;
+            rxClearSigna(row);
+        } else {
+            if (freq) freq.value = fillValue;
+            var dose = sig.getAttribute('data-sig-dose');
+            var dosage = row.querySelector('[name="dosage"]');
+            if (dose && dosage && !String(dosage.value || '').trim()) dosage.value = dose;
+            rxClearSigna(row);
+        }
+        rxClearQtyManual(row);
+        rxAutoQty(row);
+    }
+
+    function rxSyncSigna(row) {
+        return rxField(row, 'frequency');
+    }
+
+    function rxTrimNum(value) {
+        var text = String(Math.round(value * 100) / 100);
+        return text.replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+    }
+
+    function rxBlob(row) {
+        return ['dosage', 'frequency', 'duration', 'course', 'waktu', 'notes'].map(function (name) {
+            var text = rxField(row, name);
+            return text && text !== '-' ? text : '';
+        }).join(' ').toLowerCase();
+    }
+
+    function rxIsPrn(text) {
+        return /\bprn\b|\bsos\b|bila perlu|jika diperlukan|pro re nata|si opus sit/.test(text);
+    }
+
+    function rxIsUntilFinished(text) {
+        return /sampai\s*habis|s\s*\/\s*d\s*habis|\bsd\s*habis/.test(text);
+    }
+
+    function rxDays(row) {
+        var jho = rxParseAmount(rxField(row, 'jho'));
+        if (jho && jho > 0) return Math.round(jho);
+        var keys = ['duration', 'course', 'notes'];
+        for (var i = 0; i < keys.length; i++) {
+            var text = rxField(row, keys[i]);
+            if (!text || text === '-' || rxIsUntilFinished(text.toLowerCase()) || rxIsPrn(text.toLowerCase())) continue;
+            var match = text.match(/^(\d+)\s*hari$/i);
+            if (match) return Number(match[1]);
+        }
+        return null;
+    }
+
+    function rxSlots(row) {
+        var names = ['signa_p', 'signa_s', 'signa_sr', 'signa_m'];
+        var filled = false;
+        var slots = names.map(function (name) {
+            var raw = rxField(row, name);
+            if (!raw) return null;
+            filled = true;
+            return rxParseAmount(raw);
+        });
+        if (filled) return slots;
+        var frequency = rxField(row, 'frequency');
+        if (/^(\d+(?:[.,]\d+)?)(?:\s*-\s*(\d+(?:[.,]\d+)?)){3}$/.test(frequency)) {
+            return frequency.split(/\s*-\s*/).map(rxParseAmount);
+        }
+        return null;
+    }
+
+    function rxAssess(row) {
+        var text = rxBlob(row);
+        var prn = rxIsPrn(text);
+        var untilFinished = rxIsUntilFinished(text);
+        var days = rxDays(row);
+        var slots = rxSlots(row);
+        var unit = rxField(row, 'unit').toLowerCase();
+        var kindInput = row.querySelector('[name="kind"]');
+        var kind = (row.getAttribute('data-kind') || (kindInput && kindInput.value) || 'ready').toLowerCase();
+        var dosage = rxField(row, 'dosage');
+        var dosageLower = dosage.toLowerCase();
+        var mlMatch = dosage.match(/(\d+(?:[.,]\d+)?)\s*ml\b/i);
+        var ml = mlMatch ? rxParseAmount(mlMatch[1]) : null;
+        var compound = kind === 'racikan' || kind === 'compound';
+        var liquidUnit = unit === 'ml' || unit === 'sirup' || dosageLower.indexOf('sirup') !== -1 || dosageLower.indexOf('sediaan cair') !== -1;
+        var form = { countable: false, liquid: false, hasMl: false, label: 'tablet' };
+        if (ml != null) {
+            form = { countable: false, liquid: true, hasMl: true, label: 'ml' };
+        } else if (compound && (dosageLower.indexOf('salep') !== -1 || dosageLower.indexOf('tetes') !== -1 || dosageLower.indexOf('krim') !== -1)) {
+            form = { countable: false, liquid: false, hasMl: false, label: unit };
+        } else if (compound && !liquidUnit) {
+            form = { countable: true, liquid: false, hasMl: false, label: 'bungkus' };
+        } else if (liquidUnit) {
+            form = { countable: false, liquid: true, hasMl: false, label: 'ml' };
+        } else if (['salep', 'krim', 'tetes', 'tetes_mata', 'tetes_telinga', 'inhaler', 'semprot', 'injeksi', 'infus', 'nebul', 'botol', 'tube', 'ampul'].indexOf(unit) !== -1) {
+            form = { countable: false, liquid: false, hasMl: false, label: unit };
+        } else if (['tablet', 'tab', 'kapsul', 'kaplet', 'sachet', 'bungkus', 'suppositoria', 'unit', 'pcs', ''].indexOf(unit) !== -1) {
+            var labels = { kapsul: 'kapsul', kaplet: 'kaplet', sachet: 'sachet', bungkus: 'bungkus', suppositoria: 'suppositoria' };
+            form = { countable: true, liquid: false, hasMl: false, label: labels[unit] || 'tablet' };
+        }
+
+        var base = { mode: 'incomplete', quantity: null, formula: '', liquid: form.liquid };
+        if (prn) {
+            base.mode = 'manual';
+            base.formula = 'PRN (bila perlu): Qty tidak dihitung otomatis. Isi jumlah yang disetujui dokter.';
+            return base;
+        }
+        if (!form.countable && !form.liquid) {
+            base.mode = 'manual';
+            base.formula = 'Sediaan ini tidak memakai rumus tablet. Isi Qty sesuai instruksi dokter.';
+            return base;
+        }
+        if (form.liquid && !form.hasMl) {
+            base.mode = 'manual';
+            base.formula = 'Obat cair dihitung dalam ml. Isi dosis ml, atau tentukan Qty manual.';
+            return base;
+        }
+        if (untilFinished && !days) {
+            base.mode = 'manual';
+            base.formula = 'Sampai habis: isi jumlah hari obat (JHO) agar Qty terhitung, atau tentukan Qty manual.';
+            return base;
+        }
+
+        var daily = null;
+        var explain = '';
+        if (slots) {
+            var sum = 0;
+            var administrations = 0;
+            var shown = [];
+            var labelsSlot = ['Pagi', 'Siang', 'Sore', 'Malam'];
+            slots.forEach(function (slot, index) {
+                if (slot && slot > 0) {
+                    sum += slot;
+                    administrations += 1;
+                }
+                shown.push(labelsSlot[index] + ' ' + rxTrimNum(slot || 0));
+            });
+            if (ml != null && administrations > 0) {
+                daily = ml * administrations;
+                explain = rxTrimNum(ml) + ' ml × ' + administrations + ' kali (' + shown.join(', ') + ')';
+            } else if (sum > 0) {
+                daily = sum;
+                explain = '(' + slots.map(function (slot) { return rxTrimNum(slot || 0); }).join(' + ') + ')';
+            }
+        } else {
+            var frequency = rxField(row, 'frequency');
+            var times = null;
+            var paired = null;
+            var pair = frequency.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i);
+            var dailyWord = frequency.match(/(\d+)\s*[x×]\s*sehari/i);
+            var interval = frequency.match(/tiap\s+(\d+)\s*jam/i);
+            if (pair) {
+                times = Math.round(Number(String(pair[1]).replace(',', '.')));
+                paired = rxParseAmount(pair[2]);
+            } else if (dailyWord) {
+                times = Number(dailyWord[1]);
+            } else if (interval) {
+                var hours = Number(interval[1]);
+                if (hours > 0 && 24 % hours === 0) times = 24 / hours;
+            }
+            var dose = ml != null ? ml : (rxParseAmount(dosage) != null ? rxParseAmount(dosage) : paired);
+            var looksLiquid = unit === 'ml' || unit === 'sirup' || dosageLower.indexOf('ml') !== -1 || dosageLower.indexOf('sirup') !== -1;
+            if (dose == null && times && ml == null && !looksLiquid) dose = paired != null ? paired : 1;
+            if (dose != null && times) daily = dose * times;
+            explain = rxTrimNum(dose || 0) + (ml != null ? ' ml' : '') + ' × ' + (times || 0) + ' kali/hari';
+        }
+
+        if (!daily || daily <= 0 || !days) {
+            base.formula = 'Qty = dosis tiap kali × frekuensi per hari × jumlah hari obat.';
+            return base;
+        }
+        var quantity = Math.ceil(Math.round(daily * days * 10000) / 10000);
+        base.mode = 'calculated';
+        base.quantity = quantity;
+        base.liquid = form.liquid;
+        base.formula = explain + ' × ' + days + ' hari = ' + quantity + ' ' + form.label;
+        return base;
+    }
+
+    function rxShowQtyHint(row, result) {
+        var hint = row.querySelector('[data-rx-qty-hint]');
+        var qty = row.querySelector('[data-rx-qty]');
+        if (!hint) return;
+        var manual = qty && qty.dataset.manual === '1';
+        hint.classList.remove('is-warn');
+        if (result.mode === 'calculated' && qty && Number(qty.value) !== result.quantity) {
+            hint.classList.add('is-warn');
+            hint.textContent = result.formula + (manual
+                ? '. Selisih dengan Qty yang diketik. Simpan untuk mengunci Qty manual.'
+                : '. Qty saat ini berbeda dari rumus.');
+            return;
+        }
+        hint.textContent = result.formula || '';
     }
 
     function rxPriceOf(row) {
@@ -1024,29 +1201,34 @@
     function rxAutoQty(row) {
         if (!row) return;
         var qtyInput = row.querySelector('[data-rx-qty]');
-        if (!qtyInput || qtyInput.dataset.manual === '1') {
+        var result = rxAssess(row);
+        rxShowQtyHint(row, result);
+        if (!qtyInput || qtyInput.dataset.manual === '1' || result.mode !== 'calculated' || !result.quantity) {
             rxRecalcRow(row);
             return;
         }
-        var p = rxParseAmount((row.querySelector('[name="signa_p"]') || {}).value);
-        var s = rxParseAmount((row.querySelector('[name="signa_s"]') || {}).value);
-        var dosage = rxParseAmount((row.querySelector('[name="dosage"]') || {}).value);
-        var jhoInput = row.querySelector('[name="jho"]');
-        var notes = (row.querySelector('[name="notes"]') || {}).value || '';
-        var course = (row.querySelector('[name="course"]') || {}).value || '';
-        var days = rxParseAmount((jhoInput || {}).value) || rxParseDays(notes) || rxParseDays(course);
-        if (jhoInput && !String(jhoInput.value || '').trim() && days) {
-            jhoInput.value = String(days);
-        }
-        if (!p || p <= 0 || !days || days <= 0) {
-            rxRecalcRow(row);
-            return;
-        }
-        var perDose = (s && s > 0) ? s : ((dosage && dosage > 0) ? dosage : 1);
-        var qty = Math.ceil(p * perDose * days);
+        var qty = result.quantity;
         if (qty < 1) qty = 1;
         if (qty > 1000) qty = 1000;
         if (String(qtyInput.value) !== String(qty)) qtyInput.value = String(qty);
+        var flag = row.querySelector('[name="quantity_manual"]');
+        if (flag) flag.value = '0';
+        if (result.liquid) {
+            var unit = row.querySelector('[name="unit"]');
+            if (unit) {
+                if (!unit.querySelector('option[value="ml"]')) {
+                    var option = document.createElement('option');
+                    option.value = 'ml';
+                    option.textContent = 'ml';
+                    unit.appendChild(option);
+                }
+                unit.value = 'ml';
+            }
+        }
+        row.querySelectorAll('[data-ing-qty]').forEach(function (ing) {
+            if (ing.dataset.manual === '1') return;
+            ing.value = String(qty);
+        });
         rxRecalcRow(row);
     }
 
@@ -1082,12 +1264,10 @@
             if (!input.name) return;
             data[input.name] = input.value;
         });
-        rxSyncSigna(row);
-        var freq = row.querySelector('[data-rx-frequency]');
-        if (freq) data.frequency = freq.value;
-        if (!data.dosage) data.dosage = data.dosage || '-';
-        if (!data.frequency) data.frequency = rxSyncSigna(row) || '-';
-        if (!data.duration) data.duration = data.notes || data.duration || '-';
+        var jho = Number(data.jho || 0);
+        if (jho > 0 && (!data.duration || data.duration === '-')) data.duration = jho + ' hari';
+        if (!data.dosage || data.dosage === '-') data.dosage = '';
+        if (!data.frequency || data.frequency === '-') data.frequency = '';
         var priceEl = row.querySelector('[data-rx-price]');
         if (priceEl && priceEl.dataset.raw != null && priceEl.dataset.raw !== '' && data.unit_price == null) {
             data.unit_price = priceEl.dataset.raw;
@@ -1341,13 +1521,15 @@
             return;
         }
         rxSetActiveRow(active, target, { openSig: false });
-        if (target.matches('[data-rx-signa]')) rxSyncSigna(active);
+        if (target.matches('[data-ing-qty]')) target.dataset.manual = '1';
         if (target.matches('[data-rx-qty]')) {
             target.dataset.manual = '1';
+            var flag = active.querySelector('[name="quantity_manual"]');
+            if (flag) flag.value = '1';
+            rxShowQtyHint(active, rxAssess(active));
             rxRecalcRow(active);
-        } else if (target.matches('[name="dosage"], [data-rx-signa], [name="jho"], [name="notes"]')) {
-            var qtyField = active.querySelector('[data-rx-qty]');
-            if (qtyField) qtyField.dataset.manual = '';
+        } else if (target.matches('[name="dosage"], [data-rx-signa], [name="jho"], [name="notes"], [name="waktu"], [name="unit"], [name="course"]')) {
+            rxClearQtyManual(active);
             rxAutoQty(active);
         }
         if (row) row.dataset.dirty = '1';
@@ -1642,9 +1824,9 @@
             price.dataset.raw = String(item.price || 0);
         }
         if (unit && item.unit) unit.value = item.unit;
+        rxAutoQty(row);
         var ingName = row.querySelector('[data-ing-name]');
         if (ingName && item.name) ingName.value = item.name;
-        rxRecalcRow(row);
         rxScheduleAutoSave(row.closest('[data-rx-draft]') || row);
     }
 
@@ -1664,17 +1846,13 @@
         body.append('medication_type', kind === 'racikan' ? 'EP' : 'NC');
         body.append('quantity', (row.querySelector('[name="quantity"]') || {}).value || 1);
 
-        ['dosage', 'frequency', 'waktu', 'jho', 'unit', 'notes', 'signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name) {
+        ['dosage', 'frequency', 'waktu', 'jho', 'unit', 'notes', 'course', 'signa_p', 'signa_s', 'signa_sr', 'signa_m', 'quantity_manual'].forEach(function (name) {
             var input = row.querySelector('[name="' + name + '"]');
             if (input && String(input.value || '').trim() !== '') body.append(name, input.value);
         });
 
-        rxSyncSigna(row);
-        var freq = row.querySelector('[data-rx-frequency]');
-        var signaLine = freq ? freq.value : '';
-        body.append('frequency', signaLine || (row.querySelector('[name="frequency"]') || {}).value || '-');
-        body.append('dosage', (row.querySelector('[name="dosage"]') || {}).value || '-');
-        body.append('duration', (row.querySelector('[name="notes"]') || {}).value || '-');
+        var jho = Number((row.querySelector('[name="jho"]') || {}).value || 0);
+        if (jho > 0) body.append('duration', jho + ' hari');
 
         if (kind === 'racikan') {
             var ingredients = [];
@@ -1682,10 +1860,14 @@
                 var name = (ing.querySelector('[data-ing-name]') || {}).value || (ing.querySelector('[data-typeahead-q]') || {}).value || '';
                 name = String(name).trim();
                 if (!name) return;
+                var ingQty = ing.querySelector('[data-ing-qty]');
+                var ingManual = ingQty && ingQty.dataset.manual === '1';
                 ingredients.push({
                     name: name,
                     medicine_id: (ing.querySelector('[data-ing-medicine-id]') || {}).value || '',
-                    quantity: (ing.querySelector('[data-ing-qty]') || {}).value || 1,
+                    quantity: (ingQty || {}).value || 1,
+                    per_dose_quantity: ingManual ? '' : '1',
+                    quantity_manual: ingManual ? '1' : '0',
                     role: 'active'
                 });
             });
@@ -1695,6 +1877,8 @@
                 body.append('ingredients[' + index + '][medicine_id]', ing.medicine_id);
                 body.append('ingredients[' + index + '][quantity]', ing.quantity);
                 body.append('ingredients[' + index + '][role]', 'active');
+                body.append('ingredients[' + index + '][quantity_manual]', ing.quantity_manual);
+                if (ing.per_dose_quantity) body.append('ingredients[' + index + '][per_dose_quantity]', ing.per_dose_quantity);
             });
             body.append('composition_confirmed', '1');
         } else {
@@ -1774,6 +1958,46 @@
         var name = draft.querySelector('[data-ing-name]');
         if (catalogItem && name) name.value = catalogItem.name || name.value;
         rxScheduleAutoSave(medicineId.closest('[data-rx-draft]'));
+    });
+
+    document.querySelectorAll('form.rx-form').forEach(function (form) {
+        if (form.dataset.qtyBound === '1') return;
+        form.dataset.qtyBound = '1';
+        var qty = form.querySelector('[name="quantity"]');
+        if (!qty || qty.hasAttribute('data-rx-qty')) return;
+        qty.setAttribute('data-rx-qty', '');
+        var hint = document.createElement('div');
+        hint.className = 'rx-qty-hint';
+        hint.setAttribute('data-rx-qty-hint', '');
+        qty.insertAdjacentElement('afterend', hint);
+        form.addEventListener('input', function (event) {
+            if (!event.target || !event.target.matches) return;
+            if (event.target === qty) {
+                qty.dataset.manual = '1';
+                var flag = form.querySelector('[name="quantity_manual"]');
+                if (flag) flag.value = '1';
+                rxShowQtyHint(form, rxAssess(form));
+                return;
+            }
+            if (event.target.matches('[name="dosage"], [name="frequency"], [name="duration"], [name="course"], [name="jho"], [name="unit"], [name="waktu"], [name="signa_p"], [name="signa_s"], [name="signa_sr"], [name="signa_m"]')) {
+                rxClearQtyManual(form);
+                rxAutoQty(form);
+            }
+        });
+        form.addEventListener('submit', function () {
+            var flag = form.querySelector('[name="quantity_manual"]');
+            if (!flag) {
+                flag = document.createElement('input');
+                flag.type = 'hidden';
+                flag.name = 'quantity_manual';
+                form.appendChild(flag);
+            }
+            flag.value = qty.dataset.manual === '1' ? '1' : '0';
+        });
+    });
+
+    document.querySelectorAll('[data-rx-row], [data-rx-draft]').forEach(function (row) {
+        if (row.querySelector('[data-rx-qty]')) rxShowQtyHint(row, rxAssess(row));
     });
 
     rxDisableBrowserAutofill(document.getElementById('rx-list'));

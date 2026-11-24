@@ -32,32 +32,16 @@
         <div class="rx-sig-tip__template" hidden>
             <div class="rx-sig rx-sig--tip">
                 @foreach ($options as $option)
-                    @php
-                        $signaP = null;
-                        $signaS = null;
-                        if ($mode === 'signa') {
-                            if (preg_match('/^(\d+)\s*[×xX]\s*(\d+)$/u', $option['label'], $m)) {
-                                $signaP = $m[1];
-                                $signaS = $m[2];
-                            } elseif (preg_match('/tiap\s+(\d+)\s*jam/iu', $option['label'], $m)) {
-                                $hours = (int) $m[1];
-                                if ($hours > 0 && $hours <= 24) {
-                                    $signaP = (string) max(1, (int) round(24 / $hours));
-                                    $signaS = '1';
-                                }
-                            } elseif (preg_match('/^(PRN|SOS)$/iu', $option['label'])) {
-                                $signaP = '1';
-                                $signaS = '1';
-                            }
-                        }
-                    @endphp
                     <button
                         type="button"
                         class="btn btn-sm btn-light border"
                         data-sig-fill="{{ $option['text'] }}"
+                        data-sig-effect="{{ $option['effect'] ?? 'text' }}"
                         @if ($name) data-sig-name="{{ $name }}" @endif
                         @if ($mode) data-sig-mode="{{ $mode }}" @endif
-                        @if ($signaP !== null) data-sig-p="{{ $signaP }}" data-sig-s="{{ $signaS }}" @endif
+                        @if (isset($option['times'])) data-sig-times="{{ $option['times'] }}" @endif
+                        @if (isset($option['dose'])) data-sig-dose="{{ $option['dose'] }}" @endif
+                        @if (isset($option['days'])) data-sig-days="{{ $option['days'] }}" @endif
                         title="{{ $option['hint'] }}"
                         aria-label="{{ $option['hint'] }}"
                     >{{ $option['label'] }}</button>
@@ -73,30 +57,14 @@
         @if ($mode) data-sig-mode="{{ $mode }}" @endif
     >
         @foreach ($options as $option)
-            @php
-                $signaP = null;
-                $signaS = null;
-                if ($mode === 'signa') {
-                    if (preg_match('/^(\d+)\s*[×xX]\s*(\d+)$/u', $option['label'], $m)) {
-                        $signaP = $m[1];
-                        $signaS = $m[2];
-                    } elseif (preg_match('/tiap\s+(\d+)\s*jam/iu', $option['label'], $m)) {
-                        $hours = (int) $m[1];
-                        if ($hours > 0 && $hours <= 24) {
-                            $signaP = (string) max(1, (int) round(24 / $hours));
-                            $signaS = '1';
-                        }
-                    } elseif (preg_match('/^(PRN|SOS)$/iu', $option['label'])) {
-                        $signaP = '1';
-                        $signaS = '1';
-                    }
-                }
-            @endphp
             <button
                 type="button"
                 class="btn btn-sm btn-light border"
                 data-sig-fill="{{ $option['text'] }}"
-                @if ($signaP !== null) data-sig-p="{{ $signaP }}" data-sig-s="{{ $signaS }}" @endif
+                data-sig-effect="{{ $option['effect'] ?? 'text' }}"
+                @if (isset($option['times'])) data-sig-times="{{ $option['times'] }}" @endif
+                @if (isset($option['dose'])) data-sig-dose="{{ $option['dose'] }}" @endif
+                @if (isset($option['days'])) data-sig-days="{{ $option['days'] }}" @endif
                 title="{{ $option['hint'] }}"
                 aria-label="{{ $option['hint'] }}"
             >{{ $option['label'] }}</button>

@@ -18,6 +18,7 @@ use App\Models\SatuSehatResource;
 use App\Models\TenantIntegration;
 use App\Models\Visit;
 use App\Support\Clinical\CareExamOptions;
+use App\Support\Clinical\PrescriptionQuantity;
 use App\Support\Indonesia\WilayahService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -1852,12 +1853,18 @@ class SatuSehatSync
                     continue;
                 }
 
-                $localUnit = (string) ($item->medicine?->unit ?: ($item->isCompound() ? 'bungkus' : 'tablet'));
-                $dispenseQuantity = SatuSehatFhirPayload::simpleQuantity(
-                    (float) ($item->quantity ?: 1),
-                    $localUnit,
-                    $item->isCompound(),
-                );
+                $dispenseQuantity = PrescriptionQuantity::usesMillilitre($item)
+                    ? [
+                        'value' => (float) ($item->quantity ?: 1),
+                        'unit' => 'mL',
+                        'system' => 'http://unitsofmeasure.org',
+                        'code' => 'mL',
+                    ]
+                    : SatuSehatFhirPayload::simpleQuantity(
+                        (float) ($item->quantity ?: 1),
+                        (string) ($item->medicine?->unit ?: ($item->isCompound() ? 'bungkus' : 'tablet')),
+                        $item->isCompound(),
+                    );
                 $requestId = $this->trySend(
                     $client,
                     'MedicationRequest',
@@ -1883,9 +1890,9 @@ class SatuSehatSync
                         'encounter' => ['reference' => 'Encounter/'.$encounterId],
                         'authoredOn' => $this->fhirTime($start),
                         'requester' => ['reference' => 'Practitioner/'.$practitionerIhs],
-                        'dosageInstruction' => [[
-                            'text' => $item->instructionText() ?: 'Sesuai instruksi dokter',
-                        ]],
+                        'dosageInstruction' => [
+                            PrescriptionQuantity::dosageInstruction($item),
+                        ],
                         'dispenseRequest' => [
                             'quantity' => $dispenseQuantity,
                         ],

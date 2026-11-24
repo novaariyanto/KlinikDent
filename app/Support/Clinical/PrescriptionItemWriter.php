@@ -32,6 +32,7 @@ class PrescriptionItemWriter
             'duration' => $data['duration'] ?? null,
             'course' => $data['course'] ?? null,
             'quantity' => $data['quantity'] ?? 1,
+            'quantity_manual' => filter_var($data['quantity_manual'] ?? false, FILTER_VALIDATE_BOOLEAN),
             'signa_p' => $data['signa_p'] ?? null,
             'signa_s' => $data['signa_s'] ?? null,
             'signa_sr' => $data['signa_sr'] ?? null,
@@ -46,6 +47,33 @@ class PrescriptionItemWriter
         $this->addIngredients($item, $ingredients);
 
         return $item;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $ingredients
+     */
+    public function scaleIngredients(PrescriptionItem $item, int $previousPacks): void
+    {
+        if ($item->quantity_manual) {
+            return;
+        }
+
+        $packs = max(1, (int) $item->quantity);
+        $previousPacks = max(1, $previousPacks);
+
+        foreach ($item->ingredients as $row) {
+            if ($row->isAdditive() || ! $row->per_dose_quantity) {
+                continue;
+            }
+
+            $perDose = (int) $row->per_dose_quantity;
+            $inSync = (int) $row->quantity === ($perDose * $previousPacks) || (int) $row->quantity === $perDose;
+            if (! $inSync) {
+                continue;
+            }
+
+            $row->update(['quantity' => $perDose * $packs]);
+        }
     }
 
     /**

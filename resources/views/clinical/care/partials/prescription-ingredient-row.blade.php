@@ -35,7 +35,8 @@
     <input type="hidden" name="{{ $base }}[name]" value="{{ $row['name'] ?? '' }}" data-ingredient-name>
     <input type="hidden" name="{{ $base }}[medicine_id]" value="{{ $row['medicine_id'] ?? '' }}" data-ingredient-medicine>
     <input type="hidden" name="{{ $base }}[per_dose_quantity]" value="{{ $row['per_dose_quantity'] ?? '' }}" data-per-dose>
-    <input type="hidden" name="{{ $base }}[quantity]" value="{{ $row['quantity'] ?? 1 }}" data-total-qty>
+    <input type="hidden" name="{{ $base }}[quantity]" value="{{ $row['quantity'] ?? 1 }}" data-total-qty @if (! empty($row['quantity_manual'])) data-manual="1" @endif>
+    <input type="hidden" name="{{ $base }}[quantity_manual]" value="{{ ! empty($row['quantity_manual']) ? 1 : 0 }}" data-ingredient-qty-manual>
     <input type="hidden" name="{{ $base }}[unit]" value="{{ $row['unit'] ?? '' }}" data-ingredient-unit>
     <input type="hidden" name="{{ $base }}[strength_value]" value="{{ $row['strength_value'] ?? '' }}" data-strength-value data-compound-strength-field>
     <input type="hidden" name="{{ $base }}[strength_unit]" value="{{ $row['strength_unit'] ?? '' }}" data-strength-unit data-compound-strength-field>

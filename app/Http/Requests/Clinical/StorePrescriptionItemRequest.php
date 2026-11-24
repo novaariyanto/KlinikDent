@@ -7,6 +7,7 @@ use App\Enums\PrescriptionItemKind;
 use App\Enums\VisitStatus;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\Visit;
+use App\Support\Clinical\PrescriptionQuantity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -55,6 +56,7 @@ class StorePrescriptionItemRequest extends FormRequest
             'duration' => [Rule::requiredIf($interactive), 'nullable', 'string', 'max:160'],
             'course' => ['nullable', 'string', 'max:100'],
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
+            'quantity_manual' => ['nullable', 'boolean'],
             'signa_p' => ['nullable', 'string', 'max:20'],
             'signa_s' => ['nullable', 'string', 'max:20'],
             'signa_sr' => ['nullable', 'string', 'max:20'],
@@ -74,6 +76,7 @@ class StorePrescriptionItemRequest extends FormRequest
             ],
             'ingredients.*.quantity' => ['required_with:ingredients', 'integer', 'min:1', 'max:10000'],
             'ingredients.*.per_dose_quantity' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'ingredients.*.quantity_manual' => ['nullable', 'boolean'],
             'ingredients.*.unit' => ['nullable', 'string', 'max:30'],
             'ingredients.*.role' => ['nullable', Rule::in(['active', 'additive'])],
             'ingredients.*.additive_kind' => ['nullable', Rule::in(['sakarin', 'flavor', 'filler', 'other'])],
@@ -109,12 +112,20 @@ class StorePrescriptionItemRequest extends FormRequest
                 $validator->errors()->add('medication_type', 'Racikan harus bertipe EP atau SD.');
             }
 
+            if ($message = PrescriptionQuantity::mismatchMessage($this->all())) {
+                $validator->errors()->add('quantity', $message);
+            }
+
             if ($kind === PrescriptionItemKind::Compound->value) {
                 $active = collect($this->input('ingredients', []))
                     ->filter(fn ($row) => is_array($row) && ($row['role'] ?? 'active') !== 'additive' && filled($row['name'] ?? null));
 
                 if ($active->isEmpty()) {
                     $validator->errors()->add('ingredients', 'Racikan membutuhkan minimal satu bahan obat. Bahan tambahan saja tidak cukup.');
+                }
+
+                if ($message = PrescriptionQuantity::ingredientMessage($this->all(), $this->input('ingredients', []))) {
+                    $validator->errors()->add('ingredients', $message);
                 }
 
                 if ($this->input('medication_type') === MedicationTypeCode::GiveSuchDoses->value) {
@@ -168,11 +179,32 @@ class StorePrescriptionItemRequest extends FormRequest
             'medicine_id' => $compound ? null : $this->input('medicine_id'),
             'jho' => filled($this->input('jho')) ? (int) $this->input('jho') : null,
             'unit_price' => filled($this->input('unit_price')) ? $this->input('unit_price') : null,
+            'quantity_manual' => $this->boolean('quantity_manual'),
         ];
         foreach ($nullable as $field) {
             $merge[$field] = filled($this->input($field)) ? trim((string) $this->input($field)) : null;
         }
+        $merge = array_merge($merge, $this->liquidUnitOverride());
+        if ($merge['jho'] && (! filled($this->input('duration')) || trim((string) $this->input('duration')) === '-')) {
+            $merge['duration'] = $merge['jho'].' hari';
+        }
 
         $this->merge($merge);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function liquidUnitOverride(): array
+    {
+        $result = PrescriptionQuantity::assess($this->all());
+        $manual = $this->boolean('quantity_manual');
+        $quantity = filled($this->input('quantity')) ? (int) $this->input('quantity') : null;
+
+        if ($result['liquid'] && $result['mode'] === 'calculated' && ! $manual && $quantity === $result['quantity']) {
+            return ['unit' => 'ml'];
+        }
+
+        return [];
     }
 }

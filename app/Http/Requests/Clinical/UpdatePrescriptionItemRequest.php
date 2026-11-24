@@ -7,6 +7,7 @@ use App\Enums\VisitStatus;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
 use App\Models\PrescriptionItem;
 use App\Models\Visit;
+use App\Support\Clinical\PrescriptionQuantity;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -49,6 +50,7 @@ class UpdatePrescriptionItemRequest extends FormRequest
             'duration' => [Rule::requiredIf($interactive), 'nullable', 'string', 'max:160'],
             'course' => ['nullable', 'string', 'max:100'],
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
+            'quantity_manual' => ['nullable', 'boolean'],
             'signa_p' => ['nullable', 'string', 'max:20'],
             'signa_s' => ['nullable', 'string', 'max:20'],
             'signa_sr' => ['nullable', 'string', 'max:20'],
@@ -76,6 +78,7 @@ class UpdatePrescriptionItemRequest extends FormRequest
             ],
             'ingredients.*.quantity' => ['required_with:ingredients', 'integer', 'min:1', 'max:10000'],
             'ingredients.*.per_dose_quantity' => ['nullable', 'integer', 'min:1', 'max:1000'],
+            'ingredients.*.quantity_manual' => ['nullable', 'boolean'],
             'ingredients.*.unit' => ['nullable', 'string', 'max:30'],
             'ingredients.*.role' => ['nullable', Rule::in(['active', 'additive'])],
             'ingredients.*.additive_kind' => ['nullable', Rule::in(['sakarin', 'flavor', 'filler', 'other'])],
@@ -100,6 +103,10 @@ class UpdatePrescriptionItemRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($message = PrescriptionQuantity::mismatchMessage($this->all())) {
+                $validator->errors()->add('quantity', $message);
+            }
+
             if ($this->input('_form') === 'rx-editor-row') {
                 return;
             }
@@ -122,6 +129,10 @@ class UpdatePrescriptionItemRequest extends FormRequest
                 $validator->errors()->add('ingredients', 'Racikan membutuhkan minimal satu bahan obat. Bahan tambahan saja tidak cukup.');
             }
 
+            if ($message = PrescriptionQuantity::ingredientMessage($this->all(), $this->input('ingredients', []))) {
+                $validator->errors()->add('ingredients', $message);
+            }
+
             if ($type === MedicationTypeCode::GiveSuchDoses->value) {
                 foreach ($this->input('ingredients', []) as $index => $row) {
                     if (! is_array($row) || ($row['role'] ?? 'active') === 'additive') {
@@ -137,13 +148,28 @@ class UpdatePrescriptionItemRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        /** @var PrescriptionItem|null $item */
+        $item = $this->route('prescriptionItem');
+        if ($item && ! filled($this->input('kind'))) {
+            $this->merge(['kind' => $item->kind?->value]);
+        }
+
         $nullable = ['signa_p', 'signa_s', 'signa_sr', 'signa_m', 'waktu', 'unit', 'notes', 'course'];
         $merge = [
             'jho' => filled($this->input('jho')) ? (int) $this->input('jho') : null,
             'unit_price' => filled($this->input('unit_price')) ? $this->input('unit_price') : null,
+            'quantity_manual' => $this->boolean('quantity_manual'),
         ];
         foreach ($nullable as $field) {
             $merge[$field] = filled($this->input($field)) ? trim((string) $this->input($field)) : null;
+        }
+        $result = PrescriptionQuantity::assess($this->all());
+        $quantity = filled($this->input('quantity')) ? (int) $this->input('quantity') : null;
+        if ($result['liquid'] && $result['mode'] === 'calculated' && ! $this->boolean('quantity_manual') && $quantity === $result['quantity']) {
+            $merge['unit'] = 'ml';
+        }
+        if ($merge['jho'] && (! filled($this->input('duration')) || trim((string) $this->input('duration')) === '-')) {
+            $merge['duration'] = $merge['jho'].' hari';
         }
 
         /** @var PrescriptionItem|null $item */

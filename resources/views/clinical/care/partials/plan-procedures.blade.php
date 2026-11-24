@@ -4,11 +4,16 @@
             <h5 class="care-section__title">Tindakan</h5>
             <p class="care-section__hint">Cari master tindakan. Gigi opsional dari temuan odontogram. Tarif di-snapshot saat dicatat.</p>
         </div>
-        @can('procedure.manage')
-            @if ($writable)
-                <x-button type="button" data-bs-toggle="modal" data-bs-target="#procedure-create-modal" icon="bx bx-plus">Tambah</x-button>
+        <div class="d-flex flex-wrap gap-2">
+            @if (auth()->user()?->can('procedure.view') || auth()->user()?->can('procedure.manage'))
+                <x-button href="{{ route('care.procedure.history', array_filter(['visit' => $visit, 'from' => request('from') === 'pelayanan' ? 'pelayanan' : null])) }}" variant="secondary" icon="bx bx-history">Tampilkan riwayat</x-button>
             @endif
-        @endcan
+            @can('procedure.manage')
+                @if ($writable)
+                    <x-button type="button" data-bs-toggle="modal" data-bs-target="#procedure-create-modal" icon="bx bx-plus">Tambah</x-button>
+                @endif
+            @endcan
+        </div>
     </div>
     <div class="care-section__body">
         <x-table>
@@ -20,6 +25,7 @@
                     <th>Tarif pasien</th>
                     <th>Penyesuaian</th>
                     <th>Status tagihan</th>
+                    <th class="text-end">Tampilkan</th>
                     @can('procedure.manage')<th></th>@endcan
                 </tr>
             </thead>
@@ -42,6 +48,9 @@
                             @endif
                         </td>
                         <td>{{ $item->billing_status->label() }}</td>
+                        <td class="text-end">
+                            <a class="btn btn-sm btn-soft-primary" href="{{ route('care.procedure.show', array_filter(['visit' => $visit, 'procedure_record' => $item, 'from' => request('from') === 'pelayanan' ? 'pelayanan' : null])) }}">Tampilkan</a>
+                        </td>
                         @can('procedure.manage')
                             <td class="text-end text-nowrap">
                                 @if ($writable)
@@ -67,7 +76,7 @@
                         @if ($writable)
                             @php($reopenProcedureEdit = old('_form') === 'procedure-update-'.$item->id)
                             <tr id="proc-edit-{{ $item->id }}" @if (! $reopenProcedureEdit) hidden @endif>
-                                <td colspan="7">
+                                <td colspan="{{ auth()->user()?->can('procedure.manage') ? 8 : 7 }}">
                                     <form action="{{ route('care.procedure.update', [$visit, $item]) }}" method="POST">
                                         @csrf
                                         @method('PUT')
@@ -98,7 +107,7 @@
                         @endif
                     @endcan
                 @empty
-                    <tr><td colspan="7" class="text-muted">Belum ada tindakan.</td></tr>
+                    <tr><td colspan="{{ auth()->user()?->can('procedure.manage') ? 8 : 7 }}" class="text-muted">Belum ada tindakan.</td></tr>
                 @endforelse
             </tbody>
         </x-table>

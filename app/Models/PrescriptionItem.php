@@ -26,6 +26,7 @@ class PrescriptionItem extends Model
         'duration',
         'course',
         'quantity',
+        'quantity_manual',
         'signa_p',
         'signa_s',
         'signa_sr',
@@ -48,6 +49,7 @@ class PrescriptionItem extends Model
             'medication_type' => MedicationTypeCode::class,
             'medicine_id' => 'integer',
             'quantity' => 'integer',
+            'quantity_manual' => 'boolean',
             'jho' => 'integer',
             'unit_price' => 'decimal:2',
         ];
@@ -105,12 +107,18 @@ class PrescriptionItem extends Model
 
     public function instructionText(): string
     {
-        return trim(implode(' · ', array_filter([
-            $this->dosage,
-            $this->frequency,
-            $this->duration,
-            $this->course,
-        ])));
+        $signa = $this->signaLine();
+        $frequency = trim((string) $this->frequency);
+        $parts = array_filter([
+            filled($this->dosage) && $this->dosage !== '-' ? $this->dosage : null,
+            $frequency !== '' && $frequency !== '-' && $frequency !== $signa ? $frequency : null,
+            $signa !== '' ? 'signa '.$signa : null,
+            filled($this->waktu) && $this->waktu !== $frequency ? $this->waktu : null,
+            $this->jho ? $this->jho.' hari' : (filled($this->duration) && $this->duration !== '-' ? $this->duration : null),
+            filled($this->course) && $this->course !== $this->waktu ? $this->course : null,
+        ]);
+
+        return trim(implode(' · ', $parts));
     }
 
     public function label(): string

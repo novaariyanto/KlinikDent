@@ -675,11 +675,15 @@ class ClinicalCareService
     {
         $logged = $data;
         $ingredients = $data['ingredients'] ?? null;
+        $previousPacks = (int) $prescriptionItem->quantity;
         unset($data['ingredients'], $data['composition_confirmed'], $data['_form'], $data['_item']);
         $prescriptionItem->update($data);
 
+        $writer = app(PrescriptionItemWriter::class);
         if ($prescriptionItem->isCompound() && is_array($ingredients)) {
-            app(PrescriptionItemWriter::class)->replaceIngredients($prescriptionItem, $ingredients);
+            $writer->replaceIngredients($prescriptionItem, $ingredients);
+        } elseif ($prescriptionItem->isCompound()) {
+            $writer->scaleIngredients($prescriptionItem->fresh('ingredients'), $previousPacks);
         }
 
         activity_log('updated', $prescriptionItem, $logged, 'Updated prescription item', 'prescriptions');

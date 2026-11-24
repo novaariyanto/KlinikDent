@@ -353,6 +353,8 @@ Route::middleware(['auth', 'onboarding.owner'])->group(function () {
             Route::get('/visits/{visit}/care/diagnoses/search', [CareController::class, 'searchDiagnoses'])->name('care.diagnosis.search');
             Route::get('/visits/{visit}/care/procedures/icd9/search', [CareController::class, 'searchIcd9'])->name('care.procedure.icd9.search');
             Route::get('/visits/{visit}/care/procedures/tariff', [CareController::class, 'quoteProcedureTariff'])->name('care.procedure.tariff');
+            Route::get('/visits/{visit}/care/procedures/history', [CareController::class, 'procedureHistory'])->name('care.procedure.history');
+            Route::get('/visits/{visit}/care/procedures/{procedure_record}', [CareController::class, 'showProcedure'])->name('care.procedure.show');
             Route::middleware('record.mutable')->group(function () {
                 Route::put('/visits/{visit}/care/record', [CareController::class, 'updateRecord'])->name('care.record.update');
                 Route::put('/visits/{visit}/care/examination', [CareController::class, 'updateExamination'])->name('care.examination.update');

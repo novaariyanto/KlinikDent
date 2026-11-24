@@ -410,6 +410,8 @@
         }
         .rx-signa { display: grid; grid-template-columns: repeat(4, 2.15rem); gap: 0.15rem; }
         .rx-signa input { text-align: center; padding-left: 0.15rem; padding-right: 0.15rem; }
+        .rx-qty-hint { font-size: 0.68rem; line-height: 1.25; color: #0f766e; max-width: 11rem; margin-top: 0.15rem; }
+        .rx-qty-hint.is-warn { color: #b45309; }
         .rx-sig {
             display: flex;
             flex-wrap: wrap;
