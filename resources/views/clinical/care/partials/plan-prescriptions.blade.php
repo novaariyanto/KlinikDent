@@ -325,7 +325,6 @@
         });
         rxDisableBrowserAutofill(list);
         rxInitMedicineSelects(list);
-        rxSeedDefaultDraft({ focus: false });
         if (options.focusItemId) {
             var focusRow = list.querySelector('[data-rx-row][data-item-id="' + options.focusItemId + '"]');
             if (focusRow) {
@@ -733,7 +732,6 @@
             if (scope && (effect === 'frequency' || effect === 'prn' || (row && sigMode === 'signa'))) {
                 rxApplySig(scope, sig, fillValue, effect || 'frequency');
                 if (row && row.matches('[data-rx-row]')) row.dataset.dirty = '1';
-                if (row) rxScheduleAutoSave(row);
                 rxHideAllSigPopovers();
                 return;
             }
@@ -761,7 +759,6 @@
                 input.dispatchEvent(new Event('input', { bubbles: true }));
                 input.dispatchEvent(new Event('change', { bubbles: true }));
                 if (row) rxAutoQty(row);
-                rxScheduleAutoSave(row);
             }
             rxHideAllSigPopovers();
             return;
@@ -1334,8 +1331,6 @@
         });
     }
 
-    var rxAutoTimers = new WeakMap();
-
     function rxMedicineIdOf(row) {
         var el = row && row.querySelector('[data-rx-medicine-id]');
         return el ? String(el.value || '').trim() : '';
@@ -1368,54 +1363,49 @@
         return true;
     }
 
-    function rxCaptureFocusState(row) {
-        var active = document.activeElement;
-        if (!active || !row.contains(active)) {
-            return { focusName: null, selectionStart: null };
-        }
-        return {
-            focusName: active.getAttribute('name') || null,
-            selectionStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
-        };
+    function rxBeginEdit(row) {
+        if (!row || row.classList.contains('is-editing')) return;
+        var snap = [];
+        row.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (el) {
+            snap.push({ name: el.name, value: el.value, manual: el.getAttribute('data-manual') || '' });
+        });
+        row._rxSnap = snap;
+        row.classList.add('is-editing');
+        void row.offsetWidth;
+        rxInitMedicineSelects(row);
+        if (row.querySelector('[data-rx-qty]')) rxShowQtyHint(row, rxAssess(row));
     }
 
-    function rxScheduleAutoSave(row) {
+    function rxCancelEdit(row) {
         if (!row) return;
-        var prev = rxAutoTimers.get(row);
-        if (prev) clearTimeout(prev);
-        // Baris kosong (tanpa obat / tanpa bahan) tidak dijadwalkan sama sekali.
+        rxDestroyMedicineSelects(row);
+        (row._rxSnap || []).forEach(function (item) {
+            var el = row.querySelector('[name="' + item.name + '"]');
+            if (!el) return;
+            el.value = item.value;
+            if (item.manual) el.setAttribute('data-manual', item.manual);
+            else el.removeAttribute('data-manual');
+        });
+        row.classList.remove('is-editing');
+        row._rxSnap = null;
+        rxHideAllSigPopovers();
+        rxRecalcRow(row);
+    }
+
+    function rxCommitRow(row) {
+        if (!row || row.dataset.busy === '1') return;
         if (!rxRowShouldSave(row)) {
-            rxAutoTimers.delete(row);
+            window.alert(row.getAttribute('data-kind') === 'racikan' ? 'Isi minimal satu bahan racikan.' : 'Pilih obat terlebih dahulu.');
             return;
         }
-        var timer = setTimeout(function () {
-            rxAutoTimers.delete(row);
-            if (!rxRowShouldSave(row) || row.dataset.busy === '1') return;
-            if (row.matches('[data-rx-draft]')) {
-                var focusState = rxCaptureFocusState(row);
-                if (window.careSetStatus) window.careSetStatus('Menyimpan…');
-                rxSaveDraftRow(row, {
-                    background: true,
-                    focusItemId: true,
-                    focusName: focusState.focusName,
-                    selectionStart: focusState.selectionStart,
-                }).then(function () {
-                    if (window.careSetStatus) window.careSetStatus('✓ Tersimpan');
-                }).catch(function () {
-                    if (window.careSetStatus) window.careSetStatus('Gagal menyimpan', true);
-                });
-                return;
-            }
-            if (row.matches('[data-rx-row]')) {
-                if (window.careSetStatus) window.careSetStatus('Menyimpan…');
-                rxSaveRow(row, { silent: true, background: true }).then(function () {
-                    if (window.careSetStatus) window.careSetStatus('✓ Tersimpan');
-                }).catch(function () {
-                    if (window.careSetStatus) window.careSetStatus('Gagal menyimpan', true);
-                });
-            }
-        }, 1200);
-        rxAutoTimers.set(row, timer);
+        var task = row.matches('[data-rx-draft]') ? rxSaveDraftRow(row, {}) : rxSaveRow(row, {});
+        if (window.careSetStatus) window.careSetStatus('Menyimpan…');
+        Promise.resolve(task).then(function () {
+            if (window.careSetStatus) window.careSetStatus('✓ Tersimpan');
+        }).catch(function (error) {
+            if (window.careSetStatus) window.careSetStatus('Gagal menyimpan', true);
+            window.alert(error && error.message ? error.message : 'Gagal menyimpan');
+        });
     }
 
     function rxPromoteDraftRow(row, payload) {
@@ -1443,7 +1433,6 @@
         }
 
         if (payload.finish_html != null) replaceFinishRx(payload.finish_html);
-        rxEnsureEmptyReadyDraft();
         return true;
     }
 
@@ -1593,7 +1582,6 @@
             rxAutoQty(active);
         }
         if (row) row.dataset.dirty = '1';
-        rxScheduleAutoSave(active);
     }
 
     document.addEventListener('focusin', function (event) {
@@ -1653,6 +1641,21 @@
     });
 
     document.addEventListener('click', function (event) {
+        var saveBtn = event.target.closest('[data-rx-save]');
+        if (saveBtn) {
+            rxCommitRow(saveBtn.closest('[data-rx-row], [data-rx-draft]'));
+            return;
+        }
+        var editBtn = event.target.closest('[data-rx-edit]');
+        if (editBtn) {
+            rxBeginEdit(editBtn.closest('[data-rx-row]'));
+            return;
+        }
+        var cancelEdit = event.target.closest('[data-rx-cancel-edit]');
+        if (cancelEdit) {
+            rxCancelEdit(cancelEdit.closest('[data-rx-row]'));
+            return;
+        }
         var del = event.target.closest('[data-rx-delete]');
         if (del) {
             var row = del.closest('[data-rx-row]');
@@ -1720,61 +1723,11 @@
         return rxCatalog().find(function (item) { return String(item.id) === String(id); }) || null;
     }
 
-    function rxEditorRoot() {
-        return document.querySelector('[data-rx-editor]');
-    }
-
-    function rxCanEdit() {
-        var editor = rxEditorRoot();
-        return !!(editor && editor.getAttribute('data-editable') === '1');
-    }
-
-    function rxHasOpenReadyDraft() {
-        var tbody = document.querySelector('[data-rx-rows]');
-        if (!tbody) return false;
-        return !!tbody.querySelector('[data-rx-draft][data-kind="ready"]');
-    }
-
-    function rxHasEmptyReadyDraft() {
-        var tbody = document.querySelector('[data-rx-rows]');
-        if (!tbody) return false;
-        var found = false;
-        tbody.querySelectorAll('[data-rx-draft][data-kind="ready"]').forEach(function (row) {
-            if (!rxDraftReadyToSave(row)) found = true;
-        });
-        return found;
-    }
-
-    function rxEnsureEmptyReadyDraft() {
-        if (!rxCanEdit()) return null;
-        if (rxHasEmptyReadyDraft()) return null;
-        return rxAddDraftRow('ready', { focus: false });
-    }
-
-    function rxSeedDefaultDraft(options) {
-        options = options || {};
-        var tbody = document.querySelector('[data-rx-rows]');
-        if (!tbody || !rxCanEdit()) return;
-        var empty = tbody.querySelector('[data-rx-empty]');
-        if (empty) empty.remove();
-        if (options.requireEmpty) {
-            rxEnsureEmptyReadyDraft();
-            return;
-        }
-        if (rxHasOpenReadyDraft()) return;
-        rxAddDraftRow('ready', { focus: options.focus !== false });
-    }
-
     function rxEnsureEmptyState() {
         var tbody = document.querySelector('[data-rx-rows]');
         if (!tbody) return;
         var hasRows = tbody.querySelector('[data-rx-row], [data-rx-draft]');
         var empty = tbody.querySelector('[data-rx-empty]');
-        if (rxCanEdit()) {
-            if (empty) empty.remove();
-            if (!rxHasOpenReadyDraft()) rxAddDraftRow('ready', { focus: false });
-            return;
-        }
         if (hasRows) {
             if (empty) empty.remove();
             return;
@@ -1800,6 +1753,8 @@
         var $ = window.jQuery;
         if (!$ || !$.fn || !$.fn.select2) return;
         $(scope || document).find('[data-rx-medicine-select]').each(function () {
+            var saved = this.closest('[data-rx-row]');
+            if (saved && !saved.classList.contains('is-editing')) return;
             var $el = $(this);
             if ($el.data('select2')) return;
             var isIngredient = $el.is('[data-rx-ing-medicine-select]');
@@ -1916,7 +1871,6 @@
         rxAutoQty(row);
         var ingName = row.querySelector('[data-ing-name]');
         if (ingName && item.name) ingName.value = item.name;
-        rxScheduleAutoSave(row.closest('[data-rx-draft]') || row);
     }
 
     function rxSaveDraftRow(row, options) {
@@ -2042,15 +1996,12 @@
                 }
                 savedRow.dataset.dirty = '1';
             }
-            rxScheduleAutoSave(targetRow);
-            rxEnsureEmptyReadyDraft();
             return;
         }
         if (!draft || !medicineId.value) return;
         var catalogItem = rxCatalogItem(medicineId.value);
         var name = draft.querySelector('[data-ing-name]');
         if (catalogItem && name) name.value = catalogItem.name || name.value;
-        rxScheduleAutoSave(medicineId.closest('[data-rx-draft]'));
     }
 
     document.addEventListener('change', function (event) {
@@ -2101,7 +2052,6 @@
     function rxBoot() {
         rxDisableBrowserAutofill(document.getElementById('rx-list'));
         rxInitMedicineSelects(document.getElementById('rx-list'));
-        rxSeedDefaultDraft();
     }
 
     if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {

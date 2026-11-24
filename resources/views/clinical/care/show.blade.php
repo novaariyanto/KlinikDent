@@ -472,6 +472,8 @@
             margin-bottom: 0;
         }
         .rx-row--compound { background: #f8fafc; }
+        .rx-row[data-rx-row]:not(.is-editing) .rx-when-edit { display: none !important; }
+        .rx-row[data-rx-row].is-editing .rx-when-view { display: none !important; }
         .rx-row--active { outline: 1px solid #80cbc4; background: #e0f2f1; }
         .rx-row--draft.rx-row--active { background: #fff3cd; }
         .rx-editor-actions {

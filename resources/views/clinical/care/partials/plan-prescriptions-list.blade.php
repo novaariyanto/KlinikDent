@@ -103,12 +103,15 @@
                                     @endforeach
                                     <input type="hidden" name="medicine_id" value="{{ $item->medicine_id }}">
                                 @elseif ($rowEditable)
-                                    <select class="form-select form-select-sm" name="medicine_id" data-rx-field data-rx-medicine-id data-rx-medicine-select autocomplete="off">
-                                        <option value="">Cari obat…</option>
-                                        @foreach ($medicines as $medicine)
-                                            <option value="{{ $medicine->id }}" @selected((int) $item->medicine_id === (int) $medicine->id)>{{ $medicine->name }}{{ ($strength = $medicine->strengthLabel()) ? ' · '.$strength : '' }}</option>
-                                        @endforeach
-                                    </select>
+                                    <span class="rx-when-view fw-semibold">{{ $item->medicine?->name ?: $item->label() }}</span>
+                                    <div class="rx-when-edit">
+                                        <select class="form-select form-select-sm" name="medicine_id" data-rx-field data-rx-medicine-id data-rx-medicine-select autocomplete="off">
+                                            <option value="">Cari obat…</option>
+                                            @foreach ($medicines as $medicine)
+                                                <option value="{{ $medicine->id }}" @selected((int) $item->medicine_id === (int) $medicine->id)>{{ $medicine->name }}{{ ($strength = $medicine->strengthLabel()) ? ' · '.$strength : '' }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 @else
                                     <div class="fw-semibold">{{ $item->medicine?->name ?: $item->label() }}</div>
                                     @if ($item->medicine?->kfa_code)
@@ -121,7 +124,8 @@
                             <td class="text-nowrap" data-rx-strength>{{ $item->medicine?->strengthLabel() ?: '—' }}</td>
                             <td style="min-width:6rem">
                                 @if ($rowEditable)
-                                    <div class="rx-sig-field">
+                                    <span class="rx-when-view">{{ $item->dosage ?: '—' }}</span>
+                                    <div class="rx-when-edit rx-sig-field">
                                         <input class="form-control form-control-sm" name="dosage" value="{{ $item->dosage }}" data-rx-field autocomplete="off">
                                         @include('clinical.care.partials.prescription-sig', [
                                             'group' => $isCompound ? 'forms' : 'doses',
@@ -142,19 +146,23 @@
                             </td>
                             <td style="min-width:6rem">
                                 @if ($rowEditable && ! $isCompound)
-                                    <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
-                                        <option value="">—</option>
-                                        @foreach ($unitOptions as $value => $label)
-                                            <option value="{{ $value }}" @selected(($item->unit ?: $item->medicine?->unit) === $value)>{{ $label }}</option>
-                                        @endforeach
-                                    </select>
+                                    <span class="rx-when-view">{{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—') }}</span>
+                                    <div class="rx-when-edit">
+                                        <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
+                                            <option value="">—</option>
+                                            @foreach ($unitOptions as $value => $label)
+                                                <option value="{{ $value }}" @selected(($item->unit ?: $item->medicine?->unit) === $value)>{{ $label }}</option>
+                                            @endforeach
+                                        </select>
+                                    </div>
                                 @else
                                     {{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—') }}
                                 @endif
                             </td>
                             <td>
                                 @if ($rowEditable)
-                                    <div class="rx-sig-field">
+                                    <span class="rx-when-view">{{ $item->signaLine() ?: ($item->frequency ?: '—') }}</span>
+                                    <div class="rx-when-edit rx-sig-field">
                                         <div class="rx-signa">
                                             <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
                                             <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
@@ -175,7 +183,8 @@
                             </td>
                             <td style="min-width:5rem">
                                 @if ($rowEditable)
-                                    <div class="rx-sig-field">
+                                    <span class="rx-when-view">{{ $item->waktu ?: '—' }}</span>
+                                    <div class="rx-when-edit rx-sig-field">
                                         <input class="form-control form-control-sm" name="waktu" value="{{ $item->waktu }}" data-rx-field autocomplete="off">
                                         @include('clinical.care.partials.prescription-sig', [
                                             'group' => 'instructions',
@@ -189,7 +198,8 @@
                             </td>
                             <td style="min-width:3.5rem">
                                 @if ($rowEditable)
-                                    <div class="rx-sig-field">
+                                    <span class="rx-when-view">{{ $item->jho ?: '—' }}</span>
+                                    <div class="rx-when-edit rx-sig-field">
                                         <input class="form-control form-control-sm" name="jho" type="number" min="1" value="{{ $item->jho }}" title="Jumlah hari obat" data-rx-field autocomplete="off">
                                         @include('clinical.care.partials.prescription-sig', [
                                             'group' => 'courses',
@@ -203,18 +213,24 @@
                             </td>
                             <td style="min-width:3.5rem">
                                 @if ($rowEditable)
-                                    <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="{{ $item->quantity }}" data-rx-field data-rx-qty @if ($item->quantity_manual) data-manual="1" @endif>
-                                    <input type="hidden" name="quantity_manual" value="{{ $item->quantity_manual ? 1 : 0 }}">
-                                    <div class="rx-qty-hint" data-rx-qty-hint></div>
+                                    <span class="rx-when-view">{{ $item->quantity }}</span>
+                                    <div class="rx-when-edit">
+                                        <input class="form-control form-control-sm" name="quantity" type="number" min="1" value="{{ $item->quantity }}" data-rx-field data-rx-qty @if ($item->quantity_manual) data-manual="1" @endif>
+                                        <input type="hidden" name="quantity_manual" value="{{ $item->quantity_manual ? 1 : 0 }}">
+                                        <div class="rx-qty-hint" data-rx-qty-hint></div>
+                                    </div>
                                 @else
                                     {{ $item->quantity }}
                                 @endif
                             </td>
                             <td style="min-width:7rem">
                                 @if ($rowEditable)
-                                    <input class="form-control form-control-sm" name="notes" value="{{ $item->notes }}" data-rx-field>
-                                    <input type="hidden" name="duration" value="{{ $item->duration }}">
-                                    <input type="hidden" name="course" value="{{ $item->course }}">
+                                    <span class="rx-when-view">{{ $item->notes ?: ($item->duration ?: '—') }}</span>
+                                    <div class="rx-when-edit">
+                                        <input class="form-control form-control-sm" name="notes" value="{{ $item->notes }}" data-rx-field>
+                                        <input type="hidden" name="duration" value="{{ $item->duration }}">
+                                        <input type="hidden" name="course" value="{{ $item->course }}">
+                                    </div>
                                 @else
                                     {{ $item->notes ?: ($item->duration ?: '—') }}
                                 @endif
@@ -223,7 +239,16 @@
                             <td class="text-end text-nowrap" data-rx-subtotal>{{ number_format($item->subtotal(), 2, ',', '.') }}</td>
                             <td class="text-center text-nowrap">
                                 @if ($rowEditable)
-                                    <button type="button" class="btn btn-sm btn-danger" data-rx-delete title="Hapus">
+                                    <button type="button" class="btn btn-sm btn-light border rx-when-view" data-rx-edit title="Edit" aria-label="Edit">
+                                        <i class="bx bx-edit"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-primary rx-when-edit" data-rx-save title="Simpan" aria-label="Simpan">
+                                        <i class="bx bx-save"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-light border rx-when-edit" data-rx-cancel-edit title="Batal" aria-label="Batal">
+                                        <i class="bx bx-x"></i>
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-danger" data-rx-delete title="Hapus" aria-label="Hapus">
                                         <i class="bx bx-trash"></i>
                                     </button>
                                 @endif
@@ -231,11 +256,9 @@
                         </tr>
                     @endforeach
                 @empty
-                    @unless ($canEditDraft)
-                        <tr data-rx-empty>
-                            <td colspan="13" class="text-muted text-center py-2">Belum ada item resep.</td>
-                        </tr>
-                    @endunless
+                    <tr data-rx-empty>
+                        <td colspan="13" class="text-muted text-center py-2">Belum ada item resep.</td>
+                    </tr>
                 @endforelse
             </tbody>
         </table>
@@ -309,7 +332,8 @@
                 <td class="text-end" data-rx-price>0,00</td>
                 <td class="text-end" data-rx-subtotal>0,00</td>
                 <td class="text-center text-nowrap">
-                    <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal"><i class="bx bx-x"></i></button>
+                    <button type="button" class="btn btn-sm btn-primary" data-rx-save title="Simpan" aria-label="Simpan"><i class="bx bx-save"></i></button>
+                    <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal" aria-label="Batal"><i class="bx bx-x"></i></button>
                 </td>
             </tr>
         </template>
@@ -375,7 +399,8 @@
                 <td class="text-end" data-rx-price>0,00</td>
                 <td class="text-end" data-rx-subtotal>0,00</td>
                 <td class="text-center text-nowrap">
-                    <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal"><i class="bx bx-x"></i></button>
+                    <button type="button" class="btn btn-sm btn-primary" data-rx-save title="Simpan" aria-label="Simpan"><i class="bx bx-save"></i></button>
+                    <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal" aria-label="Batal"><i class="bx bx-x"></i></button>
                 </td>
             </tr>
         </template>
