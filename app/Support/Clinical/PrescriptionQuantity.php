@@ -357,9 +357,6 @@ final class PrescriptionQuantity
 
             $signa = $daily;
             $dose = $ml ?? $doseText;
-            if ($dose === null && $signa > 0 && $ml === null && ! self::looksLiquid($input)) {
-                $dose = 1.0;
-            }
 
             if ($dose === null || $signa <= 0) {
                 return [
@@ -397,9 +394,6 @@ final class PrescriptionQuantity
         }
 
         $dose = $ml ?? $doseText ?? $pairedDose;
-        if ($dose === null && $times !== null && $ml === null && ! self::looksLiquid($input)) {
-            $dose = $pairedDose ?? 1.0;
-        }
 
         $daily = ($dose !== null && $times !== null && $times > 0) ? $dose * $times : null;
 
@@ -423,6 +417,10 @@ final class PrescriptionQuantity
         $compound = in_array($kind, ['racikan', 'compound'], true);
         $dosage = strtolower((string) ($input['dosage'] ?? ''));
         $hasMl = preg_match('/\d+(?:[.,]\d+)?\s*ml\b/iu', (string) ($input['dosage'] ?? '')) === 1;
+        $plainDose = preg_match('/^\d+(?:[.,]\d+)?$/u', trim((string) ($input['dosage'] ?? ''))) === 1;
+        if (! $hasMl && $plainDose && in_array($unit, ['ml', 'sirup'], true)) {
+            $hasMl = true;
+        }
         $liquidUnit = in_array($unit, ['ml', 'sirup'], true) || str_contains($dosage, 'sirup') || str_contains($dosage, 'sediaan cair');
 
         if ($hasMl) {
@@ -463,14 +461,6 @@ final class PrescriptionQuantity
             'unit' => $unit !== '' ? $unit : null,
             'unit_label' => $label,
         ];
-    }
-
-    protected static function looksLiquid(array $input): bool
-    {
-        $unit = strtolower(trim((string) ($input['unit'] ?? '')));
-        $dosage = strtolower((string) ($input['dosage'] ?? ''));
-
-        return in_array($unit, ['ml', 'sirup'], true) || str_contains($dosage, 'ml') || str_contains($dosage, 'sirup');
     }
 
     protected static function amount(string $raw): ?float

@@ -1071,10 +1071,12 @@
         var dosageLower = dosage.toLowerCase();
         var mlMatch = dosage.match(/(\d+(?:[.,]\d+)?)\s*ml\b/i);
         var ml = mlMatch ? rxParseAmount(mlMatch[1]) : null;
+        var plainDose = /^\d+(?:[.,]\d+)?$/.test(dosage);
         var compound = kind === 'racikan' || kind === 'compound';
         var liquidUnit = unit === 'ml' || unit === 'sirup' || dosageLower.indexOf('sirup') !== -1 || dosageLower.indexOf('sediaan cair') !== -1;
         var form = { countable: false, liquid: false, hasMl: false, label: 'tablet' };
-        if (ml != null) {
+        if (ml != null || (plainDose && (unit === 'ml' || unit === 'sirup'))) {
+            if (ml == null && plainDose) ml = rxParseAmount(dosage);
             form = { countable: false, liquid: true, hasMl: true, label: 'ml' };
         } else if (compound && (dosageLower.indexOf('salep') !== -1 || dosageLower.indexOf('tetes') !== -1 || dosageLower.indexOf('krim') !== -1)) {
             form = { countable: false, liquid: false, hasMl: false, label: unit };
@@ -1127,8 +1129,6 @@
             });
             var signa = sum;
             var doseAmount = ml != null ? ml : rxParseAmount(dosage);
-            var looksLiquid = unit === 'ml' || unit === 'sirup' || dosageLower.indexOf('ml') !== -1 || dosageLower.indexOf('sirup') !== -1;
-            if (doseAmount == null && signa > 0 && ml == null && !looksLiquid) doseAmount = 1;
             if (doseAmount != null && signa > 0) {
                 daily = doseAmount * signa;
                 explain = rxTrimNum(doseAmount) + (ml != null ? ' ml' : '') + ' × ' + rxTrimNum(signa) + ' (' + shown.join(', ') + ')';
@@ -1150,8 +1150,6 @@
                 if (hours > 0 && 24 % hours === 0) times = 24 / hours;
             }
             var dose = ml != null ? ml : (rxParseAmount(dosage) != null ? rxParseAmount(dosage) : paired);
-            var looksLiquid = unit === 'ml' || unit === 'sirup' || dosageLower.indexOf('ml') !== -1 || dosageLower.indexOf('sirup') !== -1;
-            if (dose == null && times && ml == null && !looksLiquid) dose = paired != null ? paired : 1;
             if (dose != null && times) daily = dose * times;
             explain = rxTrimNum(dose || 0) + (ml != null ? ' ml' : '') + ' × ' + (times || 0) + ' kali/hari';
         }
@@ -1590,7 +1588,7 @@
             if (flag) flag.value = '1';
             rxShowQtyHint(active, rxAssess(active));
             rxRecalcRow(active);
-        } else if (target.matches('[name="dosage"], [data-rx-signa], [name="jho"], [name="notes"], [name="waktu"], [name="unit"], [name="course"]')) {
+        } else if (target.matches('[name="dosage"], [name="signa_p"], [name="signa_s"], [name="signa_sr"], [name="signa_m"], [name="jho"], [data-rx-signa], [name="notes"], [name="waktu"], [name="unit"], [name="course"]')) {
             rxClearQtyManual(active);
             rxAutoQty(active);
         }
@@ -1928,6 +1926,9 @@
         var editor = document.querySelector('[data-rx-editor]');
         var storeUrl = editor ? editor.getAttribute('data-store') : '';
         if (!storeUrl) return Promise.reject(new Error('URL simpan tidak ditemukan'));
+
+        var qtyInput = row.querySelector('[data-rx-qty]');
+        if (!qtyInput || qtyInput.dataset.manual !== '1') rxAutoQty(row);
 
         var kind = row.getAttribute('data-kind') || 'ready';
         var body = new FormData();
