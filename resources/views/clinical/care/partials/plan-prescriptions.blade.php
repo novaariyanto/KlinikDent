@@ -737,6 +737,9 @@
                 rxHideAllSigPopovers();
                 return;
             }
+            if (effect === 'dose' && !input && row) {
+                input = row.querySelector('[name="dosage"]');
+            }
             if (input) {
                 if (row && (effect === 'duration' || sigName === 'jho')) {
                     var daysFromHelp = sig.getAttribute('data-sig-days') || rxParseDays(fillValue) || rxParseAmount(fillValue);
@@ -747,8 +750,10 @@
                     input.value = fillValue;
                     var coursePrn = row.querySelector('[name="course"]');
                     if (coursePrn && effect === 'until_finished') coursePrn.value = fillValue;
-                } else if (effect === 'dose' && input && String(input.value || '').trim() !== '') {
-                    /* dosis yang sudah diisi dokter tidak ditimpa */
+                } else if (effect === 'dose') {
+                    var doseValue = sig.getAttribute('data-sig-dose');
+                    input.value = doseValue ? String(doseValue) : fillValue;
+                    if (/ml\b/i.test(fillValue) && doseValue) input.value = doseValue + ' ml';
                 } else {
                     input.value = fillValue;
                 }
