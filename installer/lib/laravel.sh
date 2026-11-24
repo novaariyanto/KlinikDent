@@ -48,6 +48,10 @@ run_migrations() {
 }
 
 seed_core() {
+    run_cmd "Seeder wilayah provinsi" "$PHP_BIN" artisan db:seed --class='Laravolt\Indonesia\Seeds\ProvincesSeeder' --force --no-interaction
+    run_cmd "Seeder wilayah kabupaten/kota" "$PHP_BIN" artisan db:seed --class='Laravolt\Indonesia\Seeds\CitiesSeeder' --force --no-interaction
+    run_cmd "Seeder wilayah kecamatan" "$PHP_BIN" artisan db:seed --class='Laravolt\Indonesia\Seeds\DistrictsSeeder' --force --no-interaction
+    run_cmd "Seeder wilayah desa/kelurahan" "$PHP_BIN" artisan db:seed --class='Laravolt\Indonesia\Seeds\VillagesSeeder' --force --no-interaction
     run_cmd "Seeder RolePermission" "$PHP_BIN" artisan db:seed --class=RolePermissionSeeder --force --no-interaction
     run_cmd "Seeder Menu" "$PHP_BIN" artisan db:seed --class=MenuSeeder --force --no-interaction
     run_cmd "Seeder WhatsApp templates" "$PHP_BIN" artisan db:seed --class=WhatsAppTemplateSeeder --force --no-interaction
@@ -94,6 +98,10 @@ run_seeders() {
         if [[ "$users" != "0" && "$users" != "" ]]; then
             plan "skip seeder (database already has $users users; default is skip)"
         elif [[ "$env" == "production" ]]; then
+            plan "php artisan db:seed --class='Laravolt\\Indonesia\\Seeds\\ProvincesSeeder' --force"
+            plan "php artisan db:seed --class='Laravolt\\Indonesia\\Seeds\\CitiesSeeder' --force"
+            plan "php artisan db:seed --class='Laravolt\\Indonesia\\Seeds\\DistrictsSeeder' --force"
+            plan "php artisan db:seed --class='Laravolt\\Indonesia\\Seeds\\VillagesSeeder' --force"
             plan "php artisan db:seed --class=RolePermissionSeeder --force"
             plan "php artisan db:seed --class=MenuSeeder --force"
             plan "php artisan db:seed --class=WhatsAppTemplateSeeder --force"

@@ -2374,14 +2374,19 @@ body.care-mode .main-content {
     margin-left: 280px;
 }
 
+/* Care queue uses a full-width custom sidebar; collapse it completely instead of leaving a broken 70px rail. */
 body.care-mode.vertical-collpsed .vertical-menu,
 body.care-mode.vertical-collapsed .vertical-menu {
-    width: 280px;
+    width: 0 !important;
+    overflow: hidden;
 }
 
 body.care-mode.vertical-collpsed .main-content,
-body.care-mode.vertical-collapsed .main-content {
-    margin-left: 280px;
+body.care-mode.vertical-collapsed .main-content,
+body.care-mode.vertical-collpsed .footer,
+body.care-mode.vertical-collapsed .footer {
+    margin-left: 0 !important;
+    left: 0 !important;
 }
 
 .doctor-sidebar {
