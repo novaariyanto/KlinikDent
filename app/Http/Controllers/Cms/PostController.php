@@ -11,7 +11,9 @@ use App\Models\CmsPost;
 use App\Models\CmsPostRevision;
 use App\Models\CmsTag;
 use App\Support\Cms\PostService;
+use App\Support\Cms\PostXlsxImporter;
 use App\Support\Cms\SeoAnalyzer;
+use App\Support\Marketing\SeoMeta;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -86,6 +88,51 @@ class PostController extends Controller
             })
             ->rawColumns(['checkbox', 'title', 'status_badge', 'action'])
             ->toJson();
+    }
+
+    public function import(Request $request, PostXlsxImporter $importer): JsonResponse
+    {
+        $this->authorize('create', CmsPost::class);
+
+        $user = $request->user();
+        abort_unless($user !== null, 403);
+
+        if ($request->boolean('bundled')) {
+            $path = $importer->bundledPath();
+        } else {
+            $request->validate([
+                'file' => ['required', 'file', 'max:10240', 'mimes:xlsx,xls'],
+            ], [
+                'file.required' => 'Pilih file XLSX artikel.',
+                'file.mimes' => 'File harus berformat XLSX.',
+                'file.max' => 'Ukuran file maksimal 10 MB.',
+            ]);
+            $path = (string) $request->file('file')?->getRealPath();
+        }
+
+        $results = $importer->importPath($path, $user, $request->boolean('overwrite'));
+        $created = count(array_filter($results, fn (array $row) => $row['status'] === 'created'));
+        $updated = count(array_filter($results, fn (array $row) => $row['status'] === 'updated'));
+        $skipped = count(array_filter($results, fn (array $row) => $row['status'] === 'skipped'));
+        $failed = count(array_filter($results, fn (array $row) => $row['status'] === 'failed'));
+
+        activity_log(
+            'created',
+            null,
+            ['created' => $created, 'updated' => $updated, 'skipped' => $skipped, 'failed' => $failed],
+            'Impor artikel CMS: '.$created.' baru, '.$updated.' diperbarui, '.$skipped.' dilewati, '.$failed.' gagal.',
+            'cms'
+        );
+
+        return response()->json([
+            'ok' => $failed === 0,
+            'message' => 'Impor selesai. Ditambah '.$created.', diperbarui '.$updated.', dilewati '.$skipped.', gagal '.$failed.'.',
+            'created' => $created,
+            'updated' => $updated,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'results' => $results,
+        ]);
     }
 
     public function bulkStatus(Request $request): JsonResponse
@@ -212,7 +259,7 @@ class PostController extends Controller
             'featureGroups' => [],
             'faqs' => [],
             'softwareFeatures' => [],
-            'seo' => \App\Support\Marketing\SeoMeta::defaults(),
+            'seo' => SeoMeta::defaults(),
             'appName' => config('app.name'),
             'appLogo' => '/marketing/favicon.svg',
         ]);

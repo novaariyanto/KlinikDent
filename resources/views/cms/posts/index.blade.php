@@ -6,6 +6,10 @@
     <x-page-header title="Semua Artikel" :breadcrumb="['CMS' => route('cms.dashboard'), 'Artikel' => null]" />
     <x-alert />
 
+    @can('cms.manage')
+        @include('cms.posts.partials.import')
+    @endcan
+
     <x-card title="Artikel blog">
         <x-slot:header-actions>
             @can('cms.manage')
@@ -120,6 +124,10 @@
                 syncRowChecks();
                 syncCount();
             },
+        });
+
+        document.addEventListener('cms-posts-imported', function () {
+            if (dt && dt.ajax) dt.ajax.reload(null, false);
         });
 
         if (filterEl) {
