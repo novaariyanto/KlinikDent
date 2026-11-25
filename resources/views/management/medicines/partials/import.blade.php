@@ -5,7 +5,7 @@
 
     <div class="d-flex flex-wrap gap-2 mb-3">
         @php($catalogCount = \App\Support\Onboarding\OnboardingCatalog::medicineTemplateCount())
-        <form method="POST" action="{{ route('management.medicines.import.catalog') }}" onsubmit="return confirm('Impor {{ number_format($catalogCount, 0, ',', '.') }} obat dari master onboarding? Nama yang sudah ada ikut diperbarui.')">
+        <form method="POST" action="{{ route('management.medicines.import.catalog') }}" onsubmit="return confirm('Impor {{ number_format($catalogCount, 0, ',', '.') }} obat dari master onboarding? Nama yang sudah ada ikut diperbarui. Stok awal 100 untuk obat yang belum punya stok.')">
             @csrf
             <x-button type="submit" variant="soft-primary" icon="bx bx-upload">Impor master obat</x-button>
         </form>

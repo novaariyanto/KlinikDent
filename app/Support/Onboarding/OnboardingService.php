@@ -13,6 +13,7 @@ use App\Models\Branch;
 use App\Models\ClinicSetting;
 use App\Models\Doctor;
 use App\Models\Medicine;
+use App\Models\MedicineStock;
 use App\Models\Payer;
 use App\Models\Procedure;
 use App\Models\SaasAddon;
@@ -23,6 +24,7 @@ use App\Models\TenantIntegration;
 use App\Models\User;
 use App\Support\ClinicSettings;
 use App\Support\Doctors\DoctorService;
+use App\Support\Pharmacy\PharmacyStockService;
 use App\Support\Saas\AddonGate;
 use App\Support\Saas\AddonService;
 use Illuminate\Http\UploadedFile;
@@ -545,29 +547,69 @@ class OnboardingService
         $settings->save();
     }
 
-    public function importMedicineTemplate(Tenant $tenant): int
+    public function importMedicineTemplate(Tenant $tenant, ?User $actor = null): int
     {
-        return DB::transaction(fn () => $this->seedMedicineTemplate($tenant));
+        return DB::transaction(fn () => $this->seedMedicineTemplate($tenant, $actor));
     }
 
-    protected function seedMedicineTemplate(Tenant $tenant): int
+    protected function seedMedicineTemplate(Tenant $tenant, ?User $actor = null): int
     {
         $count = 0;
+        $branchId = $actor ? $this->openingStockBranchId($tenant, $actor) : null;
 
         foreach (OnboardingCatalog::medicineTemplate() as $item) {
             if (! filled($item['name'] ?? null)) {
                 continue;
             }
 
-            $this->upsertMedicine($tenant->id, $item, [
+            $medicine = $this->upsertMedicine($tenant->id, $item, [
                 'margin_type' => filled($item['margin_type'] ?? null) ? $item['margin_type'] : 'fixed',
                 'margin_value' => Medicine::normalizeDecimalInput($item['margin_value'] ?? null) ?? 0,
                 'is_active' => array_key_exists('is_active', $item) ? (bool) $item['is_active'] : true,
             ]);
+
+            if ($actor && $branchId) {
+                $this->ensureOpeningStock($tenant->id, $branchId, $medicine, $actor);
+            }
+
             $count++;
         }
 
         return $count;
+    }
+
+    protected function openingStockBranchId(Tenant $tenant, User $actor): ?int
+    {
+        if ($actor->branch_id) {
+            return (int) $actor->branch_id;
+        }
+
+        $id = Branch::query()->where('tenant_id', $tenant->id)->orderBy('id')->value('id');
+
+        return $id ? (int) $id : null;
+    }
+
+    protected function ensureOpeningStock(int $tenantId, int $branchId, Medicine $medicine, User $actor): void
+    {
+        $exists = MedicineStock::query()
+            ->where('tenant_id', $tenantId)
+            ->where('medicine_id', $medicine->id)
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        app(PharmacyStockService::class)->addStock(
+            tenantId: $tenantId,
+            branchId: $branchId,
+            medicineId: (int) $medicine->id,
+            batchNumber: 'AWAL',
+            expiredDate: now()->addYears(2)->toDateString(),
+            quantity: 100,
+            user: $actor,
+            notes: 'Stok awal impor master obat',
+        );
     }
 
     /**
@@ -576,7 +618,7 @@ class OnboardingService
      * @param  array<string, mixed>  $item
      * @param  array<string, mixed>  $extra
      */
-    protected function upsertMedicine(int $tenantId, array $item, array $extra = []): void
+    protected function upsertMedicine(int $tenantId, array $item, array $extra = []): Medicine
     {
         $name = trim((string) $item['name']);
         $kfa = filled($item['kfa_code'] ?? null)
@@ -597,7 +639,7 @@ class OnboardingService
             $kfa = null;
         }
 
-        Medicine::query()->updateOrCreate(
+        return Medicine::query()->updateOrCreate(
             ['tenant_id' => $tenantId, 'name' => $name],
             array_merge([
                 'kfa_code' => $kfa,

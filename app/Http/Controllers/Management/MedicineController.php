@@ -122,11 +122,11 @@ class MedicineController extends Controller
     {
         $this->authorize('create', Medicine::class);
         $tenant = Tenant::query()->findOrFail($request->user()?->tenant_id);
-        $count = $onboarding->importMedicineTemplate($tenant);
+        $count = $onboarding->importMedicineTemplate($tenant, $request->user());
 
         activity_log('created', $tenant, ['count' => $count], 'Imported medicine catalog', 'medicines');
 
-        return back()->with('success', $count.' obat dari master onboarding diimpor.');
+        return back()->with('success', $count.' obat dari master onboarding diimpor. Stok awal 100 untuk obat yang belum punya stok.');
     }
 
     public function importParse(ImportMedicineRequest $request, MedicineXlsxImporter $importer): JsonResponse
