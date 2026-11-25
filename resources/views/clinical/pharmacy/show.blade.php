@@ -68,8 +68,10 @@
                             @endif
                             @if ($itemSsBlock !== [])
                                 <div class="text-danger font-size-12">Belum siap SATUSEHAT</div>
+                            @elseif (! \App\Support\Clinical\PrescriptionSatuSehatReadiness::canBuildMedication($item))
+                                <div class="text-muted font-size-12">Tidak dikirim ke SATUSEHAT</div>
                             @elseif ($itemSsWarn !== [])
-                                <div class="text-warning font-size-12">Farmasi OK · tanpa SATUSEHAT</div>
+                                <div class="text-warning font-size-12">Farmasi OK · catatan SATUSEHAT</div>
                             @else
                                 <div class="text-success font-size-12">Siap farmasi &amp; SATUSEHAT</div>
                             @endif

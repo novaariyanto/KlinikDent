@@ -175,7 +175,7 @@ final class SatuSehatFhirPayload
             $kfa = $medicine?->kfa_code;
 
             if (! filled($kfa)) {
-                return null;
+                continue;
             }
 
             $formCode = self::orderableDrugFormCode((string) ($ingredient->unit ?: $medicine?->unit ?: 'tablet'));

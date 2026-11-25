@@ -64,30 +64,30 @@ final class PrescriptionSatuSehatReadiness
         $label = $item->label();
         $issues = [];
 
-        if (! filled($item->dosage) || ! filled($item->frequency) || ! filled($item->duration)) {
+        if (! self::sigReady($item)) {
             $issues[] = self::issue(
-                'block',
+                'warn',
                 $item,
-                'SIG wajib lengkap (dosis, frekuensi, aturan pakai) untuk "'.$label.'" — dipakai MedicationRequest SATUSEHAT.',
+                'Lengkapi dosis, signa, dan jumlah hari obat untuk "'.$label.'" sebelum dikirim ke SATUSEHAT.',
             );
         }
 
         $type = $item->medication_type;
         if (! $type instanceof MedicationTypeCode) {
             $issues[] = self::issue(
-                'block',
+                'warn',
                 $item,
                 'Tipe MedicationType (NC/EP/SD) belum diisi untuk "'.$label.'".',
             );
         } elseif ($item->isCompound() && ! $type->isCompound()) {
             $issues[] = self::issue(
-                'block',
+                'warn',
                 $item,
                 'Racikan "'.$label.'" harus memakai tipe EP atau SD, bukan NC.',
             );
         } elseif (! $item->isCompound() && $type->isCompound()) {
             $issues[] = self::issue(
-                'block',
+                'warn',
                 $item,
                 'Obat jadi "'.$label.'" harus memakai tipe NC.',
             );
@@ -105,41 +105,17 @@ final class PrescriptionSatuSehatReadiness
                 $isAdditive = ($ingredient->role ?? 'active') === 'additive';
                 if ($isDtd && ! $isAdditive && ($ingredient->strength_value === null || ! filled($ingredient->strength_unit))) {
                     $issues[] = self::issue(
-                        'block',
+                        'warn',
                         $item,
                         'Racikan d.t.d (SD) "'.$label.'" membutuhkan kekuatan + unit pada bahan "'.$name.'".',
                     );
                 }
-                if (! $ingredient->medicine_id || ! $ingredient->medicine) {
-                    $issues[] = self::issue(
-                        'warn',
-                        $item,
-                        'Bahan "'.$name.'" pada "'.$label.'" belum terhubung master obat/KFA — tidak ke SATUSEHAT.',
-                    );
-
-                    continue;
-                }
-                if (! filled($ingredient->medicine->kfa_code)) {
-                    $issues[] = self::issue(
-                        'warn',
-                        $item,
-                        'Bahan "'.$name.'" pada "'.$label.'" belum KFA — tidak dikirim ke SATUSEHAT.',
-                    );
-                }
             }
-        } else {
-            if (! $item->medicine_id || ! $item->medicine) {
-                $issues[] = self::issue('block', $item, 'Obat "'.$label.'" tidak terhubung master obat.');
-            } elseif (! filled($item->medicine->kfa_code)) {
-                $issues[] = self::issue(
-                    'warn',
-                    $item,
-                    'Obat "'.$label.'" belum KFA — tidak dikirim ke SATUSEHAT.',
-                );
-            }
+        } elseif (! $item->medicine_id || ! $item->medicine) {
+            $issues[] = self::issue('block', $item, 'Obat "'.$label.'" tidak terhubung master obat.');
         }
 
-        if ($type instanceof MedicationTypeCode && self::canBuildMedication($item) === false) {
+        if ($type instanceof MedicationTypeCode && ! self::lacksKfa($item) && self::canBuildMedication($item) === false) {
             $hasBlock = collect($issues)->contains(fn ($issue) => $issue['level'] === 'block');
             if (! $hasBlock) {
                 $issues[] = self::issue(
@@ -179,6 +155,47 @@ final class PrescriptionSatuSehatReadiness
             ->unique()
             ->values()
             ->all();
+    }
+
+    protected static function lacksKfa(PrescriptionItem $item): bool
+    {
+        if ($item->isCompound()) {
+            $ingredients = $item->relationLoaded('ingredients')
+                ? $item->ingredients
+                : $item->ingredients()->with('medicine')->get();
+
+            return $ingredients->contains(fn ($ingredient) => filled($ingredient->medicine?->kfa_code)) === false;
+        }
+
+        return ! filled($item->medicine?->kfa_code);
+    }
+
+    protected static function sigReady(PrescriptionItem $item): bool
+    {
+        $blob = mb_strtolower(implode(' ', array_filter([
+            $item->dosage,
+            $item->frequency,
+            $item->duration,
+            $item->waktu,
+            $item->course,
+            $item->notes,
+        ])));
+        $prn = str_contains($blob, 'prn')
+            || str_contains($blob, 'sos')
+            || str_contains($blob, 'bila perlu')
+            || str_contains($blob, 'jika diperlukan');
+
+        $dosageOk = filled($item->dosage) && trim((string) $item->dosage) !== '-';
+        $scheduleOk = $item->signaLine() !== ''
+            || (filled($item->frequency) && trim((string) $item->frequency) !== '-');
+        $daysOk = filled($item->jho)
+            || (filled($item->duration) && trim((string) $item->duration) !== '-');
+
+        if ($prn) {
+            return $dosageOk;
+        }
+
+        return $dosageOk && $scheduleOk && $daysOk;
     }
 
     public static function canBuildMedication(PrescriptionItem $item): bool

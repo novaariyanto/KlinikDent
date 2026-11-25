@@ -472,7 +472,7 @@
             var ssBlocked = finish.getAttribute('data-ss-block') === '1';
             submitBtn.disabled = !confirmCb.checked || ssBlocked;
             if (ssBlocked) {
-                submitBtn.title = 'Perbaiki kelengkapan resep (SIG / tipe NC·EP·SD) sebelum kirim ke farmasi';
+                submitBtn.title = 'Perbaiki tipe obat (NC·EP·SD) sebelum kirim ke farmasi';
             } else {
                 submitBtn.removeAttribute('title');
             }

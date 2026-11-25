@@ -16,9 +16,6 @@
         $medicineIds,
     );
     $unitOptions = \App\Models\Medicine::UNITS + ['ml' => 'ml'];
-    $ssIssues = \App\Support\Clinical\PrescriptionSatuSehatReadiness::forVisit($visit);
-    $ssBlocking = \App\Support\Clinical\PrescriptionSatuSehatReadiness::blockingMessages($ssIssues);
-    $ssWarnings = \App\Support\Clinical\PrescriptionSatuSehatReadiness::warningMessages($ssIssues);
     $estimate = $visit->prescriptions->flatMap->items->sum(fn ($item) => $item->subtotal());
     $canEditDraft = $writable && auth()->user()?->can('prescription.create');
     $racikIndex = 0;
@@ -30,13 +27,6 @@
      data-editable="{{ $canEditDraft ? '1' : '0' }}"
      data-auto-draft="{{ $canEditDraft && $visit->prescriptions->every(fn ($rx) => $rx->items->isEmpty()) ? '1' : '0' }}"
      autocomplete="off">
-    @if ($ssBlocking !== [] || $ssWarnings !== [])
-        <div class="alert {{ $ssBlocking !== [] ? 'alert-danger' : 'alert-warning' }} py-1 px-2 mb-0 small" role="status">
-            <strong>SATUSEHAT:</strong>
-            {{ implode(' · ', array_merge($ssBlocking, $ssWarnings)) }}
-        </div>
-    @endif
-
     <div class="rx-toolbar-mini">
         @can('prescription.view')
             <a href="{{ route('care.prescriptions.pdf', $visit) }}" target="_blank" rel="noopener" class="btn btn-sm btn-light border">

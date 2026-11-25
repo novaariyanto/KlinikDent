@@ -1831,10 +1831,7 @@ class SatuSehatSync
                 $built = SatuSehatFhirPayload::medicationFromItem($item, $orgId);
 
                 if ($built === null) {
-                    $hint = $item->isCompound()
-                        ? 'racikan membutuhkan bahan dengan kode KFA pada obat stok'
-                        : 'kode KFA kosong';
-                    $this->notes[] = 'Obat "'.$item->label().'" tidak dikirim karena '.$hint.'.';
+                    $this->notes[] = 'Obat "'.$item->label().'" dilewati karena tidak punya kode KFA.';
 
                     continue;
                 }
