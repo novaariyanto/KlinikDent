@@ -12,4 +12,19 @@ return [
         'Depo Rawat Jalan',
         'Depo IGD',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Jenis racikan (pilihan form resep)
+    |--------------------------------------------------------------------------
+    */
+    'jenis_racikan' => [
+        'Puyer',
+        'Kapsul',
+        'Salep',
+        'Krim',
+        'Sirup',
+        'Tetes',
+        'Suspensi',
+    ],
 ];

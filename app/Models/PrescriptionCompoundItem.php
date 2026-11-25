@@ -16,6 +16,7 @@ class PrescriptionCompoundItem extends Model
         'additive_kind',
         'quantity',
         'per_dose_quantity',
+        'dose_amount',
         'strength_value',
         'strength_unit',
     ];
@@ -27,6 +28,7 @@ class PrescriptionCompoundItem extends Model
             'medicine_id' => 'integer',
             'quantity' => 'integer',
             'per_dose_quantity' => 'integer',
+            'dose_amount' => 'float',
             'strength_value' => 'float',
         ];
     }
@@ -34,6 +36,18 @@ class PrescriptionCompoundItem extends Model
     public function isAdditive(): bool
     {
         return $this->role === 'additive';
+    }
+
+    public function doseLabel(): ?string
+    {
+        if ($this->dose_amount === null || (float) $this->dose_amount <= 0) {
+            return null;
+        }
+
+        $value = rtrim(rtrim(number_format((float) $this->dose_amount, 2, '.', ''), '0'), '.');
+        $unit = $this->strength_unit ?: $this->unit;
+
+        return trim($value.' '.$unit);
     }
 
     public function compositionLabel(): string
@@ -55,6 +69,10 @@ class PrescriptionCompoundItem extends Model
 
         if ($this->per_dose_quantity) {
             $parts[] = $this->per_dose_quantity.' '.($this->unit ?: 'satuan').'/bungkus';
+        }
+
+        if ($this->dose_amount) {
+            $parts[] = 'dosis '.rtrim(rtrim(number_format((float) $this->dose_amount, 2, '.', ''), '0'), '.').($this->strength_unit ? ' '.$this->strength_unit : '').'/bungkus';
         }
 
         $parts[] = 'total '.$this->quantity.($this->unit ? ' '.$this->unit : '');

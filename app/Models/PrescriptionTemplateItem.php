@@ -18,6 +18,8 @@ class PrescriptionTemplateItem extends Model
         'sort',
         'kind',
         'medication_type',
+        'name',
+        'jenis_racikan',
         'medicine_id',
         'dosage',
         'frequency',
@@ -74,6 +76,10 @@ class PrescriptionTemplateItem extends Model
     public function label(): string
     {
         if ($this->isCompound()) {
+            if (filled($this->name)) {
+                return 'Racikan '.$this->name;
+            }
+
             $names = $this->relationLoaded('ingredients')
                 ? $this->ingredients->pluck('name')->filter()->implode(', ')
                 : '';

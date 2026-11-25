@@ -258,6 +258,149 @@ class ClinicalCareTest extends TestCase
             ->assertSee($second->visit_date->format('d M Y'));
     }
 
+    public function test_signature_slots_fill_frequency_and_quantity(): void
+    {
+        $dentist = $this->tenantUser(RoleName::Dentist, $this->tenantA, $this->branchA);
+        $visit = $this->openVisit($dentist);
+        $medicine = Medicine::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'name' => 'Paracetamol 500mg',
+            'strength_value' => 500,
+            'strength_unit' => 'mg',
+            'unit' => 'tablet',
+        ]);
+
+        $this->actingAs($dentist)->post(route('care.prescription-item.store', $visit), [
+            'kind' => 'ready',
+            'medicine_id' => $medicine->id,
+            'dosage' => '500 mg',
+            'signa_p' => '1',
+            'signa_s' => '0',
+            'signa_sr' => '1',
+            'signa_m' => '0',
+            'jho' => 3,
+            'quantity' => 6,
+            'unit' => 'tablet',
+        ])->assertRedirect();
+
+        $item = $visit->fresh()->prescriptions->flatMap->items->first();
+        $this->assertSame('1-0-1-0', $item?->frequency);
+        $this->assertSame(6, $item?->quantity);
+    }
+
+    public function test_compound_component_quantity_is_derived_from_dose_and_strength(): void
+    {
+        $dentist = $this->tenantUser(RoleName::Dentist, $this->tenantA, $this->branchA);
+        $visit = $this->openVisit($dentist);
+        $medicine = Medicine::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'name' => 'Amoxicillin Puyer 500mg',
+            'strength_value' => 500,
+            'strength_unit' => 'mg',
+            'unit' => 'tablet',
+        ]);
+
+        $this->actingAs($dentist)->post(route('care.prescription-item.store', $visit), [
+            'kind' => 'racikan',
+            'medication_type' => 'EP',
+            'name' => 'Puyer gigi',
+            'jenis_racikan' => 'Puyer',
+            'dosage' => 'puyer',
+            'signa_p' => '1',
+            'signa_s' => '0',
+            'signa_sr' => '1',
+            'signa_m' => '0',
+            'jho' => 5,
+            'quantity' => 10,
+            'unit' => 'bungkus',
+            'ingredients' => [[
+                'name' => 'Amoxicillin Puyer 500mg',
+                'medicine_id' => $medicine->id,
+                'role' => 'active',
+                'quantity' => 5,
+                'dose_amount' => 250,
+                'strength_value' => 500,
+                'strength_unit' => 'mg',
+                'unit' => 'tablet',
+            ]],
+        ])->assertRedirect();
+
+        $item = $visit->fresh()->prescriptions->flatMap->items->first();
+        $this->assertSame('Puyer gigi', $item?->name);
+        $this->assertSame('Puyer', $item?->jenis_racikan);
+        $ingredient = $item?->ingredients->first();
+        $this->assertSame(5, $ingredient?->quantity);
+        $this->assertSame(250.0, (float) $ingredient?->dose_amount);
+    }
+
+    public function test_compound_component_quantity_uses_dose_times_packs_divided_by_strength(): void
+    {
+        $dentist = $this->tenantUser(RoleName::Dentist, $this->tenantA, $this->branchA);
+        $visit = $this->openVisit($dentist);
+        $medicine = Medicine::factory()->create([
+            'tenant_id' => $this->tenantA->id,
+            'name' => 'Amoxicillin Racik 500mg',
+            'strength_value' => 500,
+            'strength_unit' => 'mg',
+            'unit' => 'tablet',
+        ]);
+
+        $this->actingAs($dentist)->post(route('care.prescription-item.store', $visit), [
+            'kind' => 'racikan',
+            'medication_type' => 'EP',
+            'name' => 'Puyer 120mg',
+            'dosage' => 'puyer',
+            'signa_p' => '1',
+            'signa_s' => '1',
+            'signa_sr' => '1',
+            'signa_m' => '0',
+            'jho' => 30,
+            'quantity' => 90,
+            'unit' => 'bungkus',
+            'ingredients' => [[
+                'name' => 'Amoxicillin Racik 500mg',
+                'medicine_id' => $medicine->id,
+                'role' => 'active',
+                'quantity' => 22,
+                'dose_amount' => 120,
+                'strength_value' => 500,
+                'strength_unit' => 'mg',
+                'unit' => 'tablet',
+            ]],
+        ])->assertRedirect();
+
+        $item = $visit->fresh()->prescriptions->flatMap->items->first();
+        $this->assertSame(90, $item?->quantity);
+        $this->assertSame(22, $item?->ingredients->first()?->quantity); // ceil(120 x 90 / 500) = ceil(21.6)
+
+        $this->actingAs($dentist)->put(route('care.prescription-item.update', [$visit, $item]), [
+            '_form' => 'rx-editor-row',
+            'kind' => 'racikan',
+            'medication_type' => 'EP',
+            'dosage' => 'puyer',
+            'signa_p' => '1',
+            'signa_s' => '0',
+            'signa_sr' => '0',
+            'signa_m' => '0',
+            'jho' => 9,
+            'quantity' => 9,
+            'unit' => 'bungkus',
+            'ingredients' => [[
+                'name' => 'Amoxicillin Racik 500mg',
+                'medicine_id' => $medicine->id,
+                'role' => 'active',
+                'quantity' => 3,
+                'dose_amount' => 120,
+                'strength_value' => 500,
+                'strength_unit' => 'mg',
+                'unit' => 'tablet',
+            ]],
+        ])->assertRedirect();
+
+        $ingredient = $item?->fresh('ingredients')->ingredients->first();
+        $this->assertSame(3, $ingredient?->quantity); // ceil(120 x 9 / 500) = ceil(2.16)
+    }
+
     protected function openVisit(?User $dentist = null): Visit
     {
         $dentist ??= $this->tenantUser(RoleName::Dentist, $this->tenantA, $this->branchA);

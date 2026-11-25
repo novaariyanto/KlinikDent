@@ -506,6 +506,41 @@
         .rx-estimate { color: #455a64; font-size: 0.9rem; }
         .rx-estimate strong { color: #00695c; font-size: 1rem; }
         .rx-draft-ingredients { display: grid; gap: 0.25rem; }
+        .rx-components { display: grid; gap: 0.3rem; }
+        .rx-editor-table .rx-col-money { display: none !important; }
+        .rx-component-row { background: #fbfcfd; }
+        .rx-component-row [data-hidden-additive] { display: none !important; }
+        .rx-component-row > td { font-size: 0.74rem; vertical-align: middle; }
+        .rx-component-row:not(.is-editing) .rx-when-edit { display: none !important; }
+        .rx-component-row.is-editing .rx-when-view { display: none !important; }
+        .rx-component {
+            display: grid;
+            gap: 0.25rem;
+            padding: 0.3rem;
+            border: 1px dashed #cfd8dc;
+            border-radius: 0.375rem;
+            background: #fff;
+        }
+        .rx-component__meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.7rem;
+            color: #607d8b;
+        }
+        .rx-component__field { display: flex; align-items: center; gap: 0.25rem; margin: 0; }
+        .rx-component__field .form-control-sm { width: 4.5rem; }
+        .rx-signa select { text-align: center; padding-left: 0.15rem; padding-right: 1.1rem; }
+        .rx-signa .select2-container { min-width: 0 !important; }
+        .rx-signa .select2-container .select2-selection--single { min-height: 1.7rem; height: auto; }
+        .rx-signa .select2-container--default .select2-selection--single .select2-selection__rendered {
+            padding-left: 0.2rem;
+            padding-right: 0.9rem;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+        .rx-signa .select2-container--default .select2-selection--single .select2-selection__arrow { height: 1.6rem; width: 0.9rem; }
         .rx-draft-ingredient {
             display: grid;
             grid-template-columns: minmax(7rem, 1.3fr) minmax(5rem, 1fr) 3.5rem 1.6rem;

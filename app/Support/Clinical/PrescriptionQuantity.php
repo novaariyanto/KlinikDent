@@ -82,8 +82,22 @@ final class PrescriptionQuantity
             return $base;
         }
 
-        if ($schedule['daily'] === null || $schedule['daily'] <= 0 || $days === null || $days <= 0) {
-            $base['formula'] = 'Qty = dosis × signa × jumlah hari obat.';
+        if ($schedule['daily'] === null) {
+            $base['formula'] = 'Isi signa atau frekuensi agar Qty terhitung.';
+
+            return $base;
+        }
+
+        if ($schedule['daily'] <= 0) {
+            $base['mode'] = 'calculated';
+            $base['quantity'] = 1;
+            $base['formula'] = 'Signa 0 → Qty 1.';
+
+            return $base;
+        }
+
+        if ($days === null || $days <= 0) {
+            $base['formula'] = 'Qty = signa × jumlah hari obat (JHO).';
 
             return $base;
         }
@@ -172,14 +186,19 @@ final class PrescriptionQuantity
             if (filter_var($row['quantity_manual'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
                 continue;
             }
-            if (! filled($row['per_dose_quantity'] ?? null)) {
+            $expected = null;
+            $dose = (float) ($row['dose_amount'] ?? 0);
+            $strength = (float) ($row['strength_value'] ?? 0);
+            if ($dose > 0 && $strength > 0) {
+                $expected = max(1, (int) ceil($dose * (int) $result['quantity'] / $strength));
+            }
+            if ($expected === null) {
                 continue;
             }
 
-            $expected = (int) $row['per_dose_quantity'] * (int) $result['quantity'];
             $given = (int) ($row['quantity'] ?? 0);
             if ($given !== $expected) {
-                return 'Bahan ke '.($index + 1).': total '.$expected.' ('.$row['per_dose_quantity'].' × '.$result['quantity'].' bungkus). Konfirmasi jika jumlah bahan diubah manual.';
+                return 'Bahan ke '.($index + 1).': total '.$expected.' ('.$dose.' × '.$result['quantity'].' bungkus ÷ '.$strength.'). Konfirmasi jika jumlah bahan diubah manual.';
             }
         }
 
@@ -241,6 +260,25 @@ final class PrescriptionQuantity
     public static function usesMillilitre(PrescriptionItem $item): bool
     {
         return strtolower(trim((string) $item->unit)) === 'ml';
+    }
+
+    /**
+     * Aturan pakai `pagi-siang-sore-malam` dari empat slot signa.
+     *
+     * @param  array<string, mixed>  $input
+     */
+    public static function signaLine(array $input): string
+    {
+        $parts = [];
+        foreach (['signa_p', 'signa_s', 'signa_sr', 'signa_m'] as $key) {
+            $parts[] = trim((string) ($input[$key] ?? ''));
+        }
+
+        if (collect($parts)->filter(fn ($part) => $part !== '')->isEmpty()) {
+            return '';
+        }
+
+        return implode('-', array_map(fn ($part) => $part === '' ? '0' : $part, $parts));
     }
 
     /**
@@ -355,54 +393,39 @@ final class PrescriptionQuantity
                 $shown[] = $labels[$index].' '.($slot === null ? '0' : self::trimNumber($slot));
             }
 
-            $signa = $daily;
-            $dose = $ml ?? $doseText ?? self::compoundPackDose($input);
-
-            if ($dose === null || $signa <= 0) {
-                return [
-                    'dose' => $dose,
-                    'times' => $signa > 0 ? $signa : null,
-                    'daily' => null,
-                    'administrations' => $administrations > 0 ? $administrations : null,
-                    'explain' => 'Qty = dosis × signa × jumlah hari obat.',
-                ];
-            }
-
             return [
-                'dose' => $dose,
-                'times' => $signa,
-                'daily' => $dose * $signa,
+                'dose' => $ml ?? $doseText,
+                'times' => $daily > 0 ? $daily : null,
+                'daily' => $daily,
                 'administrations' => $administrations > 0 ? $administrations : null,
-                'explain' => self::trimNumber($dose).($ml !== null ? ' ml' : '').' × '.self::trimNumber($signa).' ('.implode(', ', $shown).')',
+                'explain' => self::trimNumber($daily).' kali/hari ('.implode(', ', $shown).')',
             ];
         }
 
         $frequency = (string) ($input['frequency'] ?? '');
-        $times = null;
-        $pairedDose = null;
+        $perDay = null;
+        $unitsPerDose = 1.0;
 
         if (preg_match('/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/iu', $frequency, $match) === 1) {
-            $times = (int) round((float) str_replace(',', '.', $match[1]));
-            $pairedDose = self::amount($match[2]);
+            $perDay = (int) round((float) str_replace(',', '.', $match[1]));
+            $unitsPerDose = (float) str_replace(',', '.', $match[2]);
         } elseif (preg_match('/(\d+)\s*[x×]\s*sehari/iu', $frequency, $match) === 1) {
-            $times = (int) $match[1];
+            $perDay = (int) $match[1];
         } elseif (preg_match('/tiap\s+(\d+)\s*jam/iu', $frequency, $match) === 1) {
             $hours = (int) $match[1];
             if ($hours > 0 && 24 % $hours === 0) {
-                $times = (int) (24 / $hours);
+                $perDay = (int) (24 / $hours);
             }
         }
 
-        $dose = $ml ?? $doseText ?? $pairedDose ?? self::compoundPackDose($input);
-
-        $daily = ($dose !== null && $times !== null && $times > 0) ? $dose * $times : null;
+        $daily = $perDay !== null ? $perDay * $unitsPerDose : null;
 
         return [
-            'dose' => $dose,
-            'times' => $times,
+            'dose' => $ml ?? $doseText,
+            'times' => $daily,
             'daily' => $daily,
-            'administrations' => $times,
-            'explain' => self::trimNumber($dose ?? 0).($ml !== null ? ' ml' : '').' × '.($times ?? 0).' kali/hari',
+            'administrations' => $perDay,
+            'explain' => ($daily ?? 0).' kali/hari',
         ];
     }
 
@@ -461,32 +484,6 @@ final class PrescriptionQuantity
             'unit' => $unit !== '' ? $unit : null,
             'unit_label' => $label,
         ];
-    }
-
-    /**
-     * Racikan padat tanpa angka di dosis dihitung 1 satuan tiap kali minum.
-     */
-    protected static function compoundPackDose(array $input): ?float
-    {
-        $kind = strtolower(trim((string) ($input['kind'] ?? 'ready')));
-        if (! in_array($kind, ['racikan', 'compound'], true)) {
-            return null;
-        }
-
-        $dosage = strtolower(trim((string) ($input['dosage'] ?? '')));
-        if ($dosage === '' || $dosage === '-') {
-            return null;
-        }
-
-        $unit = strtolower(trim((string) ($input['unit'] ?? '')));
-        if (in_array($unit, ['ml', 'sirup'], true) || str_contains($dosage, 'ml') || str_contains($dosage, 'sirup') || str_contains($dosage, 'sediaan cair')) {
-            return null;
-        }
-        if (str_contains($dosage, 'salep') || str_contains($dosage, 'tetes') || str_contains($dosage, 'krim')) {
-            return null;
-        }
-
-        return 1.0;
     }
 
     protected static function amount(string $raw): ?float

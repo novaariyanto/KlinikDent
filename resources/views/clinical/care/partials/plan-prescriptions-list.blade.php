@@ -65,6 +65,7 @@
         <table class="table table-sm table-bordered rx-editor-table mb-0">
             <thead>
                 <tr>
+                    <th>R/</th>
                     <th>Barang</th>
                     <th>Kekuatan</th>
                     <th>Dosis</th>
@@ -75,8 +76,8 @@
                     <th title="Jumlah hari obat">JHO (hari)</th>
                     <th>Qty</th>
                     <th>Keterangan</th>
-                    <th>Harga</th>
-                    <th>Subtotal</th>
+                    <th class="rx-col-money">Harga</th>
+                    <th class="rx-col-money">Subtotal</th>
                     <th>Aksi</th>
                 </tr>
             </thead>
@@ -93,44 +94,24 @@
                         @endphp
                         <tr class="rx-row {{ $isCompound ? 'rx-row--compound' : '' }}"
                             data-rx-row
+                            data-rx-key="{{ $item->id }}"
                             data-item-id="{{ $item->id }}"
                             data-kind="{{ $item->kind?->value }}"
                             data-update="{{ route('care.prescription-item.update', [$visit, $item]) }}"
                             data-destroy="{{ route('care.prescription-item.destroy', [$visit, $item]) }}">
+                            <td class="text-center fw-semibold">R/</td>
                             <td>
                                 @if ($isCompound)
-                                    <div class="fw-semibold">R/ RACIK-{{ str_pad((string) $racikIndex, 2, '0', STR_PAD_LEFT) }}</div>
+                                    <div class="fw-semibold">RACIK-{{ str_pad((string) $racikIndex, 2, '0', STR_PAD_LEFT) }}</div>
                                     <div class="rx-when-view">
-                                        <div class="rx-meta">{{ $item->label() }}</div>
-                                        @foreach ($item->ingredients as $ingredient)
-                                            <div class="rx-meta">· {{ $ingredient->compositionLabel() }}</div>
-                                        @endforeach
+                                        <div class="rx-meta">{{ $item->name ?: $item->label() }}</div>
+                                        <div class="rx-meta">{{ $item->ingredients->count() }} komponen</div>
                                     </div>
                                     @if ($rowEditable)
                                         <div class="rx-when-edit">
                                             <input type="hidden" name="kind" value="racikan">
-                                            <div class="rx-draft-ingredients" data-rx-ingredients>
-                                                @foreach ($item->ingredients as $ingredient)
-                                                    <div class="rx-draft-ingredient" data-rx-ingredient>
-                                                        <select class="form-select form-select-sm" data-ing-medicine-id data-rx-medicine-select data-rx-ing-medicine-select autocomplete="off">
-                                                            <option value="">Pilih bahan stok…</option>
-                                                            @foreach ($medicines as $medicine)
-                                                                <option value="{{ $medicine->id }}" @selected((int) $ingredient->medicine_id === (int) $medicine->id)>{{ $medicine->catalogLabel() }}</option>
-                                                            @endforeach
-                                                        </select>
-                                                        <input type="text" class="form-control form-control-sm" data-ing-name value="{{ $ingredient->name }}" placeholder="Nama bahan" maxlength="120" autocomplete="off">
-                                                        <input type="number" class="form-control form-control-sm" data-ing-qty min="1" value="{{ $ingredient->quantity }}" data-manual="1" title="Qty bahan">
-                                                        <button type="button" class="btn btn-sm btn-soft-danger" data-rx-remove-ingredient>×</button>
-                                                        <input type="hidden" data-ing-role value="{{ $ingredient->role ?: 'active' }}">
-                                                        <input type="hidden" data-ing-additive value="{{ $ingredient->additive_kind }}">
-                                                        <input type="hidden" data-ing-unit value="{{ $ingredient->unit }}">
-                                                        <input type="hidden" data-ing-per value="{{ $ingredient->per_dose_quantity }}">
-                                                        <input type="hidden" data-ing-strength value="{{ $ingredient->strength_value }}">
-                                                        <input type="hidden" data-ing-strength-unit value="{{ $ingredient->strength_unit }}">
-                                                    </div>
-                                                @endforeach
-                                            </div>
-                                            <button type="button" class="btn btn-sm btn-light border mt-1" data-rx-add-ingredient>+ Bahan</button>
+                                            <input type="text" class="form-control form-control-sm mb-1" name="name" value="{{ $item->name }}" placeholder="Nama racikan" maxlength="80" data-rx-field autocomplete="off">
+                                            <button type="button" class="btn btn-sm btn-light border" data-rx-add-ingredient>+ Komponen Racik</button>
                                         </div>
                                     @endif
                                     <input type="hidden" name="medicine_id" value="{{ $item->medicine_id }}">
@@ -157,13 +138,15 @@
                             <td style="min-width:6rem">
                                 @if ($rowEditable)
                                     <span class="rx-when-view">{{ $item->dosage ?: '—' }}</span>
-                                    <div class="rx-when-edit rx-sig-field">
-                                        <input class="form-control form-control-sm" name="dosage" value="{{ $item->dosage }}" data-rx-field autocomplete="off">
-                                        @include('clinical.care.partials.prescription-sig', [
-                                            'group' => $isCompound ? 'forms' : 'doses',
-                                            'name' => 'dosage',
-                                            'compact' => true,
-                                        ])
+                                    <div class="rx-when-edit {{ $isCompound ? 'rx-sig-field' : '' }}">
+                                        <input class="form-control form-control-sm" name="dosage" value="{{ $item->dosage }}" data-rx-field autocomplete="off" @if (! $isCompound) readonly title="Dosis mengikuti kekuatan obat" @endif>
+                                        @if ($isCompound)
+                                            @include('clinical.care.partials.prescription-sig', [
+                                                'group' => 'forms',
+                                                'name' => 'dosage',
+                                                'compact' => true,
+                                            ])
+                                        @endif
                                     </div>
                                 @else
                                     {{ $item->dosage ?: '—' }}
@@ -178,32 +161,42 @@
                             </td>
                             <td style="min-width:6rem">
                                 @if ($rowEditable)
-                                    <span class="rx-when-view">{{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—') }}</span>
+                                    <span class="rx-when-view">{{ $isCompound ? ($item->jenis_racikan ?: '—') : ($item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—')) }}</span>
                                     <div class="rx-when-edit">
-                                        <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
-                                            <option value="">—</option>
-                                            @if ($isCompound)
-                                                <option value="bungkus" @selected($item->unit === 'bungkus')>Bungkus/puyer</option>
-                                            @endif
-                                            @foreach ($unitOptions as $value => $label)
-                                                <option value="{{ $value }}" @selected(($item->unit ?: $item->medicine?->unit) === $value)>{{ $label }}</option>
-                                            @endforeach
-                                        </select>
+                                        @if ($isCompound)
+                                            @php
+                                                $jenisOptions = config('pharmacy.jenis_racikan', []);
+                                                $jenisCurrent = (string) $item->jenis_racikan;
+                                            @endphp
+                                            <select class="form-select form-select-sm" name="jenis_racikan" data-rx-field autocomplete="off">
+                                                <option value="">—</option>
+                                                @foreach ($jenisOptions as $jenis)
+                                                    <option value="{{ $jenis }}" @selected($jenisCurrent === $jenis)>{{ $jenis }}</option>
+                                                @endforeach
+                                                @if ($jenisCurrent !== '' && ! in_array($jenisCurrent, $jenisOptions, true))
+                                                    <option value="{{ $jenisCurrent }}" selected>{{ $jenisCurrent }}</option>
+                                                @endif
+                                            </select>
+                                            <input type="hidden" name="unit" value="{{ $item->unit ?: 'bungkus' }}">
+                                        @else
+                                            <input type="text" class="form-control form-control-sm" data-rx-unit-view value="{{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '') }}" readonly title="Satuan mengikuti master obat">
+                                            <input type="hidden" name="unit" value="{{ $item->unit ?: $item->medicine?->unit }}">
+                                        @endif
                                     </div>
                                 @else
-                                    {{ $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—') }}
+                                    {{ $isCompound ? ($item->jenis_racikan ?: '—') : ($item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '—')) }}
                                 @endif
                             </td>
                             <td>
                                 @if ($rowEditable)
                                     <span class="rx-when-view">{{ $item->signaLine() ?: ($item->frequency ?: '—') }}</span>
                                     <div class="rx-when-edit rx-sig-field">
-                                        <div class="rx-signa">
-                                            <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" value="{{ $item->signa_p }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                                            <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" value="{{ $item->signa_s }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                                            <label class="rx-signa__slot"><span>Sore</span><input class="form-control form-control-sm" name="signa_sr" value="{{ $item->signa_sr }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                                            <label class="rx-signa__slot"><span>Malam</span><input class="form-control form-control-sm" name="signa_m" value="{{ $item->signa_m }}" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                                        </div>
+                                        @include('clinical.care.partials.prescription-signa-slots', ['values' => [
+                                            'signa_p' => $item->signa_p,
+                                            'signa_s' => $item->signa_s,
+                                            'signa_sr' => $item->signa_sr,
+                                            'signa_m' => $item->signa_m,
+                                        ]])
                                         <input type="hidden" name="frequency" value="{{ $item->frequency }}" data-rx-frequency>
                                         @include('clinical.care.partials.prescription-sig', [
                                             'group' => 'frequencies',
@@ -219,13 +212,8 @@
                             <td style="min-width:5rem">
                                 @if ($rowEditable)
                                     <span class="rx-when-view">{{ $item->waktu ?: '—' }}</span>
-                                    <div class="rx-when-edit rx-sig-field">
-                                        <input class="form-control form-control-sm" name="waktu" value="{{ $item->waktu }}" data-rx-field autocomplete="off">
-                                        @include('clinical.care.partials.prescription-sig', [
-                                            'group' => 'instructions',
-                                            'name' => 'waktu',
-                                            'compact' => true,
-                                        ])
+                                    <div class="rx-when-edit">
+                                        @include('clinical.care.partials.prescription-waktu-select', ['value' => $item->waktu, 'name' => 'waktu'])
                                     </div>
                                 @else
                                     {{ $item->waktu ?: '—' }}
@@ -273,8 +261,8 @@
                             @php
                                 $linePrice = $isCompound ? (float) $item->compoundCharge() : (float) ($item->unit_price ?? 0);
                             @endphp
-                            <td class="text-end text-nowrap" data-rx-price data-raw="{{ $linePrice }}">{{ number_format($linePrice, 2, ',', '.') }}</td>
-                            <td class="text-end text-nowrap" data-rx-subtotal>{{ number_format($item->subtotal(), 2, ',', '.') }}</td>
+                            <td class="rx-col-money text-end text-nowrap" data-rx-price data-raw="{{ $linePrice }}">{{ number_format($linePrice, 2, ',', '.') }}</td>
+                            <td class="rx-col-money text-end text-nowrap" data-rx-subtotal>{{ number_format($item->subtotal(), 2, ',', '.') }}</td>
                             <td class="text-center text-nowrap">
                                 @if ($rowEditable)
                                     <button type="button" class="btn btn-sm btn-light border rx-when-view" data-rx-edit title="Edit" aria-label="Edit">
@@ -292,10 +280,35 @@
                                 @endif
                             </td>
                         </tr>
+                        @if ($isCompound)
+                            @foreach ($item->ingredients as $ingredient)
+                                @php
+                                    $ingredientPrice = (float) ($ingredient->medicine?->sell_price ?? $ingredient->medicine?->base_price ?? 0);
+                                @endphp
+                                @include('clinical.care.partials.prescription-component-row', [
+                                    'row' => [
+                                        'medicine_id' => $ingredient->medicine_id,
+                                        'name' => $ingredient->name,
+                                        'unit' => $ingredient->unit,
+                                        'role' => $ingredient->role ?: 'active',
+                                        'additive_kind' => $ingredient->additive_kind,
+                                        'quantity' => $ingredient->quantity,
+                                        'dose_amount' => $ingredient->dose_amount,
+                                        'per_dose_quantity' => $ingredient->per_dose_quantity,
+                                        'strength_value' => $ingredient->strength_value,
+                                        'strength_unit' => $ingredient->strength_unit,
+                                        'price' => $ingredientPrice,
+                                        'subtotal' => $ingredientPrice * (int) $ingredient->quantity,
+                                    ],
+                                    'medicines' => $medicines,
+                                    'parentKey' => $item->id,
+                                ])
+                            @endforeach
+                        @endif
                     @endforeach
                 @empty
                     <tr data-rx-empty>
-                        <td colspan="13" class="text-muted text-center py-2">Belum ada item resep.</td>
+                        <td colspan="14" class="text-muted text-center py-2">Belum ada item resep.</td>
                     </tr>
                 @endforelse
             </tbody>
@@ -306,52 +319,41 @@
         <div class="rx-editor-actions">
             <button type="button" class="btn btn-sm btn-primary" data-rx-add-ready>+ Non Racik</button>
             <button type="button" class="btn btn-sm btn-secondary" data-rx-add-compound>+ Racik</button>
+            <button type="button" class="btn btn-sm btn-success ms-auto" data-rx-save-all>
+                <i class="bx bx-save me-1"></i>Simpan Resep
+            </button>
         </div>
 
         <template id="rx-draft-ready-template">
             <tr class="rx-row rx-row--draft" data-rx-draft data-kind="ready">
+                <td class="text-center fw-semibold">R/</td>
                 <td>
                     <select class="form-select form-select-sm" name="medicine_id" data-rx-medicine-id data-rx-medicine-select autocomplete="off">
                         <option value="">Cari obat…</option>
                         @foreach ($medicines as $medicine)
-                            <option value="{{ $medicine->id }}">{{ $medicine->name }}{{ ($strength = $medicine->strengthLabel()) ? ' · '.$strength : '' }}</option>
+                            <option value="{{ $medicine->id }}">{{ $medicine->catalogLabel() }}</option>
                         @endforeach
                     </select>
                     <input type="hidden" name="medication_type" value="NC">
                 </td>
                 <td data-rx-strength>—</td>
                 <td>
-                    <div class="rx-sig-field">
-                        <input class="form-control form-control-sm" name="dosage" data-rx-field placeholder="cth: 1 tab" autocomplete="off">
-                        @include('clinical.care.partials.prescription-sig', ['group' => 'doses', 'name' => 'dosage', 'compact' => true])
-                    </div>
+                    <input class="form-control form-control-sm" name="dosage" data-rx-field placeholder="otomatis dari kekuatan" readonly autocomplete="off">
                 </td>
                 <td class="text-center" data-rx-stock>—</td>
                 <td>
-                    <select class="form-select form-select-sm" name="unit" data-rx-field data-rx-unit>
-                        <option value="">—</option>
-                        @foreach ($unitOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
+                    <input type="text" class="form-control form-control-sm" data-rx-unit-view readonly aria-label="Satuan">
+                    <input type="hidden" name="unit" data-rx-unit>
                 </td>
                 <td>
                     <div class="rx-sig-field">
-                        <div class="rx-signa">
-                            <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                            <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                            <label class="rx-signa__slot"><span>Sore</span><input class="form-control form-control-sm" name="signa_sr" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                            <label class="rx-signa__slot"><span>Malam</span><input class="form-control form-control-sm" name="signa_m" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                        </div>
+                        @include('clinical.care.partials.prescription-signa-slots', ['values' => []])
                         <input type="hidden" name="frequency" data-rx-frequency>
                         @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
                     </div>
                 </td>
                 <td>
-                    <div class="rx-sig-field">
-                        <input class="form-control form-control-sm" name="waktu" data-rx-field autocomplete="off">
-                        @include('clinical.care.partials.prescription-sig', ['group' => 'instructions', 'name' => 'waktu', 'compact' => true])
-                    </div>
+                    @include('clinical.care.partials.prescription-waktu-select', ['value' => null, 'name' => 'waktu'])
                 </td>
                 <td>
                     <div class="rx-sig-field">
@@ -367,8 +369,8 @@
                 <td>
                     <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Keterangan">
                 </td>
-                <td class="text-end" data-rx-price>0,00</td>
-                <td class="text-end" data-rx-subtotal>0,00</td>
+                <td class="rx-col-money text-end" data-rx-price>0,00</td>
+                <td class="rx-col-money text-end" data-rx-subtotal>0,00</td>
                 <td class="text-center text-nowrap">
                     <button type="button" class="btn btn-sm btn-primary" data-rx-save title="Simpan" aria-label="Simpan"><i class="bx bx-save"></i></button>
                     <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal" aria-label="Batal"><i class="bx bx-x"></i></button>
@@ -378,12 +380,13 @@
 
         <template id="rx-draft-compound-template">
             <tr class="rx-row rx-row--draft rx-row--compound" data-rx-draft data-kind="racikan">
+                <td class="text-center fw-semibold">R/</td>
                 <td>
-                    <div class="fw-semibold mb-1">R/ RACIK <span data-rx-racik-label></span></div>
+                    <div class="fw-semibold mb-1">RACIK<span data-rx-racik-label></span></div>
                     <input type="hidden" name="kind" value="racikan">
                     <input type="hidden" name="medication_type" value="EP">
-                    <div class="rx-draft-ingredients" data-rx-ingredients></div>
-                    <button type="button" class="btn btn-sm btn-light border mt-1" data-rx-add-ingredient>+ Bahan</button>
+                    <input type="text" class="form-control form-control-sm mb-1" name="name" placeholder="Nama racikan" maxlength="80" data-rx-field autocomplete="off">
+                    <button type="button" class="btn btn-sm btn-light border" data-rx-add-ingredient>+ Komponen Racik</button>
                 </td>
                 <td>—</td>
                 <td>
@@ -394,31 +397,23 @@
                 </td>
                 <td class="text-center">—</td>
                 <td>
-                    <select class="form-select form-select-sm" name="unit" data-rx-field>
+                    <select class="form-select form-select-sm" name="jenis_racikan" data-rx-field autocomplete="off">
                         <option value="">—</option>
-                        <option value="bungkus">Bungkus/puyer</option>
-                        @foreach ($unitOptions as $value => $label)
-                            <option value="{{ $value }}">{{ $label }}</option>
+                        @foreach (config('pharmacy.jenis_racikan', []) as $jenis)
+                            <option value="{{ $jenis }}">{{ $jenis }}</option>
                         @endforeach
                     </select>
+                    <input type="hidden" name="unit" value="bungkus">
                 </td>
                 <td>
                     <div class="rx-sig-field">
-                        <div class="rx-signa">
-                            <label class="rx-signa__slot"><span>Pagi</span><input class="form-control form-control-sm" name="signa_p" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                            <label class="rx-signa__slot"><span>Siang</span><input class="form-control form-control-sm" name="signa_s" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                            <label class="rx-signa__slot"><span>Sore</span><input class="form-control form-control-sm" name="signa_sr" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                            <label class="rx-signa__slot"><span>Malam</span><input class="form-control form-control-sm" name="signa_m" inputmode="decimal" data-rx-field data-rx-signa autocomplete="off"></label>
-                        </div>
+                        @include('clinical.care.partials.prescription-signa-slots', ['values' => []])
                         <input type="hidden" name="frequency" data-rx-frequency>
                         @include('clinical.care.partials.prescription-sig', ['group' => 'frequencies', 'name' => 'frequency', 'mode' => 'signa', 'compact' => true])
                     </div>
                 </td>
                 <td>
-                    <div class="rx-sig-field">
-                        <input class="form-control form-control-sm" name="waktu" data-rx-field autocomplete="off">
-                        @include('clinical.care.partials.prescription-sig', ['group' => 'instructions', 'name' => 'waktu', 'compact' => true])
-                    </div>
+                    @include('clinical.care.partials.prescription-waktu-select', ['value' => null, 'name' => 'waktu'])
                 </td>
                 <td>
                     <div class="rx-sig-field">
@@ -432,10 +427,10 @@
                     <div class="rx-qty-hint" data-rx-qty-hint></div>
                 </td>
                 <td>
-                    <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Indikasi / ket.">
+                    <input class="form-control form-control-sm" name="notes" data-rx-field placeholder="Instruksi racikan">
                 </td>
-                <td class="text-end" data-rx-price>0,00</td>
-                <td class="text-end" data-rx-subtotal>0,00</td>
+                <td class="rx-col-money text-end" data-rx-price>0,00</td>
+                <td class="rx-col-money text-end" data-rx-subtotal>0,00</td>
                 <td class="text-center text-nowrap">
                     <button type="button" class="btn btn-sm btn-primary" data-rx-save title="Simpan" aria-label="Simpan"><i class="bx bx-save"></i></button>
                     <button type="button" class="btn btn-sm btn-danger" data-rx-draft-cancel title="Batal" aria-label="Batal"><i class="bx bx-x"></i></button>
@@ -444,17 +439,11 @@
         </template>
 
         <template id="rx-draft-ingredient-template">
-            <div class="rx-draft-ingredient" data-rx-ingredient>
-                <select class="form-select form-select-sm" data-ing-medicine-id data-rx-medicine-select data-rx-ing-medicine-select autocomplete="off">
-                    <option value="">Pilih bahan stok…</option>
-                    @foreach ($medicines as $medicine)
-                        <option value="{{ $medicine->id }}">{{ $medicine->catalogLabel() }}</option>
-                    @endforeach
-                </select>
-                <input type="text" class="form-control form-control-sm" data-ing-name placeholder="Nama bahan" maxlength="120" autocomplete="off">
-                <input type="number" class="form-control form-control-sm" data-ing-qty min="1" value="1" title="Qty bahan">
-                <button type="button" class="btn btn-sm btn-soft-danger" data-rx-remove-ingredient>×</button>
-            </div>
+            @include('clinical.care.partials.prescription-component-row', [
+                'row' => ['role' => 'active', 'quantity' => 1],
+                'medicines' => $medicines,
+                'componentDraft' => true,
+            ])
         </template>
     @endif
 

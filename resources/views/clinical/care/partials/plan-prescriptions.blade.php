@@ -163,6 +163,81 @@
                     </x-slot:footer>
                 </x-modal>
 
+                <x-modal id="rx-dose-calc-modal" title="Kalkulator Dosis Racikan" size="modal-lg" class="care-modal">
+                    <div data-dose-calc>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label" for="rx-calc-strength">Kandungan (kekuatan)</label>
+                                <input type="number" class="form-control" id="rx-calc-strength" data-calc-strength step="0.0001" min="0" placeholder="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" for="rx-calc-packs">Jumlah bungkus (Qty)</label>
+                                <input type="number" class="form-control" id="rx-calc-packs" data-calc-packs min="1" step="1" placeholder="1">
+                            </div>
+                        </div>
+
+                        <hr class="my-3">
+                        <p class="fw-semibold small mb-2">Dosis pecahan (opsional)</p>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-4">
+                                <label class="form-label" for="rx-calc-num">Pembilang</label>
+                                <input type="number" class="form-control" id="rx-calc-num" data-calc-num step="0.0001" min="0">
+                            </div>
+                            <div class="col-1 text-center pb-2">/</div>
+                            <div class="col-4">
+                                <label class="form-label" for="rx-calc-den">Penyebut</label>
+                                <input type="number" class="form-control" id="rx-calc-den" data-calc-den step="0.0001" min="0" value="1">
+                            </div>
+                            <div class="col-3">
+                                <label class="form-label" for="rx-calc-fraction">Hasil pecahan</label>
+                                <input type="text" class="form-control" id="rx-calc-fraction" data-calc-fraction readonly>
+                            </div>
+                        </div>
+                        <p class="form-text mt-1">Contoh: 1/2 = 0,5 maka Dosis Akhir = Kandungan × 0,5</p>
+
+                        <div class="mb-2">
+                            <label class="form-label" for="rx-calc-dose">Dosis akhir (per bungkus)</label>
+                            <input type="number" class="form-control" id="rx-calc-dose" data-calc-dose step="0.0001" min="0" placeholder="0,00">
+                            <p class="form-text mt-1 mb-0">Bisa diisi langsung atau dihitung dari pecahan × kandungan.</p>
+                        </div>
+
+                        <hr class="my-3">
+                        <p class="fw-semibold small mb-2">Kalkulator dosis racikan (berdasarkan BB &amp; persen)</p>
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <label class="form-label" for="rx-calc-weight">Berat badan (kg)</label>
+                                <input type="number" class="form-control" id="rx-calc-weight" data-calc-weight step="0.1" min="0" placeholder="0">
+                            </div>
+                            <div class="col-6">
+                                <label class="form-label" for="rx-calc-percent">Persen (%)</label>
+                                <input type="number" class="form-control" id="rx-calc-percent" data-calc-percent step="0.1" min="0" placeholder="0">
+                            </div>
+                            <div class="col-12">
+                                <button type="button" class="btn btn-light border w-100" data-dose-calc-bb>
+                                    <i class="bx bx-calculator me-1"></i>Hitung Dosis dari BB &amp; Persen
+                                </button>
+                            </div>
+                        </div>
+                        <p class="form-text mt-1">Rumus: Dosis = (BB × Persen) / 100</p>
+
+                        <div class="alert alert-light border small mb-0" data-calc-result>
+                            <div data-calc-formula>Rumus: Jumlah = (Dosis Akhir × Jumlah Bungkus) / Kandungan</div>
+                            <div data-calc-hitung>Hitung: —</div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span>Jumlah: <b data-calc-jumlah>0,00</b></span>
+                                <span>Pembulatan: <b data-calc-round>0</b></span>
+                            </div>
+                        </div>
+                        <p class="text-danger small mt-2 mb-0" data-calc-warning hidden></p>
+                    </div>
+                    <x-slot:footer>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="button" class="btn btn-primary" data-dose-calc-apply>
+                            <i class="bx bx-save me-1"></i>Simpan
+                        </button>
+                    </x-slot:footer>
+                </x-modal>
+
                 @php
                     $rxCatalogStock = app(\App\Support\Pharmacy\MedicineStockQuery::class)->availableByMedicines(
                         (int) $visit->tenant_id,
@@ -177,7 +252,10 @@
                             'unit' => $medicine->unit,
                             'unit_label' => $medicine->unitLabel(),
                             'strength' => $medicine->strengthLabel(),
-                            'price' => (float) ($medicine->base_price ?? 0),
+                            'strength_value' => $medicine->strength_value,
+                            'strength_unit' => $medicine->strength_unit,
+                            'generic_name' => $medicine->generic_name,
+                            'price' => (float) ($medicine->sell_price ?? $medicine->base_price ?? 0),
                             'sell' => (float) ($medicine->sell_price ?? $medicine->base_price ?? 0),
                             'stock' => (int) ($rxCatalogStock[$medicine->id] ?? 0),
                         ];
@@ -319,6 +397,7 @@
             document.body.appendChild(modal);
         });
         rxDestroyMedicineSelects(list);
+        rxDestroySignaSelects(list);
         list.dispatchEvent(new CustomEvent('care:bind-typeahead', { bubbles: true }));
         list.querySelectorAll('[data-compound-form]').forEach(function (form) {
             syncStrength(form);
@@ -326,6 +405,13 @@
         });
         rxDisableBrowserAutofill(list);
         rxInitMedicineSelects(list);
+        rxInitSignaSelects(list);
+        list.querySelectorAll('[data-rx-row], [data-rx-draft]').forEach(function (row) {
+            if ((row.getAttribute('data-kind') || '') === 'racikan') {
+                rxRecalcCompoundQty(row);
+                rxRecalcRow(row);
+            }
+        });
         if (options.focusItemId) {
             var focusRow = list.querySelector('[data-rx-row][data-item-id="' + options.focusItemId + '"]');
             if (focusRow) {
@@ -963,20 +1049,37 @@
         return input ? String(input.value || '').trim() : '';
     }
 
+    function rxRowKey(row) {
+        if (!row) return '';
+        return row.getAttribute('data-rx-key') || row.getAttribute('data-item-id') || '';
+    }
+
+    function rxComponentRows(row) {
+        var key = rxRowKey(row);
+        if (!key) return [];
+        var tbody = row.closest('tbody') || document.querySelector('[data-rx-rows]');
+        return Array.prototype.slice.call((tbody || document).querySelectorAll('[data-rx-component-row]'))
+            .filter(function (tr) { return tr.getAttribute('data-rx-component-of') === key; });
+    }
+
+    function rxParentRow(componentRow) {
+        var key = componentRow ? componentRow.getAttribute('data-rx-component-of') : '';
+        if (!key) return null;
+        var tbody = componentRow.closest('tbody') || document.querySelector('[data-rx-rows]');
+        return (tbody || document).querySelector('[data-rx-row][data-rx-key="' + key + '"], [data-rx-draft][data-rx-key="' + key + '"]');
+    }
+
     function rxClearSigna(row) {
         ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name) {
-            var input = row.querySelector('[name="' + name + '"]');
-            if (input) input.value = '';
+            rxSetSignaValue(row, name, '');
         });
     }
 
-    function rxFillFrequencySigna(row, times, dose) {
+    function rxFillFrequencySigna(row, times) {
         var pattern = { 1: [1, 0, 0, 0], 2: [1, 0, 0, 1], 3: [1, 1, 0, 1], 4: [1, 1, 1, 1] }[times];
         if (!pattern) return false;
         ['signa_p', 'signa_s', 'signa_sr', 'signa_m'].forEach(function (name, index) {
-            var input = row.querySelector('[name="' + name + '"]');
-            if (!input) return;
-            input.value = pattern[index] ? '1' : '';
+            rxSetSignaValue(row, name, pattern[index] ? '1' : '');
         });
         return true;
     }
@@ -1123,47 +1226,47 @@
         var explain = '';
         if (slots) {
             var sum = 0;
-            var administrations = 0;
             var shown = [];
             var labelsSlot = ['Pagi', 'Siang', 'Sore', 'Malam'];
             slots.forEach(function (slot, index) {
-                if (slot && slot > 0) {
-                    sum += slot;
-                    administrations += 1;
-                }
+                if (slot && slot > 0) sum += slot;
                 shown.push(labelsSlot[index] + ' ' + rxTrimNum(slot || 0));
             });
-            var signa = sum;
-            var doseAmount = ml != null ? ml : rxParseAmount(dosage);
-            if (doseAmount == null && compound && form.countable && !form.liquid && dosage) doseAmount = 1;
-            if (doseAmount != null && signa > 0) {
-                daily = doseAmount * signa;
-                explain = rxTrimNum(doseAmount) + (ml != null ? ' ml' : '') + ' × ' + rxTrimNum(signa) + ' (' + shown.join(', ') + ')';
-            }
+            daily = sum;
+            explain = rxTrimNum(sum) + ' kali/hari (' + shown.join(', ') + ')';
         } else {
             var frequency = rxField(row, 'frequency');
-            var times = null;
-            var paired = null;
+            var perDay = null;
+            var unitsPerDose = 1;
             var pair = frequency.match(/(\d+(?:[.,]\d+)?)\s*[x×]\s*(\d+(?:[.,]\d+)?)/i);
             var dailyWord = frequency.match(/(\d+)\s*[x×]\s*sehari/i);
             var interval = frequency.match(/tiap\s+(\d+)\s*jam/i);
             if (pair) {
-                times = Math.round(Number(String(pair[1]).replace(',', '.')));
-                paired = rxParseAmount(pair[2]);
+                perDay = Math.round(Number(String(pair[1]).replace(',', '.')));
+                unitsPerDose = rxParseAmount(pair[2]) || 1;
             } else if (dailyWord) {
-                times = Number(dailyWord[1]);
+                perDay = Number(dailyWord[1]);
             } else if (interval) {
                 var hours = Number(interval[1]);
-                if (hours > 0 && 24 % hours === 0) times = 24 / hours;
+                if (hours > 0 && 24 % hours === 0) perDay = 24 / hours;
             }
-            var dose = ml != null ? ml : (rxParseAmount(dosage) != null ? rxParseAmount(dosage) : paired);
-            if (dose == null && compound && form.countable && !form.liquid && dosage) dose = 1;
-            if (dose != null && times) daily = dose * times;
-            explain = rxTrimNum(dose || 0) + (ml != null ? ' ml' : '') + ' × ' + (times || 0) + ' kali/hari';
+            if (perDay) daily = perDay * unitsPerDose;
+            explain = rxTrimNum(daily || 0) + ' kali/hari';
         }
 
-        if (!daily || daily <= 0 || !days) {
-            base.formula = 'Qty = dosis × signa × jumlah hari obat.';
+        if (daily === null) {
+            base.formula = 'Isi signa atau frekuensi agar Qty terhitung.';
+            return base;
+        }
+        if (daily <= 0) {
+            base.mode = 'calculated';
+            base.quantity = 1;
+            base.liquid = form.liquid;
+            base.formula = 'Signa 0 → Qty 1.';
+            return base;
+        }
+        if (!days) {
+            base.formula = 'Qty = signa × jumlah hari obat (JHO).';
             return base;
         }
         var quantity = Math.ceil(Math.round(daily * days * 10000) / 10000);
@@ -1241,27 +1344,73 @@
         if (result.liquid) {
             var unit = row.querySelector('[name="unit"]');
             if (unit) {
-                if (!unit.querySelector('option[value="ml"]')) {
+                if (unit.tagName === 'SELECT' && !unit.querySelector('option[value="ml"]')) {
                     var option = document.createElement('option');
                     option.value = 'ml';
                     option.textContent = 'ml';
                     unit.appendChild(option);
                 }
                 unit.value = 'ml';
+                var unitView = row.querySelector('[data-rx-unit-view]');
+                if (unitView) unitView.value = 'ml';
             }
         }
-        row.querySelectorAll('[data-ing-qty]').forEach(function (ing) {
-            if (ing.dataset.manual === '1') return;
-            ing.value = String(qty);
-        });
+        rxRecalcCompoundQty(row);
         rxRecalcRow(row);
+    }
+
+    function rxComponentValue(ing, selector) {
+        var el = ing.querySelector(selector);
+        return el ? String(el.value || '').trim() : '';
+    }
+
+    function rxSyncComponentViews(ing) {
+        if (!ing) return;
+        var doseView = ing.querySelector('[data-ing-dose-view]');
+        var qtyView = ing.querySelector('[data-ing-qty-view]');
+        var nameView = ing.querySelector('[data-ing-name-view]');
+        var dose = rxComponentValue(ing, '[data-ing-dose]');
+        var qty = rxComponentValue(ing, '[data-ing-qty]');
+        var name = rxComponentValue(ing, '[data-ing-name]');
+        if (doseView) doseView.textContent = dose !== '' ? dose : '—';
+        if (qtyView) qtyView.textContent = qty !== '' ? qty : '—';
+        if (nameView && name !== '') nameView.textContent = name;
+    }
+
+    function rxRecalcCompoundQty(row) {
+        if (!row) return;
+        var kind = row.getAttribute('data-kind') || (row.querySelector('[name="kind"]') || {}).value || 'ready';
+        if (kind !== 'racikan') return;
+        var packs = Number((row.querySelector('[data-rx-qty]') || {}).value || 0);
+        rxComponentRows(row).forEach(function (ing) {
+            var role = (ing.getAttribute('data-ingredient-role') || 'active') === 'additive' ? 'additive' : 'active';
+            var qtyInput = ing.querySelector('[data-ing-qty]');
+            if (!qtyInput) return;
+            if (role !== 'additive') {
+                if (qtyInput.dataset.manual !== '1') {
+                    var dose = rxParseAmount(rxComponentValue(ing, '[data-ing-dose]'));
+                    var strength = rxParseAmount(rxComponentValue(ing, '[data-ing-strength]'));
+                    if (dose != null && dose > 0 && packs && strength != null && strength > 0) {
+                        var raw = dose * packs / strength;
+                        qtyInput.value = String(Math.max(1, Math.ceil(Math.round(raw * 10000) / 10000)));
+                        var rawEl = ing.querySelector('[data-ing-qty-raw]');
+                        if (rawEl) rawEl.textContent = Math.abs(raw - Math.round(raw)) > 0.0001 ? '= ' + rxTrimNum(raw) : '';
+                    }
+                }
+            }
+            rxSyncComponentViews(ing);
+        });
     }
 
     function rxCompoundPrice(row) {
         var total = 0;
-        row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
-            var select = ing.querySelector('[data-ing-medicine-id]');
-            var item = rxCatalogItem(select ? select.value : '');
+        rxComponentRows(row).forEach(function (ing) {
+            var sub = ing.querySelector('[data-rx-comp-subtotal]');
+            if (sub && sub.dataset.raw != null && sub.dataset.raw !== '') {
+                total += Number(sub.dataset.raw) || 0;
+                return;
+            }
+            var item = rxCatalogItem((ing.querySelector('[data-ing-medicine-id]') || {}).value || '');
             var qty = Number((ing.querySelector('[data-ing-qty]') || {}).value || 0);
             if (!item || qty < 1) return;
             var unit = item.sell != null ? Number(item.sell) : Number(item.price || 0);
@@ -1278,8 +1427,28 @@
     }
 
     function rxRecalcRow(row) {
+        var kind = row.getAttribute('data-kind') || (row.querySelector('[name="kind"]') || {}).value || 'ready';
+        if (kind === 'racikan') {
+            rxComponentRows(row).forEach(function (ing) {
+                var priceCell = ing.querySelector('[data-rx-comp-price]');
+                var item = rxCatalogItem((ing.querySelector('[data-ing-medicine-id]') || {}).value || '');
+                if (item && priceCell) {
+                    var unitPrice = Number(item.sell != null ? item.sell : item.price || 0);
+                    priceCell.textContent = rxMoney(unitPrice);
+                    priceCell.dataset.raw = String(unitPrice);
+                }
+                var rawPrice = Number((priceCell && priceCell.dataset.raw) || 0);
+                var qty = Number((ing.querySelector('[data-ing-qty]') || {}).value || 0);
+                var subCell = ing.querySelector('[data-rx-comp-subtotal]');
+                if (subCell) {
+                    var lineTotal = rawPrice * (qty > 0 ? qty : 0);
+                    subCell.textContent = rxMoney(lineTotal);
+                    subCell.dataset.raw = String(lineTotal);
+                }
+            });
+        }
         var amount = rxLineAmount(row);
-        if ((row.getAttribute('data-kind') || '') === 'racikan') {
+        if (kind === 'racikan') {
             var priceEl = row.querySelector('[data-rx-price]');
             if (priceEl) {
                 priceEl.textContent = rxMoney(amount);
@@ -1338,18 +1507,20 @@
     function rxReadCompoundIngredients(row) {
         var ingredients = [];
         if (!row) return ingredients;
-        row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
+        rxComponentRows(row).forEach(function (ing) {
             var name = (ing.querySelector('[data-ing-name]') || {}).value || (ing.querySelector('[data-typeahead-q]') || {}).value || '';
             name = String(name).trim();
             if (!name) return;
             var ingQty = ing.querySelector('[data-ing-qty]');
             var ingManual = ingQty && ingQty.dataset.manual === '1';
             var per = String((ing.querySelector('[data-ing-per]') || {}).value || '').trim();
+            var dose = String((ing.querySelector('[data-ing-dose]') || {}).value || '').trim();
             ingredients.push({
                 name: name,
                 medicine_id: String((ing.querySelector('[data-ing-medicine-id]') || {}).value || '').trim(),
                 quantity: (ingQty || {}).value || 1,
-                per_dose_quantity: per || (ingManual ? '' : '1'),
+                dose_amount: dose,
+                per_dose_quantity: per,
                 quantity_manual: ingManual ? '1' : '0',
                 role: String((ing.querySelector('[data-ing-role]') || {}).value || 'active').trim() || 'active',
                 additive_kind: String((ing.querySelector('[data-ing-additive]') || {}).value || '').trim(),
@@ -1368,6 +1539,7 @@
             body.append('ingredients[' + index + '][role]', ing.role);
             body.append('ingredients[' + index + '][quantity_manual]', ing.quantity_manual);
             if (ing.medicine_id) body.append('ingredients[' + index + '][medicine_id]', ing.medicine_id);
+            if (ing.dose_amount) body.append('ingredients[' + index + '][dose_amount]', ing.dose_amount);
             if (ing.per_dose_quantity) body.append('ingredients[' + index + '][per_dose_quantity]', ing.per_dose_quantity);
             if (ing.additive_kind) body.append('ingredients[' + index + '][additive_kind]', ing.additive_kind);
             if (ing.unit) body.append('ingredients[' + index + '][unit]', ing.unit);
@@ -1375,6 +1547,232 @@
             if (ing.strength_unit) body.append('ingredients[' + index + '][strength_unit]', ing.strength_unit);
         });
         body.append('composition_confirmed', '1');
+    }
+
+    var rxDoseCalcRow = null;
+
+    function rxDoseCalcEl(modal, selector) {
+        return modal ? modal.querySelector(selector) : null;
+    }
+
+    function rxDoseCalcValue(modal, selector) {
+        var el = rxDoseCalcEl(modal, selector);
+        if (!el) return 0;
+        var value = Number(String(el.value || '').replace(',', '.'));
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function rxDoseCalcSetValue(modal, selector, value) {
+        var el = rxDoseCalcEl(modal, selector);
+        if (el) el.value = value == null ? '' : String(value);
+    }
+
+    function rxDoseCalcUpdate() {
+        var modal = document.getElementById('rx-dose-calc-modal');
+        if (!modal) return { dose: null, jumlah: null, round: null, valid: false };
+        var strength = rxDoseCalcValue(modal, '[data-calc-strength]');
+        var packs = rxDoseCalcValue(modal, '[data-calc-packs]');
+        var num = rxDoseCalcValue(modal, '[data-calc-num]');
+        var den = rxDoseCalcValue(modal, '[data-calc-den]');
+        var dose = rxDoseCalcValue(modal, '[data-calc-dose]');
+        var fraction = den > 0 ? num / den : null;
+
+        var fractionEl = rxDoseCalcEl(modal, '[data-calc-fraction]');
+        if (fractionEl) fractionEl.value = fraction == null ? '—' : fraction.toFixed(4).replace('.', ',');
+
+        var jumlah = (strength > 0 && packs > 0) ? (dose * packs) / strength : null;
+        var round = (jumlah != null && Number.isFinite(jumlah)) ? Math.ceil(Math.round(jumlah * 10000) / 10000) : null;
+
+        var warning = '';
+        if (!(strength > 0)) warning = 'Kandungan harus lebih besar dari 0.';
+        else if (!(packs > 0)) warning = 'Jumlah bungkus harus lebih besar dari 0.';
+        else if (num > 0 && den === 0) warning = 'Penyebut pecahan tidak boleh 0.';
+        else if (!(dose > 0)) warning = 'Dosis akhir harus lebih besar dari 0.';
+        else if (jumlah == null || !Number.isFinite(jumlah) || !Number.isFinite(round)) warning = 'Perhitungan tidak boleh NaN atau Infinity.';
+        else if (round < 1) warning = 'Jumlah obat minimal 1.';
+
+        var formula = rxDoseCalcEl(modal, '[data-calc-formula]');
+        if (formula) formula.textContent = 'Rumus: Jumlah = (Dosis Akhir × Jumlah Bungkus) / Kandungan';
+        var hitung = rxDoseCalcEl(modal, '[data-calc-hitung]');
+        if (hitung) {
+            hitung.textContent = 'Hitung: (' + rxTrimNum(dose) + ' × ' + rxTrimNum(packs) + ') / ' + rxTrimNum(strength)
+                + ' = ' + (jumlah != null && Number.isFinite(jumlah) ? jumlah.toFixed(2) : '—');
+        }
+        var jumlahEl = rxDoseCalcEl(modal, '[data-calc-jumlah]');
+        if (jumlahEl) jumlahEl.textContent = jumlah != null && Number.isFinite(jumlah) ? rxTrimNum(jumlah) : '—';
+        var roundEl = rxDoseCalcEl(modal, '[data-calc-round]');
+        if (roundEl) roundEl.textContent = round != null ? String(round) : '—';
+        var warningEl = rxDoseCalcEl(modal, '[data-calc-warning]');
+        if (warningEl) {
+            warningEl.textContent = warning;
+            warningEl.hidden = warning === '';
+        }
+        var apply = rxDoseCalcEl(modal, '[data-dose-calc-apply]');
+        if (apply) apply.disabled = warning !== '';
+
+        return { dose: dose, jumlah: jumlah, round: round, valid: warning === '' };
+    }
+
+    function rxDoseCalcApplyFraction() {
+        var modal = document.getElementById('rx-dose-calc-modal');
+        if (!modal) return;
+        var strength = rxDoseCalcValue(modal, '[data-calc-strength]');
+        var num = rxDoseCalcValue(modal, '[data-calc-num]');
+        var den = rxDoseCalcValue(modal, '[data-calc-den]');
+        if (num > 0 && den > 0 && strength > 0) {
+            rxDoseCalcSetValue(modal, '[data-calc-dose]', rxTrimNum(strength * (num / den)));
+        }
+        rxDoseCalcUpdate();
+    }
+
+    function rxOpenDoseCalc(ing) {
+        var modal = document.getElementById('rx-dose-calc-modal');
+        if (!modal || !window.bootstrap || !ing) return;
+        rxDoseCalcRow = ing;
+        var row = rxParentRow(ing);
+        var strength = rxComponentValue(ing, '[data-ing-strength]');
+        var dose = rxComponentValue(ing, '[data-ing-dose]');
+        var qty = row ? row.querySelector('[data-rx-qty]') : null;
+        rxDoseCalcSetValue(modal, '[data-calc-strength]', strength);
+        rxDoseCalcSetValue(modal, '[data-calc-packs]', qty ? qty.value : '1');
+        rxDoseCalcSetValue(modal, '[data-calc-num]', '');
+        rxDoseCalcSetValue(modal, '[data-calc-den]', '1');
+        rxDoseCalcSetValue(modal, '[data-calc-dose]', dose);
+        rxDoseCalcSetValue(modal, '[data-calc-fraction]', '');
+        rxDoseCalcSetValue(modal, '[data-calc-weight]', '');
+        rxDoseCalcSetValue(modal, '[data-calc-percent]', '');
+        rxDoseCalcUpdate();
+        window.bootstrap.Modal.getOrCreateInstance(modal).show();
+    }
+
+    function rxApplyDoseCalc() {
+        if (!rxDoseCalcRow) return;
+        var modal = document.getElementById('rx-dose-calc-modal');
+        var result = rxDoseCalcUpdate();
+        if (!result.valid || result.dose == null) return;
+
+        var packs = rxDoseCalcValue(modal, '[data-calc-packs]');
+        var strength = rxDoseCalcValue(modal, '[data-calc-strength]');
+        var doseInput = rxDoseCalcRow.querySelector('[data-ing-dose]');
+        var qtyInput = rxDoseCalcRow.querySelector('[data-ing-qty]');
+        var strengthInput = rxDoseCalcRow.querySelector('[data-ing-strength]');
+        var strengthView = rxDoseCalcRow.querySelector('[data-ing-strength-view]');
+        if (doseInput) doseInput.value = rxTrimNum(result.dose);
+        if (strengthInput && strength > 0) {
+            strengthInput.value = rxTrimNum(strength);
+            if (strengthView) {
+                var unit = rxComponentValue(rxDoseCalcRow, '[data-ing-strength-unit]');
+                strengthView.textContent = rxTrimNum(strength) + (unit ? ' ' + unit : '');
+            }
+        }
+        if (qtyInput && result.round != null) {
+            qtyInput.value = String(result.round);
+            qtyInput.dataset.manual = '1';
+        }
+
+        var row = rxParentRow(rxDoseCalcRow);
+        if (row) {
+            var parentQty = row.querySelector('[data-rx-qty]');
+            if (parentQty && packs > 0 && Number(parentQty.value) !== packs) {
+                parentQty.value = String(packs);
+                parentQty.dataset.manual = '1';
+                var flag = row.querySelector('[name="quantity_manual"]');
+                if (flag) flag.value = '1';
+                rxShowQtyHint(row, rxAssess(row));
+            }
+            rxRecalcRow(row);
+        }
+        rxSyncComponentViews(rxDoseCalcRow);
+        if (window.careSetStatus) {
+            window.careSetStatus('Dosis ' + rxTrimNum(result.dose) + ' · Qty ' + (result.round != null ? result.round : '—') + ' tersimpan ke komponen');
+        }
+        if (modal && window.bootstrap) window.bootstrap.Modal.getOrCreateInstance(modal).hide();
+        if (row) rxCommitRow(row);
+    }
+
+    document.addEventListener('click', function (event) {
+        var calc = event.target.closest('[data-rx-ing-calc]');
+        if (calc) {
+            rxOpenDoseCalc(calc.closest('[data-rx-ingredient]'));
+            return;
+        }
+        if (event.target.closest('[data-dose-calc-bb]')) {
+            var modal = document.getElementById('rx-dose-calc-modal');
+            var weight = rxDoseCalcValue(modal, '[data-calc-weight]');
+            var percent = rxDoseCalcValue(modal, '[data-calc-percent]');
+            if (weight > 0 && percent > 0) rxDoseCalcSetValue(modal, '[data-calc-dose]', rxTrimNum((weight * percent) / 100));
+            rxDoseCalcUpdate();
+            return;
+        }
+        if (event.target.closest('[data-dose-calc-apply]')) rxApplyDoseCalc();
+    });
+
+    document.addEventListener('input', function (event) {
+        if (!event.target.closest('[data-dose-calc]')) return;
+        if (event.target.matches('[data-calc-num], [data-calc-den]')) {
+            rxDoseCalcApplyFraction();
+            return;
+        }
+        rxDoseCalcUpdate();
+    });
+
+    function rxRefreshList() {
+        return fetch(window.location.href, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'text/html' },
+            credentials: 'same-origin'
+        }).then(function (res) {
+            return res.text();
+        }).then(function (html) {
+            var doc = new DOMParser().parseFromString(html, 'text/html');
+            var list = doc.getElementById('rx-list');
+            if (list) replaceRxList(list.innerHTML);
+        });
+    }
+
+    function rxSaveAll(button) {
+        if (!button || button.disabled) return;
+        var tbody = document.querySelector('[data-rx-rows]');
+        if (!tbody) return;
+
+        var drafts = Array.prototype.slice.call(tbody.querySelectorAll('[data-rx-draft]'));
+        var edited = Array.prototype.slice.call(tbody.querySelectorAll('[data-rx-row].is-editing'))
+            .filter(function (row) { return row.dataset.dirty === '1'; });
+
+        if (!drafts.length && !edited.length) {
+            if (window.careSetStatus) window.careSetStatus('Tidak ada perubahan untuk disimpan.');
+            return;
+        }
+
+        button.disabled = true;
+        if (window.careSetStatus) window.careSetStatus('Menyimpan resep…');
+
+        var chain = Promise.resolve();
+        drafts.forEach(function (row) {
+            chain = chain.then(function () {
+                if (!rxRowShouldSave(row)) {
+                    rxComponentRows(row).forEach(function (tr) { tr.remove(); });
+                    row.remove();
+                    return;
+                }
+                return rxSaveDraftRow(row, { background: true });
+            });
+        });
+        edited.forEach(function (row) {
+            chain = chain.then(function () {
+                return rxSaveRow(row, { silent: true });
+            });
+        });
+
+        chain.then(function () {
+            return rxRefreshList();
+        }).then(function () {
+            if (window.careSetStatus) window.careSetStatus('✓ Resep tersimpan');
+        }).catch(function (error) {
+            if (window.careSetStatus) window.careSetStatus('Gagal menyimpan resep', true);
+            window.alert(error && error.message ? error.message : 'Gagal menyimpan resep');
+        }).finally(function () {
+            button.disabled = false;
+        });
     }
 
     function rxSaveRow(row, options) {
@@ -1424,7 +1822,7 @@
         var kind = row.getAttribute('data-kind') || 'ready';
         if (kind === 'racikan') {
             var named = 0;
-            row.querySelectorAll('[data-rx-ingredient]').forEach(function (ing) {
+            rxComponentRows(row).forEach(function (ing) {
                 var name = (ing.querySelector('[data-ing-name]') || {}).value
                     || (ing.querySelector('[data-typeahead-q]') || {}).value
                     || '';
@@ -1449,33 +1847,49 @@
     function rxBeginEdit(row) {
         if (!row || row.classList.contains('is-editing')) return;
         var snap = [];
-        row.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (el) {
-            snap.push({ name: el.name, value: el.value, manual: el.getAttribute('data-manual') || '' });
+        row.querySelectorAll('input[name], select[name], textarea[name]').forEach(function (input) {
+            snap.push({ el: input, value: input.value, manual: input.getAttribute('data-manual') || '' });
+        });
+        var components = rxComponentRows(row);
+        components.forEach(function (tr) {
+            tr.querySelectorAll('input, select, textarea').forEach(function (input) {
+                snap.push({ el: input, value: input.value, manual: input.dataset ? (input.dataset.manual || '') : '' });
+            });
         });
         row._rxSnap = snap;
-        var ingList = row.querySelector('[data-rx-ingredients]');
-        row._rxIngHtml = ingList ? ingList.innerHTML : null;
+        row._rxComponents = components;
         row.classList.add('is-editing');
+        rxComponentRows(row).forEach(function (tr) { tr.classList.add('is-editing'); });
         void row.offsetWidth;
         rxInitMedicineSelects(row);
+        rxComponentRows(row).forEach(rxInitMedicineSelects);
+        rxInitSignaSelects(row);
         if (row.querySelector('[data-rx-qty]')) rxShowQtyHint(row, rxAssess(row));
     }
 
     function rxCancelEdit(row) {
         if (!row) return;
+        var components = rxComponentRows(row);
+        rxComponentRows(row).forEach(function (tr) {
+            if ((row._rxComponents || []).indexOf(tr) === -1) tr.remove();
+        });
+        components = rxComponentRows(row);
         rxDestroyMedicineSelects(row);
-        var ingList = row.querySelector('[data-rx-ingredients]');
-        if (ingList && row._rxIngHtml != null) ingList.innerHTML = row._rxIngHtml;
+        rxDestroySignaSelects(row);
+        components.forEach(rxDestroyMedicineSelects);
         (row._rxSnap || []).forEach(function (item) {
-            var el = row.querySelector('[name="' + item.name + '"]');
-            if (!el) return;
-            el.value = item.value;
-            if (item.manual) el.setAttribute('data-manual', item.manual);
-            else el.removeAttribute('data-manual');
+            if (!item.el) return;
+            item.el.value = item.value;
+            if (item.manual) item.el.setAttribute('data-manual', item.manual);
+            else item.el.removeAttribute('data-manual');
+        });
+        components.forEach(function (tr) {
+            tr.classList.remove('is-editing');
+            tr.querySelectorAll('input[data-ing-qty]').forEach(function (el) { delete el.dataset.manual; });
+            rxSyncComponentViews(tr);
         });
         row.classList.remove('is-editing');
         row._rxSnap = null;
-        row._rxIngHtml = null;
         rxHideAllSigPopovers();
         rxRecalcRow(row);
     }
@@ -1484,6 +1898,10 @@
         if (!row || row.dataset.busy === '1') return;
         if (!rxRowShouldSave(row)) {
             window.alert(row.getAttribute('data-kind') === 'racikan' ? 'Isi minimal satu bahan racikan.' : 'Pilih obat terlebih dahulu.');
+            return;
+        }
+        if ((row.getAttribute('data-kind') || '') === 'racikan' && rxReadCompoundIngredients(row).length < 1) {
+            window.alert('Isi minimal satu komponen racikan.');
             return;
         }
         var task = row.matches('[data-rx-draft]') ? rxSaveDraftRow(row, {}) : rxSaveRow(row, {});
@@ -1499,16 +1917,24 @@
     function rxPromoteDraftRow(row, payload) {
         if (!row || !payload || !payload.item_id) return false;
         var kind = row.getAttribute('data-kind') || 'ready';
-        if (kind === 'racikan') return false;
+        var previousKey = rxRowKey(row);
 
         var editor = document.querySelector('[data-rx-editor]');
         var storeUrl = editor ? editor.getAttribute('data-store') : '';
         if (!storeUrl) return false;
         var itemUrl = storeUrl.replace(/\/?$/, '') + '/' + payload.item_id;
 
+        if (kind === 'racikan' && previousKey) {
+            var tbody = row.closest('tbody') || document;
+            Array.prototype.slice.call(tbody.querySelectorAll('[data-rx-component-row]'))
+                .filter(function (tr) { return tr.getAttribute('data-rx-component-of') === previousKey; })
+                .forEach(function (tr) { tr.setAttribute('data-rx-component-of', String(payload.item_id)); });
+        }
+
         row.classList.remove('rx-row--draft');
         row.removeAttribute('data-rx-draft');
         row.setAttribute('data-rx-row', '');
+        row.setAttribute('data-rx-key', String(payload.item_id));
         row.setAttribute('data-item-id', payload.item_id);
         row.setAttribute('data-update', itemUrl);
         row.setAttribute('data-destroy', itemUrl);
@@ -1650,40 +2076,53 @@
     function rxOnFieldEdit(event) {
         var target = event.target;
         if (!target || !target.matches) return;
+        var componentRow = target.closest('[data-rx-component-row]');
         var draft = target.closest('[data-rx-draft]');
         var row = target.closest('[data-rx-row]');
-        var active = draft || row;
+        var active = componentRow ? rxParentRow(componentRow) : (draft || row);
         if (!active) return;
-        if (!target.matches('[data-rx-field], [data-rx-signa], [data-rx-qty], [data-typeahead-q], [data-ing-name], [data-ing-qty], [data-rx-medicine-id], [data-ing-medicine-id]')) {
+        if (!target.matches('[data-rx-field], [data-rx-signa], [data-rx-qty], [data-typeahead-q], [data-ing-name], [data-ing-qty], [data-ing-dose], [data-rx-medicine-id], [data-ing-medicine-id]')) {
             return;
         }
         rxSetActiveRow(active, target, { openSig: false });
+        if (target.matches('[data-ing-dose]')) {
+            rxRecalcCompoundQty(active);
+            if (componentRow) rxSyncComponentViews(componentRow);
+            rxRecalcRow(active);
+        }
         if (target.matches('[data-ing-qty]')) {
             target.dataset.manual = '1';
+            if (componentRow) rxSyncComponentViews(componentRow);
             rxRecalcRow(active);
+        }
+        if (target.matches('[data-ing-name]')) {
+            if (componentRow) rxSyncComponentViews(componentRow);
         }
         if (target.matches('[data-rx-qty]')) {
             target.dataset.manual = '1';
             var flag = active.querySelector('[name="quantity_manual"]');
             if (flag) flag.value = '1';
             rxShowQtyHint(active, rxAssess(active));
+            rxRecalcCompoundQty(active);
             rxRecalcRow(active);
         } else if (target.matches('[name="dosage"], [name="signa_p"], [name="signa_s"], [name="signa_sr"], [name="signa_m"], [name="jho"], [data-rx-signa], [name="notes"], [name="waktu"], [name="unit"], [name="course"]')) {
             rxClearQtyManual(active);
             rxAutoQty(active);
         }
-        if (row) row.dataset.dirty = '1';
+        if (active && active.matches('[data-rx-row]')) active.dataset.dirty = '1';
     }
 
     document.addEventListener('focusin', function (event) {
         if (event.target.closest('.rx-sig-popover, [data-sig-fill], [data-rx-sig-popover]')) return;
-        var row = event.target.closest('[data-rx-row], [data-rx-draft]');
+        var componentRow = event.target.closest('[data-rx-component-row]');
+        var row = componentRow ? rxParentRow(componentRow) : event.target.closest('[data-rx-row], [data-rx-draft]');
         if (row && row.closest('[data-rx-editor]')) rxSetActiveRow(row, event.target);
     });
 
     document.addEventListener('mousedown', function (event) {
         if (event.target.closest('.rx-sig-popover, [data-sig-fill], [data-rx-sig-popover]')) return;
-        var row = event.target.closest('[data-rx-row], [data-rx-draft]');
+        var componentRow = event.target.closest('[data-rx-component-row]');
+        var row = componentRow ? rxParentRow(componentRow) : event.target.closest('[data-rx-row], [data-rx-draft]');
         if (row && row.closest('[data-rx-editor]')) {
             // Hanya tandai row aktif; buka popover di focusin agar tidak ketutup oleh click yang sama.
             rxSetActiveRow(row, event.target, { openSig: false });
@@ -1772,6 +2211,10 @@
             return;
         }
 
+        if (event.target.closest('[data-rx-save-all]')) {
+            rxSaveAll(event.target.closest('[data-rx-save-all]'));
+            return;
+        }
         if (event.target.closest('[data-rx-add-ready]')) {
             var readyRow = rxAddDraftRow('ready');
             if (readyRow) rxSetActiveRow(readyRow);
@@ -1788,20 +2231,21 @@
             return;
         }
         if (event.target.closest('[data-rx-remove-ingredient]')) {
-            var ing = event.target.closest('[data-rx-ingredient]');
-            var wrap = ing && ing.parentElement;
+            var ing = event.target.closest('[data-rx-component-row]');
+            var pricedRow = rxParentRow(ing);
             if (ing) ing.remove();
-            var pricedRow = wrap && wrap.closest('[data-rx-draft], [data-rx-row]');
-            if (pricedRow) rxRecalcRow(pricedRow);
-            if (wrap && !wrap.querySelector('[data-rx-ingredient]')) {
-                var parentCompound = wrap.closest('[data-rx-draft], [data-rx-row].is-editing');
-                if (parentCompound) rxAddIngredient(parentCompound);
+            if (pricedRow) {
+                rxRecalcCompoundQty(pricedRow);
+                rxRecalcRow(pricedRow);
             }
             return;
         }
         if (event.target.closest('[data-rx-draft-cancel]')) {
             var cancelRow = event.target.closest('[data-rx-draft]');
-            if (cancelRow) cancelRow.remove();
+            if (cancelRow) {
+                rxComponentRows(cancelRow).forEach(function (tr) { tr.remove(); });
+                cancelRow.remove();
+            }
             rxEnsureEmptyState();
             return;
         }
@@ -1828,7 +2272,7 @@
         if (!empty) {
             var tr = document.createElement('tr');
             tr.setAttribute('data-rx-empty', '');
-            tr.innerHTML = '<td colspan="13" class="text-muted text-center py-2">Belum ada item resep.</td>';
+            tr.innerHTML = '<td colspan="14" class="text-muted text-center py-2">Belum ada item resep.</td>';
             tbody.appendChild(tr);
         }
     }
@@ -1846,8 +2290,13 @@
         var $ = window.jQuery;
         if (!$ || !$.fn || !$.fn.select2) return;
         $(scope || document).find('[data-rx-medicine-select]').each(function () {
-            var saved = this.closest('[data-rx-row]');
-            if (saved && !saved.classList.contains('is-editing')) return;
+            var componentRow = this.closest('[data-rx-component-row]');
+            if (componentRow) {
+                if (!componentRow.classList.contains('is-editing')) return;
+            } else {
+                var saved = this.closest('[data-rx-row]');
+                if (saved && !saved.classList.contains('is-editing')) return;
+            }
             var $el = $(this);
             if ($el.data('select2')) return;
             var isIngredient = $el.is('[data-rx-ing-medicine-select]');
@@ -1855,16 +2304,67 @@
                 width: '100%',
                 placeholder: isIngredient ? 'Pilih bahan stok…' : 'Cari obat…',
                 allowClear: true,
+                minimumInputLength: 2,
                 dropdownParent: $(document.body),
+                templateResult: function (data) {
+                    if (!data.id) return data.text;
+                    var item = rxCatalogItem(data.id);
+                    if (!item) return data.text;
+                    var wrap = document.createElement('div');
+                    var title = document.createElement('div');
+                    title.textContent = data.text;
+                    var meta = document.createElement('div');
+                    meta.className = 'small text-muted';
+                    meta.textContent = 'Rp ' + rxMoney(item.price) + ' · stok ' + item.stock;
+                    wrap.appendChild(title);
+                    wrap.appendChild(meta);
+                    return wrap;
+                },
                 language: {
                     noResults: function () { return 'Obat tidak ditemukan'; },
                     searching: function () { return 'Mencari…'; },
+                    inputTooShort: function () { return 'Ketik minimal 2 karakter…'; },
                 },
             });
             $el.off('select2:select.rxMed select2:clear.rxMed').on('select2:select.rxMed select2:clear.rxMed', function () {
                 rxHandleMedicineSelect(this);
             });
         });
+    }
+
+    function rxDestroySignaSelects(scope) {
+        var $ = window.jQuery;
+        if (!$ || !$.fn || !$.fn.select2) return;
+        $(scope || document).find('[data-signa-select]').each(function () {
+            var $el = $(this);
+            if ($el.data('select2')) $el.select2('destroy');
+        });
+    }
+
+    function rxInitSignaSelects(scope) {
+        var $ = window.jQuery;
+        if (!$ || !$.fn || !$.fn.select2) return;
+        $(scope || document).find('[data-signa-select]').each(function () {
+            var saved = this.closest('[data-rx-row]');
+            if (saved && !saved.classList.contains('is-editing')) return;
+            var $el = $(this);
+            if ($el.data('select2')) return;
+            $el.select2({
+                width: '100%',
+                tags: true,
+                placeholder: '–',
+                minimumResultsForSearch: Infinity,
+                dropdownParent: $(document.body),
+            });
+        });
+    }
+
+    function rxSetSignaValue(row, name, value) {
+        var el = row && row.querySelector('[name="' + name + '"]');
+        if (!el) return;
+        el.value = value;
+        var $ = window.jQuery;
+        if ($ && $.fn && $.fn.select2 && $(el).data('select2')) $(el).val(value).trigger('change.select2');
     }
 
     function rxBindDraft(row) {
@@ -1874,9 +2374,12 @@
         });
         rxDisableBrowserAutofill(row);
         rxInitMedicineSelects(row);
+        rxInitSignaSelects(row);
         row.dispatchEvent(new CustomEvent('care:bind-typeahead', { bubbles: true }));
         return row;
     }
+
+    var rxDraftSeq = 0;
 
     function rxAddDraftRow(kind, options) {
         options = options || {};
@@ -1894,14 +2397,15 @@
             var count = tbody.querySelectorAll('[data-rx-draft][data-kind="racikan"]').length;
             var label = row.querySelector('[data-rx-racik-label]');
             if (label) label.textContent = '-' + String(count).padStart(2, '0');
-            rxAddIngredient(row);
+            row.setAttribute('data-rx-key', 'draft-' + (++rxDraftSeq));
             rxAddIngredient(row);
         }
         rxBindDraft(row);
         if (options.focus !== false) {
             rxSetActiveRow(row);
             var focus = row.querySelector('[data-rx-medicine-select]:not([data-rx-ing-medicine-select])')
-                || row.querySelector('[data-rx-medicine-select]');
+                || row.querySelector('[data-rx-medicine-select]')
+                || row.querySelector('input[name="name"]');
             var $ = window.jQuery;
             if (focus && $ && $.fn && $.fn.select2 && $(focus).data('select2')) {
                 $(focus).select2('open');
@@ -1913,21 +2417,34 @@
     }
 
     function rxAddIngredient(draftRow) {
-        var list = draftRow.querySelector('[data-rx-ingredients]');
+        var key = rxRowKey(draftRow);
         var tpl = document.getElementById('rx-draft-ingredient-template');
-        if (!list || !tpl) return;
-        var wrap = document.createElement('div');
-        wrap.innerHTML = tpl.innerHTML.trim();
+        var tbody = draftRow ? draftRow.closest('tbody') : null;
+        if (!key || !tpl || !tbody) return;
+        var wrap = document.createElement('tbody');
+        wrap.innerHTML = tpl.innerHTML.trim().split('__key__').join(key);
         var row = wrap.firstElementChild;
         if (!row) return;
-        list.appendChild(row);
+        row.classList.add('is-editing');
+        row.setAttribute('data-rx-component-of', key);
+        var components = rxComponentRows(draftRow);
+        var last = components.length ? components[components.length - 1] : draftRow;
+        last.insertAdjacentElement('afterend', row);
         rxBindDraft(row);
+        rxRecalcCompoundQty(draftRow);
+        rxRecalcRow(draftRow);
     }
 
     function rxApplySigUnit(row, unit) {
         if (!row || !unit) return;
         var select = row.querySelector('[name="unit"]');
-        if (!select || select.tagName !== 'SELECT') return;
+        if (!select) return;
+        if (select.tagName !== 'SELECT') {
+            select.value = String(unit);
+            var view = row.querySelector('[data-rx-unit-view]');
+            if (view) view.value = String(unit);
+            return;
+        }
         var value = String(unit);
         var found = false;
         Array.prototype.forEach.call(select.options, function (opt) {
@@ -1944,20 +2461,10 @@
 
     function rxSetRowUnit(row, item) {
         if (!row || !item || !item.unit) return;
-        var select = row.querySelector('[name="unit"]');
-        if (!select || select.tagName !== 'SELECT') return;
-        var value = String(item.unit);
-        var found = false;
-        Array.prototype.forEach.call(select.options, function (opt) {
-            if (opt.value === value) found = true;
-        });
-        if (!found) {
-            var option = document.createElement('option');
-            option.value = value;
-            option.textContent = item.unit_label || value;
-            select.appendChild(option);
-        }
-        select.value = value;
+        var hidden = row.querySelector('[name="unit"]');
+        if (hidden) hidden.value = String(item.unit);
+        var view = row.querySelector('[data-rx-unit-view]');
+        if (view) view.value = item.unit_label || item.unit;
     }
 
     function rxFillMedicine(row, medicineId) {
@@ -1966,22 +2473,35 @@
         var strength = row.querySelector('[data-rx-strength]');
         var stock = row.querySelector('[data-rx-stock]');
         var price = row.querySelector('[data-rx-price]');
+        var kind = row.getAttribute('data-kind') || 'ready';
         if (strength) strength.textContent = item.strength || '—';
-        if (stock) stock.innerHTML = '<span class="badge ' + (item.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + (item.stock || 0) + '</span>';
+        if (stock) {
+            stock.innerHTML = item.stock == null
+                ? '—'
+                : '<span class="badge ' + (item.stock > 0 ? 'bg-success' : 'bg-danger') + '">' + item.stock + '</span>';
+        }
         if (price) {
             price.textContent = rxMoney(item.price || 0);
             price.dataset.raw = String(item.price || 0);
         }
         rxSetRowUnit(row, item);
         var dosage = row.querySelector('[name="dosage"]');
-        if (dosage && !String(dosage.value || '').trim()) {
-            var liquidUnit = item.unit === 'ml' || item.unit === 'sirup';
-            dosage.placeholder = liquidUnit ? 'cth: 5 ml' : 'cth: 1';
+        if (dosage && kind !== 'racikan') {
+            if (item.strength) {
+                dosage.value = item.strength;
+                dosage.readOnly = true;
+                dosage.title = 'Dosis mengikuti kekuatan obat';
+            } else {
+                dosage.readOnly = false;
+                dosage.title = '';
+                dosage.placeholder = 'cth: 1 tab';
+            }
         }
         rxClearQtyManual(row);
         rxAutoQty(row);
         var ingName = row.querySelector('[data-ing-name]');
         if (ingName && item.name) ingName.value = item.name;
+        if (kind === 'racikan') rxRecalcCompoundQty(row);
     }
 
     function rxSaveDraftRow(row, options) {
@@ -2003,7 +2523,7 @@
         body.append('medication_type', kind === 'racikan' ? 'EP' : 'NC');
         body.append('quantity', (row.querySelector('[name="quantity"]') || {}).value || 1);
 
-        ['dosage', 'frequency', 'waktu', 'jho', 'unit', 'notes', 'course', 'signa_p', 'signa_s', 'signa_sr', 'signa_m', 'quantity_manual'].forEach(function (name) {
+        ['dosage', 'frequency', 'waktu', 'jho', 'unit', 'notes', 'course', 'signa_p', 'signa_s', 'signa_sr', 'signa_m', 'quantity_manual', 'name', 'jenis_racikan'].forEach(function (name) {
             var input = row.querySelector('[name="' + name + '"]');
             if (input && String(input.value || '').trim() !== '') body.append(name, input.value);
         });
@@ -2062,7 +2582,7 @@
         if (!medicineId || medicineId.dataset.rxMedLock === '1') return;
         medicineId.dataset.rxMedLock = '1';
         setTimeout(function () { medicineId.dataset.rxMedLock = ''; }, 40);
-        var draft = medicineId.closest('[data-rx-draft], [data-rx-ingredient]');
+        var draft = medicineId.closest('[data-rx-draft], [data-rx-component-row]');
         var savedRow = medicineId.closest('[data-rx-row]');
         if (medicineId.hasAttribute('data-rx-medicine-id')) {
             if (!medicineId.value) return;
@@ -2093,8 +2613,30 @@
         var catalogItem = rxCatalogItem(medicineId.value);
         var name = draft.querySelector('[data-ing-name]');
         if (catalogItem && name) name.value = catalogItem.name || name.value;
-        var compoundRow = draft.closest('[data-rx-draft], [data-rx-row]');
-        if (compoundRow) rxRecalcRow(compoundRow);
+        var compoundRow = draft.hasAttribute('data-rx-component-row') ? rxParentRow(draft) : draft.closest('[data-rx-draft], [data-rx-row]');
+        if (catalogItem) {
+            var nameView = draft.querySelector('[data-ing-name-view]');
+            var unitView = draft.querySelector('[data-ing-unit-view]');
+            if (nameView) nameView.textContent = catalogItem.name || nameView.textContent;
+            if (unitView) unitView.textContent = catalogItem.unit_label || catalogItem.unit || '—';
+            var strengthView = draft.querySelector('[data-ing-strength-view]');
+            var strengthInput = draft.querySelector('[data-ing-strength]');
+            var strengthUnit = draft.querySelector('[data-ing-strength-unit]');
+            var unitInput = draft.querySelector('[data-ing-unit]');
+            var stockEl = draft.querySelector('[data-ing-stock]');
+            if (strengthView) strengthView.textContent = catalogItem.strength || '—';
+            if (strengthInput) strengthInput.value = catalogItem.strength_value != null ? String(catalogItem.strength_value) : '';
+            if (strengthUnit) strengthUnit.value = catalogItem.strength_unit || '';
+            if (unitInput) unitInput.value = catalogItem.unit_label || catalogItem.unit || '';
+            if (stockEl) {
+                stockEl.textContent = catalogItem.stock == null ? '—' : String(catalogItem.stock);
+                stockEl.className = catalogItem.stock > 0 ? 'text-success' : 'text-danger';
+            }
+        }
+        if (compoundRow) {
+            rxRecalcCompoundQty(compoundRow);
+            rxRecalcRow(compoundRow);
+        }
     }
 
     document.addEventListener('change', function (event) {
@@ -2140,11 +2682,16 @@
 
     document.querySelectorAll('[data-rx-row], [data-rx-draft]').forEach(function (row) {
         if (row.querySelector('[data-rx-qty]')) rxShowQtyHint(row, rxAssess(row));
+        if ((row.getAttribute('data-kind') || '') === 'racikan') {
+            rxRecalcCompoundQty(row);
+            rxRecalcRow(row);
+        }
     });
 
     function rxBoot() {
         rxDisableBrowserAutofill(document.getElementById('rx-list'));
         rxInitMedicineSelects(document.getElementById('rx-list'));
+        rxInitSignaSelects(document.getElementById('rx-list'));
     }
 
     if (window.jQuery && window.jQuery.fn && window.jQuery.fn.select2) {

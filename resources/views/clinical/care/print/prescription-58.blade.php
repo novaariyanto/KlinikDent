@@ -48,24 +48,54 @@
     <p>{{ $visitDateLabel }}</p>
     <p>Dokter: {{ $visit->doctor?->name ?: ($prescriptions->first()?->doctor?->name ?: '-') }}</p>
     <div class="rule"></div>
-    @php $n = 0; @endphp
+    @php
+        $n = 0;
+        $racikIndex = 0;
+    @endphp
     @foreach ($prescriptions as $prescription)
         @foreach ($prescription->items as $item)
             @php
                 $n++;
-                $unit = $item->unit ? ($unitOptions[$item->unit] ?? $item->unit) : ($item->medicine?->unitLabel() ?: '');
+                $isCompound = $item->isCompound();
+                if ($isCompound) {
+                    $racikIndex++;
+                }
             @endphp
             <div class="item">
-                <p><strong>{{ $n }}. {{ $item->label() }}</strong></p>
-                @if ($item->isCompound())
+                <p>
+                    <strong>R/ @if ($isCompound)RACIK-{{ str_pad((string) $racikIndex, 2, '0', STR_PAD_LEFT) }} · {{ $item->name ?: $item->label() }}@else{{ $item->medicine?->name ?: $item->label() }}@if ($item->medicine?->strengthLabel() && ! str_contains(preg_replace('/\s+/', '', strtolower($item->medicine->name ?: '')), preg_replace('/\s+/', '', strtolower($item->medicine->strengthLabel())))) {{ $item->medicine->strengthLabel() }}@endif @endif</strong>
+                </p>
+                @if ($isCompound)
                     @foreach ($item->ingredients as $ingredient)
-                        <p class="sub">- {{ $ingredient->name }}{{ $ingredient->quantity ? ' '.$ingredient->quantity : '' }}{{ $ingredient->unit ? ' '.$ingredient->unit : '' }}</p>
+                        @php
+                            $ingredientStrength = $ingredient->strength_value ? trim($ingredient->strength_value.' '.$ingredient->strength_unit) : '';
+                            $strengthInName = $ingredientStrength !== ''
+                                && str_contains(
+                                    preg_replace('/\s+/', '', strtolower((string) $ingredient->name)),
+                                    preg_replace('/\s+/', '', strtolower($ingredientStrength))
+                                );
+                        @endphp
+                        <p class="sub">
+                            {{ $loop->iteration }}) {{ $ingredient->name }}@if ($ingredientStrength !== '' && ! $strengthInName) {{ $ingredientStrength }}@endif
+                        </p>
+                        @if ($ingredient->doseLabel())
+                            <p class="sub" style="padding-left:14px">dosis {{ $ingredient->doseLabel() }}/bungkus</p>
+                        @endif
                     @endforeach
                 @endif
-                @if ($item->instructionText() !== '')
-                    <p>{{ $item->instructionText() }}</p>
+                <p class="sub">
+                    <strong>S.</strong> {{ $item->signaLabel() !== '' ? $item->signaLabel() : '—' }}
+                    @if ($item->waktu) · {{ $item->waktu }} @endif
+                    @if ($item->jho) · JHO {{ $item->jho }} hari @elseif ($item->duration) · {{ $item->duration }} @endif
+                </p>
+                @if ($item->notes)
+                    <p class="sub">Ket: {{ $item->notes }}</p>
                 @endif
-                <p>Qty: {{ $item->quantity }}{{ $unit ? ' '.$unit : '' }}</p>
+                @if ($isCompound)
+                    <p class="sub">Jumlah racikan: {{ $item->quantityLabel() }}</p>
+                @else
+                    <p class="sub">Jumlah: {{ $item->quantityLabel() }}</p>
+                @endif
             </div>
         @endforeach
     @endforeach

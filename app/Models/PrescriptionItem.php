@@ -20,6 +20,8 @@ class PrescriptionItem extends Model
         'prescription_id',
         'kind',
         'medication_type',
+        'name',
+        'jenis_racikan',
         'medicine_id',
         'dosage',
         'frequency',
@@ -68,7 +70,37 @@ class PrescriptionItem extends Model
             return '';
         }
 
-        return implode(' - ', array_map(fn ($v) => $v === '' || $v === null ? '0' : (string) $v, $parts));
+        return implode('-', array_map(fn ($v) => $v === '' || $v === null ? '0' : (string) $v, $parts));
+    }
+
+    public function aturanPakai(): string
+    {
+        return $this->signaLine();
+    }
+
+    public function signaLabel(): string
+    {
+        $signa = $this->signaLine();
+
+        return $signa !== '' ? $signa : trim((string) $this->frequency);
+    }
+
+    public function unitName(): string
+    {
+        $unit = (string) ($this->unit ?: $this->medicine?->unit);
+
+        if ($unit === '') {
+            return '';
+        }
+
+        return Medicine::UNITS[$unit] ?? ucfirst($unit);
+    }
+
+    public function quantityLabel(): string
+    {
+        $unit = $this->unitName();
+
+        return trim($this->quantity.($unit !== '' ? ' '.$unit : ''));
     }
 
     public function subtotal(): float
@@ -140,6 +172,10 @@ class PrescriptionItem extends Model
     public function label(): string
     {
         if ($this->isCompound()) {
+            if (filled($this->name)) {
+                return 'Racikan '.$this->name;
+            }
+
             $names = $this->relationLoaded('ingredients')
                 ? $this->ingredients->pluck('name')->filter()->implode(', ')
                 : '';

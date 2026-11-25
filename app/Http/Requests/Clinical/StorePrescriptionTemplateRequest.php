@@ -5,7 +5,6 @@ namespace App\Http\Requests\Clinical;
 use App\Enums\PrescriptionItemKind;
 use App\Enums\VisitStatus;
 use App\Http\Requests\Concerns\ResolvesActorTenant;
-use App\Models\PrescriptionTemplate;
 use App\Models\Visit;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -45,6 +44,8 @@ class StorePrescriptionTemplateRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.kind' => ['nullable', Rule::in([PrescriptionItemKind::Ready->value, PrescriptionItemKind::Compound->value])],
             'items.*.medication_type' => ['nullable', 'string', 'max:2'],
+            'items.*.name' => ['nullable', 'string', 'max:80'],
+            'items.*.jenis_racikan' => ['nullable', 'string', 'max:60'],
             'items.*.medicine_id' => [
                 'nullable',
                 'integer',
@@ -57,6 +58,7 @@ class StorePrescriptionTemplateRequest extends FormRequest
             'items.*.ingredients.*.role' => ['nullable', Rule::in(['active', 'additive'])],
             'items.*.ingredients.*.additive_kind' => ['nullable', 'string', 'max:30'],
             'items.*.ingredients.*.quantity' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'items.*.ingredients.*.dose_amount' => ['nullable', 'numeric', 'min:0.0001', 'max:999999'],
             'items.*.ingredients.*.per_dose_quantity' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'items.*.ingredients.*.strength_value' => ['nullable', 'numeric'],
             'items.*.ingredients.*.strength_unit' => ['nullable', 'string', 'max:30'],

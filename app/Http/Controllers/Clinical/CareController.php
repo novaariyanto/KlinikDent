@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Clinical;
 
 use App\Enums\AssessmentKind;
+use App\Enums\ClinicalDocumentStatus;
+use App\Enums\ClinicalDocumentType;
 use App\Enums\DiagnosisKind;
 use App\Enums\DiagnosisRank;
 use App\Enums\ToothStatus;
@@ -24,29 +26,36 @@ use App\Http\Requests\Clinical\UpdateProcedureRecordRequest;
 use App\Http\Requests\Clinical\UpdateSystemicHistoryRequest;
 use App\Http\Requests\Clinical\UpdateToothRequest;
 use App\Http\Requests\Clinical\UpdateVitalsRequest;
+use App\Models\ClinicalDocument;
+use App\Models\DentalLabOrder;
 use App\Models\Diagnosis;
+use App\Models\MedicalLetter;
 use App\Models\MedicalRecord;
 use App\Models\Medicine;
 use App\Models\OdontogramTooth;
 use App\Models\Prescription;
 use App\Models\PrescriptionItem;
+use App\Models\PrescriptionTemplate;
 use App\Models\Procedure;
 use App\Models\ProcedureRecord;
 use App\Models\Referral;
 use App\Models\User;
 use App\Models\Visit;
 use App\Support\Billing\DoctorFeeWaiverService;
-use Illuminate\Support\Facades\DB;
 use App\Support\Clinical\CareEpisodeService;
 use App\Support\Clinical\CareExamOptions;
 use App\Support\Clinical\CareProgress;
 use App\Support\Clinical\CareTabs;
 use App\Support\Clinical\ClinicalCareService;
+use App\Support\Clinical\ClinicalDocumentService;
+use App\Support\Clinical\DischargeSummary;
 use App\Support\Clinical\ExaminationQueueRow;
-use App\Support\Clinical\PrintChrome;
-use App\Support\Clinical\PrintSheet;
 use App\Support\Clinical\FdiTeeth;
 use App\Support\Clinical\MedicalRecordLock;
+use App\Support\Clinical\MedicalRecordReadAudit;
+use App\Support\Clinical\PatientResumeService;
+use App\Support\Clinical\PrintChrome;
+use App\Support\Clinical\PrintSheet;
 use App\Support\Clinical\ToothConditions;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -55,6 +64,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class CareController extends Controller
@@ -77,7 +87,7 @@ class CareController extends Controller
         $record = $writable
             ? $this->care->ensureRecord($visit)
             : $visit->medicalRecord;
-        $recordLock = app(\App\Support\Clinical\MedicalRecordLock::class);
+        $recordLock = app(MedicalRecordLock::class);
         $recordLocked = $record ? $recordLock->isLocked($record) : false;
 
         if ($recordLocked) {
@@ -85,7 +95,7 @@ class CareController extends Controller
         }
 
         if ($record && $user) {
-            app(\App\Support\Clinical\MedicalRecordReadAudit::class)->record(
+            app(MedicalRecordReadAudit::class)->record(
                 $user,
                 $record,
                 'Membaca rekam medis kunjungan '.$visit->id,
@@ -154,11 +164,11 @@ class CareController extends Controller
             'writable' => $writable,
             'recordLocked' => $recordLocked,
             'recordFinal' => $record ? $recordLock->isFinal($record) : false,
-            'correctUntil' => $record?->finalized_at?->copy()->addHours(\App\Support\Clinical\MedicalRecordLock::HOURS),
+            'correctUntil' => $record?->finalized_at?->copy()->addHours(MedicalRecordLock::HOURS),
             'amendments' => $record?->amendments()->with('author')->latest('id')->get() ?? collect(),
-            'labOrders' => \App\Models\DentalLabOrder::query()->where('visit_id', $visit->id)->latest('id')->get(),
-            'clinicalDocuments' => \App\Models\ClinicalDocument::query()->where('visit_id', $visit->id)->latest('id')->get(),
-            'medicalLetters' => \App\Models\MedicalLetter::query()->where('visit_id', $visit->id)->latest('issued_at')->latest('id')->get(),
+            'labOrders' => DentalLabOrder::query()->where('visit_id', $visit->id)->latest('id')->get(),
+            'clinicalDocuments' => ClinicalDocument::query()->where('visit_id', $visit->id)->latest('id')->get(),
+            'medicalLetters' => MedicalLetter::query()->where('visit_id', $visit->id)->latest('issued_at')->latest('id')->get(),
             'teeth' => $teeth,
             'toothStatuses' => ToothStatus::options(),
             'toothStatusMeta' => ToothConditions::meta(),
@@ -189,7 +199,7 @@ class CareController extends Controller
             'canDiscountProcedure' => $user ? app(DoctorFeeWaiverService::class)->canDiscount($user) : false,
             'canApproveDoctorFeeWaiver' => $user ? app(DoctorFeeWaiverService::class)->canApprove($user) : false,
             'medicines' => Medicine::query()->active()->orderBy('name')->get(),
-            'prescriptionTemplates' => \App\Models\PrescriptionTemplate::query()
+            'prescriptionTemplates' => PrescriptionTemplate::query()
                 ->with(['author:id,name', 'items.medicine:id,name,unit', 'items.ingredients'])
                 ->orderBy('name')
                 ->get(),
@@ -529,10 +539,10 @@ class CareController extends Controller
         $meta = $this->printMeta($visit);
         $letterDate = $referral->created_at ?? $visit->visit_date ?? now();
         $letterNumber = $this->letterNumber('RJU', (int) $referral->id, $letterDate);
-        $document = app(\App\Support\Clinical\ClinicalDocumentService::class)->issue(
+        $document = app(ClinicalDocumentService::class)->issue(
             $visit,
             request()->user(),
-            \App\Enums\ClinicalDocumentType::Referral,
+            ClinicalDocumentType::Referral,
             $letterNumber,
             ['referred_to' => $referral->referred_to, 'reason' => $referral->reason],
             $referral,
@@ -545,7 +555,7 @@ class CareController extends Controller
             'diagnoses' => $visit->diagnoses,
             'letterNumber' => $letterNumber,
             'verificationCode' => $document->verification_code,
-            'signatureSrc' => app(\App\Support\Clinical\ClinicalDocumentService::class)->signatureSrc($document->signature_path),
+            'signatureSrc' => app(ClinicalDocumentService::class)->signatureSrc($document->signature_path),
         ])->setPaper('a4')->stream('surat-rujukan-'.$visit->id.'.pdf');
     }
 
@@ -554,7 +564,7 @@ class CareController extends Controller
         $this->authorize('view', $visit);
         abort_unless(request()->user()?->can('medical_record.view'), 403);
 
-        $summary = \App\Support\Clinical\DischargeSummary::for($visit);
+        $summary = DischargeSummary::for($visit);
 
         return Pdf::loadView('clinical.care.print.discharge', [
             ...$this->printMeta($visit),
@@ -570,7 +580,7 @@ class CareController extends Controller
         abort_unless((int) $prescription->visit_id === (int) $visit->id, 404);
         abort_unless($prescription->items()->exists(), 422, 'Resep belum memiliki item obat.');
 
-        $prescription->load(['doctor:id,name', 'items.medicine:id,name', 'items.ingredients']);
+        $prescription->load(['doctor:id,name', 'items.medicine:id,name,unit,strength_value,strength_unit', 'items.ingredients']);
         $meta = $this->printMeta($visit);
 
         activity_log('printed', $prescription, ['visit_id' => $visit->id], 'Cetak resep dari pelayanan', 'prescriptions');
@@ -628,7 +638,7 @@ class CareController extends Controller
             'patient',
             'doctor:id,name',
             'branch',
-            'prescriptions.items.medicine:id,name,unit',
+            'prescriptions.items.medicine:id,name,unit,strength_value,strength_unit',
             'prescriptions.items.ingredients',
             'prescriptions.doctor:id,name',
         ]);
@@ -701,7 +711,7 @@ class CareController extends Controller
             'visit' => $visit,
             'patient' => $visit->patient,
             'visitDateLabel' => $this->indonesianDate($visit->visit_date ?? now()),
-            'signatureSrc' => app(\App\Support\Clinical\ClinicalDocumentService::class)->signatureSrc($visit->doctor?->doctorProfile?->signature_path),
+            'signatureSrc' => app(ClinicalDocumentService::class)->signatureSrc($visit->doctor?->doctorProfile?->signature_path),
             'sheet' => PrintSheet::for($visit),
         ];
     }
@@ -759,10 +769,10 @@ class CareController extends Controller
 
         $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch', 'diagnoses', 'procedureRecords.procedure', 'medicalRecord.amendments']);
         $number = $this->letterNumber('RSM', (int) $visit->id, $visit->visit_date ?? now());
-        $document = app(\App\Support\Clinical\ClinicalDocumentService::class)->issue(
+        $document = app(ClinicalDocumentService::class)->issue(
             $visit,
             $request->user(),
-            \App\Enums\ClinicalDocumentType::Resume,
+            ClinicalDocumentType::Resume,
             $number,
             ['visit_id' => $visit->id],
         );
@@ -770,7 +780,7 @@ class CareController extends Controller
         return $this->streamDocument($visit, $document);
     }
 
-    public function printDocument(Visit $visit, \App\Models\ClinicalDocument $document): Response
+    public function printDocument(Visit $visit, ClinicalDocument $document): Response
     {
         $this->authorize('view', $visit);
         abort_unless((int) $document->visit_id === (int) $visit->id, 404);
@@ -779,26 +789,26 @@ class CareController extends Controller
         return $this->streamDocument($visit, $document);
     }
 
-    public function cancelDocument(Visit $visit, \App\Models\ClinicalDocument $document): RedirectResponse
+    public function cancelDocument(Visit $visit, ClinicalDocument $document): RedirectResponse
     {
         $this->authorize('view', $visit);
         abort_unless((int) $document->visit_id === (int) $visit->id, 404);
         abort_unless(request()->user()?->can('medical_record.update'), 403);
 
-        $document->update(['status' => \App\Enums\ClinicalDocumentStatus::Cancelled]);
+        $document->update(['status' => ClinicalDocumentStatus::Cancelled]);
 
         return back()->with('success', 'Dokumen dibatalkan. Kode cek menampilkan status dibatalkan.');
     }
 
-    protected function streamDocument(Visit $visit, \App\Models\ClinicalDocument $document): Response
+    protected function streamDocument(Visit $visit, ClinicalDocument $document): Response
     {
         if (data_get($document->payload, 'scope') === 'patient') {
-            return app(\App\Support\Clinical\PatientResumeService::class)->pdf($document);
+            return app(PatientResumeService::class)->pdf($document);
         }
 
         $visit->loadMissing(['patient', 'doctor.doctorProfile', 'branch', 'room', 'diagnoses', 'procedureRecords.procedure', 'medicalRecord.amendments']);
         $meta = $this->printMeta($visit);
-        $service = app(\App\Support\Clinical\ClinicalDocumentService::class);
+        $service = app(ClinicalDocumentService::class);
         $shared = [
             ...$meta,
             'letterNumber' => $document->number,
@@ -808,17 +818,17 @@ class CareController extends Controller
         ];
 
         $view = match ($document->type) {
-            \App\Enums\ClinicalDocumentType::SickLetter => 'clinical.care.print.sick',
-            \App\Enums\ClinicalDocumentType::Resume => 'clinical.care.print.resume',
+            ClinicalDocumentType::SickLetter => 'clinical.care.print.sick',
+            ClinicalDocumentType::Resume => 'clinical.care.print.resume',
             default => 'clinical.care.print.referral',
         };
 
         return Pdf::loadView($view, [
             ...$shared,
-            'title' => $document->type === \App\Enums\ClinicalDocumentType::Resume
+            'title' => $document->type === ClinicalDocumentType::Resume
                 ? 'Resume Medis Rawat Jalan'
                 : $document->type->label(),
-            'referral' => $document->reference_type === \App\Models\Referral::class ? $document->reference : $visit->referrals()->first(),
+            'referral' => $document->reference_type === Referral::class ? $document->reference : $visit->referrals()->first(),
             'diagnoses' => $visit->diagnoses,
         ])->setPaper('a4')->stream($document->verification_code.'.pdf');
     }
@@ -996,7 +1006,7 @@ class CareController extends Controller
         $record = $visit->medicalRecord;
         $writable = $request->user() && $this->canWriteAny($request->user()) && $visit->status !== VisitStatus::Cancelled;
 
-        if ($record && app(\App\Support\Clinical\MedicalRecordLock::class)->isLocked($record)) {
+        if ($record && app(MedicalRecordLock::class)->isLocked($record)) {
             $writable = false;
         }
 
@@ -1067,7 +1077,7 @@ class CareController extends Controller
             'record' => $record,
             'writable' => $writable,
             'medicines' => Medicine::query()->active()->orderBy('name')->get(),
-            'prescriptionTemplates' => \App\Models\PrescriptionTemplate::query()
+            'prescriptionTemplates' => PrescriptionTemplate::query()
                 ->with(['author:id,name', 'items.medicine:id,name,unit', 'items.ingredients'])
                 ->orderBy('name')
                 ->get(),

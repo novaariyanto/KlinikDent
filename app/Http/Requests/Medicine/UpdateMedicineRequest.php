@@ -38,6 +38,7 @@ class UpdateMedicineRequest extends FormRequest
                     ->ignore($medicine->id),
             ],
             'unit' => ['nullable', 'string', Rule::in(array_keys(Medicine::UNITS))],
+            'generic_name' => ['nullable', 'string', 'max:160'],
             'kfa_code' => [
                 'nullable',
                 'string',

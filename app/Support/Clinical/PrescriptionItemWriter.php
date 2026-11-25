@@ -26,6 +26,8 @@ class PrescriptionItemWriter
         $item = $prescription->items()->create([
             'kind' => $data['kind'] ?? PrescriptionItemKind::Ready->value,
             'medication_type' => $data['medication_type'] ?? MedicationTypeCode::NonCompound->value,
+            'name' => $data['name'] ?? null,
+            'jenis_racikan' => $data['jenis_racikan'] ?? null,
             'medicine_id' => $medicineId,
             'dosage' => $data['dosage'] ?? null,
             'frequency' => $data['frequency'] ?? null,
@@ -63,7 +65,19 @@ class PrescriptionItemWriter
         $previousPacks = max(1, $previousPacks);
 
         foreach ($item->ingredients as $row) {
-            if ($row->isAdditive() || ! $row->per_dose_quantity) {
+            if ($row->isAdditive()) {
+                continue;
+            }
+
+            if ($row->dose_amount && (float) $row->strength_value > 0) {
+                $row->update([
+                    'quantity' => max(1, (int) ceil((float) $row->dose_amount * $packs / (float) $row->strength_value)),
+                ]);
+
+                continue;
+            }
+
+            if (! $row->per_dose_quantity) {
                 continue;
             }
 
@@ -113,6 +127,17 @@ class PrescriptionItemWriter
             $medicineId = filled($ingredient['medicine_id'] ?? null) ? (int) $ingredient['medicine_id'] : null;
             $stockMedicine = $medicineId ? Medicine::query()->find($medicineId) : null;
             $role = ($ingredient['role'] ?? 'active') === 'additive' ? 'additive' : 'active';
+            $strength = filled($ingredient['strength_value'] ?? null) ? $ingredient['strength_value'] : $stockMedicine?->strength_value;
+            $doseAmount = $role === 'additive' ? null : (filled($ingredient['dose_amount'] ?? null) ? (float) $ingredient['dose_amount'] : null);
+            $quantity = (int) ($ingredient['quantity'] ?? 1);
+            $perDose = filled($ingredient['per_dose_quantity'] ?? null)
+                ? (int) $ingredient['per_dose_quantity']
+                : null;
+
+            if ($role !== 'additive' && $doseAmount !== null && $doseAmount > 0 && (float) $strength > 0) {
+                $quantity = max(1, (int) ceil($doseAmount * max(1, (int) $item->quantity) / (float) $strength));
+                $perDose = null;
+            }
 
             $item->ingredients()->create([
                 'medicine_id' => $medicineId,
@@ -120,11 +145,10 @@ class PrescriptionItemWriter
                 'unit' => $ingredient['unit'] ?? null,
                 'role' => $role,
                 'additive_kind' => $role === 'additive' ? ($ingredient['additive_kind'] ?? null) : null,
-                'quantity' => (int) ($ingredient['quantity'] ?? 1),
-                'per_dose_quantity' => filled($ingredient['per_dose_quantity'] ?? null)
-                    ? (int) $ingredient['per_dose_quantity']
-                    : null,
-                'strength_value' => $ingredient['strength_value'] ?? $stockMedicine?->strength_value,
+                'quantity' => $quantity,
+                'dose_amount' => $doseAmount,
+                'per_dose_quantity' => $perDose,
+                'strength_value' => $strength,
                 'strength_unit' => $ingredient['strength_unit'] ?? $stockMedicine?->strength_unit,
             ]);
         }

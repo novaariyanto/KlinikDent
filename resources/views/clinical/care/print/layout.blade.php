@@ -47,6 +47,21 @@
         table.grid th, table.facts th, table.items th { background: #f3f3f3; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2px; }
         table.facts th { width: 32%; }
         .num { text-align: right; white-space: nowrap; }
+        .recipe { margin: 0; }
+        .recipe__item { margin: 0 0 9px; page-break-inside: avoid; }
+        .recipe__head { font-size: 10.5px; line-height: 1.3; }
+        .recipe__r { display: inline-block; font-weight: bold; font-size: 13px; margin-right: 3px; }
+        .recipe__name { font-weight: bold; }
+        .recipe__meta { font-weight: normal; font-size: 9.5px; color: #333; }
+        .recipe__components { margin: 2px 0 0 20px; }
+        .recipe__component { font-size: 9.5px; margin: 0 0 1.5px; }
+        .recipe__no { display: inline-block; min-width: 14px; }
+        .recipe__dose { color: #222; }
+        .recipe__qty { color: #222; }
+        .recipe__signa { margin: 2px 0 0 20px; font-size: 10px; }
+        .recipe__s { font-weight: bold; margin-right: 3px; }
+        .recipe__note { margin: 1px 0 0 20px; font-size: 9.5px; font-style: italic; }
+        .recipe__amount { margin: 1px 0 0 20px; font-size: 9.5px; font-weight: bold; }
         ol.instructions { margin: 4px 0 0 16px; padding: 0; }
         ol.instructions li { margin: 0 0 4px; }
         .sign { width: 100%; margin-top: 14px; }

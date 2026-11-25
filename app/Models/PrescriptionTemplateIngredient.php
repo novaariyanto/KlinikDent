@@ -19,6 +19,7 @@ class PrescriptionTemplateIngredient extends Model
         'additive_kind',
         'quantity',
         'per_dose_quantity',
+        'dose_amount',
         'strength_value',
         'strength_unit',
     ];
@@ -33,6 +34,7 @@ class PrescriptionTemplateIngredient extends Model
             'medicine_id' => 'integer',
             'quantity' => 'integer',
             'per_dose_quantity' => 'integer',
+            'dose_amount' => 'float',
             'strength_value' => 'float',
         ];
     }

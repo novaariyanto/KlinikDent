@@ -45,6 +45,8 @@ class StorePrescriptionItemRequest extends FormRequest
                 'nullable',
                 Rule::enum(MedicationTypeCode::class),
             ],
+            'name' => ['nullable', 'string', 'max:80'],
+            'jenis_racikan' => ['nullable', 'string', 'max:60'],
             'medicine_id' => [
                 Rule::requiredIf(! $compound),
                 'nullable',
@@ -75,6 +77,7 @@ class StorePrescriptionItemRequest extends FormRequest
                 Rule::exists('medicines', 'id')->where(fn ($query) => $query->where('tenant_id', $tenantId)),
             ],
             'ingredients.*.quantity' => ['required_with:ingredients', 'integer', 'min:1', 'max:10000'],
+            'ingredients.*.dose_amount' => ['nullable', 'numeric', 'min:0.0001', 'max:999999'],
             'ingredients.*.per_dose_quantity' => ['nullable', 'integer', 'min:1', 'max:1000'],
             'ingredients.*.quantity_manual' => ['nullable', 'boolean'],
             'ingredients.*.unit' => ['nullable', 'string', 'max:30'],
@@ -156,6 +159,7 @@ class StorePrescriptionItemRequest extends FormRequest
                 $row['strength_value'] = filled($row['strength_value'] ?? null) ? $row['strength_value'] : null;
                 $row['strength_unit'] = filled($row['strength_unit'] ?? null) ? trim((string) $row['strength_unit']) : null;
                 $row['per_dose_quantity'] = filled($row['per_dose_quantity'] ?? null) ? $row['per_dose_quantity'] : null;
+                $row['dose_amount'] = filled($row['dose_amount'] ?? null) ? $row['dose_amount'] : null;
                 $row['role'] = $role;
                 $row['additive_kind'] = $role === 'additive' ? $kind : null;
 
@@ -171,7 +175,7 @@ class StorePrescriptionItemRequest extends FormRequest
             $medicationType = MedicationTypeCode::EqualParts->value;
         }
 
-        $nullable = ['signa_p', 'signa_s', 'signa_sr', 'signa_m', 'waktu', 'unit', 'notes', 'course'];
+        $nullable = ['signa_p', 'signa_s', 'signa_sr', 'signa_m', 'waktu', 'unit', 'notes', 'course', 'name', 'jenis_racikan'];
         $merge = [
             'kind' => $kind,
             'medication_type' => $medicationType,
@@ -185,6 +189,9 @@ class StorePrescriptionItemRequest extends FormRequest
             $merge[$field] = filled($this->input($field)) ? trim((string) $this->input($field)) : null;
         }
         $merge = array_merge($merge, $this->liquidUnitOverride());
+        if (! filled($this->input('frequency')) && ($signa = PrescriptionQuantity::signaLine($merge)) !== '') {
+            $merge['frequency'] = $signa;
+        }
         if ($merge['jho'] && (! filled($this->input('duration')) || trim((string) $this->input('duration')) === '-')) {
             $merge['duration'] = $merge['jho'].' hari';
         }

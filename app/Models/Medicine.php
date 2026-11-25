@@ -93,6 +93,7 @@ class Medicine extends Model
     protected $fillable = [
         'tenant_id',
         'name',
+        'generic_name',
         'kfa_code',
         'strength_value',
         'strength_unit',
@@ -178,6 +179,10 @@ class Medicine extends Model
     public function catalogLabel(bool $withUnit = true): string
     {
         $label = (string) $this->name;
+
+        if (filled($this->generic_name)) {
+            $label .= ' · '.$this->generic_name;
+        }
 
         if ($withUnit) {
             $label .= ' ('.$this->unitLabel().')';
